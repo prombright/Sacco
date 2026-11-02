@@ -3,6 +3,7 @@ import { onMounted, ref, watch } from 'vue'
 import { api, ApiError } from '@/api'
 import { useAuth } from '@/stores/auth'
 import type { User } from '@/types'
+import { formatMoney } from '@/money'
 import UserForm from './UserForm.vue'
 import TemporaryPassword from './TemporaryPassword.vue'
 
@@ -116,6 +117,8 @@ const statusLabel: Record<string, string> = { active: 'Active', suspended: 'Susp
             <th class="px-4 py-3">Name</th>
             <th class="px-4 py-3">Signs in with</th>
             <th class="px-4 py-3">Account no.</th>
+            <th class="px-4 py-3 text-right">Savings</th>
+            <th class="px-4 py-3 text-right">Shares</th>
             <th class="px-4 py-3">Role</th>
             <th class="px-4 py-3">Status</th>
             <th class="px-4 py-3"><span class="sr-only">Actions</span></th>
@@ -124,13 +127,15 @@ const statusLabel: Record<string, string> = { active: 'Active', suspended: 'Susp
         <tbody class="divide-y divide-gray-100">
           <tr v-for="user in users" :key="user.id" class="hover:bg-gray-50">
             <td class="px-4 py-3">
-              <span class="font-medium">{{ user.full_name }}</span>
-              <span v-if="user.must_change_password" class="ml-2 text-xs text-amber-700">hasn't set a password</span>
+              <RouterLink :to="{ name: 'member', params: { id: user.id } }" class="font-medium hover:text-brand hover:underline">{{ user.full_name }}</RouterLink>
+              <span v-if="user.must_change_password" class="block text-xs text-amber-700">hasn't set a password</span>
             </td>
             <td class="px-4 py-3 text-gray-600">
               {{ user.email }}<br v-if="user.email && user.employee_no" />{{ user.employee_no }}
             </td>
             <td class="px-4 py-3 font-mono text-gray-700">{{ user.account_no }}</td>
+            <td class="whitespace-nowrap px-4 py-3 text-right tabular-nums">{{ formatMoney(user.balances?.savings) }}</td>
+            <td class="whitespace-nowrap px-4 py-3 text-right tabular-nums">{{ formatMoney(user.balances?.shares) }}</td>
             <td class="px-4 py-3">{{ user.role_label }}</td>
             <td class="px-4 py-3">
               <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="statusStyle[user.status]">{{ statusLabel[user.status] }}</span>
@@ -150,9 +155,10 @@ const statusLabel: Record<string, string> = { active: 'Active', suspended: 'Susp
         <li v-for="user in users" :key="user.id" class="p-4">
           <div class="flex items-start justify-between gap-2">
             <div class="min-w-0">
-              <p class="font-medium">{{ user.full_name }}</p>
+              <RouterLink :to="{ name: 'member', params: { id: user.id } }" class="font-medium hover:text-brand">{{ user.full_name }}</RouterLink>
               <p class="truncate text-sm text-gray-600">{{ user.email ?? user.employee_no }}</p>
               <p class="mt-1 text-xs text-gray-500">{{ user.role_label }} · <span class="font-mono">{{ user.account_no }}</span></p>
+              <p class="mt-1 text-xs tabular-nums text-gray-600">Savings {{ formatMoney(user.balances?.savings) }} · Shares {{ formatMoney(user.balances?.shares) }}</p>
             </div>
             <span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium" :class="statusStyle[user.status]">{{ statusLabel[user.status] }}</span>
           </div>

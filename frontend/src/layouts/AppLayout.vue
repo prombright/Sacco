@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '@/stores/auth'
 import SaccoMark from '@/components/SaccoMark.vue'
 
@@ -10,8 +10,15 @@ const menuOpen = ref(false)
 
 const links = computed(() => [
   { to: { name: 'dashboard' }, label: 'Dashboard', show: true },
+  { to: { name: 'statement' }, label: 'My statement', show: true },
   { to: { name: 'users' }, label: 'Members & users', show: auth.isAdmin },
 ].filter((l) => l.show))
+
+// A member's page belongs under "Members & users" in the menu
+const route = useRoute()
+function isCurrent(name: string) {
+  return route.name === name || (name === 'users' && route.name === 'member')
+}
 
 async function signOut() {
   menuOpen.value = false
@@ -35,7 +42,7 @@ async function signOut() {
             :key="link.label"
             :to="link.to"
             class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-            exact-active-class="!bg-brand/10 !text-brand"
+            :class="{ '!bg-brand/10 !text-brand': isCurrent(link.to.name) }"
           >
             {{ link.label }}
           </RouterLink>
@@ -77,7 +84,7 @@ async function signOut() {
           :key="link.label"
           :to="link.to"
           class="whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium text-gray-600"
-          exact-active-class="!bg-brand/10 !text-brand"
+          :class="{ '!bg-brand/10 !text-brand': isCurrent(link.to.name) }"
         >
           {{ link.label }}
         </RouterLink>

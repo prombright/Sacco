@@ -21,7 +21,9 @@ const router = createRouter({
       component: () => import('@/layouts/AppLayout.vue'),
       children: [
         { path: '', name: 'dashboard', component: () => import('@/pages/DashboardPage.vue'), meta: { title: 'Dashboard' } },
+        { path: 'statement', name: 'statement', component: () => import('@/pages/StatementPage.vue'), meta: { title: 'My statement' } },
         { path: 'users', name: 'users', component: () => import('@/pages/admin/UsersPage.vue'), meta: { admin: true, title: 'Members & users' } },
+        { path: 'members/:id(\\d+)', name: 'member', component: () => import('@/pages/admin/MemberPage.vue'), meta: { admin: true, title: 'Member' } },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/' },

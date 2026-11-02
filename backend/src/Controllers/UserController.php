@@ -47,11 +47,17 @@ final class UserController
         $count = $db->prepare("SELECT COUNT(*) FROM users $sqlWhere");
         $count->execute($args);
 
-        $stmt = $db->prepare("SELECT * FROM users $sqlWhere ORDER BY full_name LIMIT $perPage OFFSET " . (($page - 1) * $perPage));
+        $latest = fn (string $account) => "(SELECT t.balance_after FROM transactions t WHERE t.user_id = users.id AND t.account = '$account' ORDER BY t.id DESC LIMIT 1)";
+        $stmt = $db->prepare(
+            "SELECT users.*, {$latest('savings')} AS savings_balance, {$latest('shares')} AS shares_balance
+             FROM users $sqlWhere ORDER BY full_name LIMIT $perPage OFFSET " . (($page - 1) * $perPage)
+        );
         $stmt->execute($args);
 
         Response::ok([
-            'users' => array_map([AuthController::class, 'present'], $stmt->fetchAll()),
+            'users' => array_map(fn (array $u) => AuthController::present($u) + [
+                'balances' => ['savings' => $u['savings_balance'] ?? '0.00', 'shares' => $u['shares_balance'] ?? '0.00'],
+            ], $stmt->fetchAll()),
             'total' => (int) $count->fetchColumn(),
             'page' => $page,
             'per_page' => $perPage,
