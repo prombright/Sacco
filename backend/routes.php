@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Sacco\Auth\Roles;
 use Sacco\Controllers\AuthController;
+use Sacco\Controllers\LoanController;
+use Sacco\Controllers\SettingsController;
 use Sacco\Controllers\TransactionController;
 use Sacco\Controllers\UserController;
 use Sacco\Http\Router;
@@ -36,5 +38,29 @@ $router->get('/api/members/{id}', [TransactionController::class, 'member'], $adm
 $router->get('/api/members/{id}/transactions', [TransactionController::class, 'memberTransactions'], $admins);
 $router->post('/api/members/{id}/transactions', [TransactionController::class, 'store'], $admins);
 $router->post('/api/transactions/{id}/reverse', [TransactionController::class, 'reverse'], $admins);
+
+// Loans - members
+$router->get('/api/loans/quote', [LoanController::class, 'quote']);
+$router->get('/api/me/loans', [LoanController::class, 'mine']);
+$router->post('/api/loans', [LoanController::class, 'store']);
+$router->get('/api/loans/{id}', [LoanController::class, 'show']);
+$router->post('/api/loans/{id}/guarantors', [LoanController::class, 'addGuarantor']);
+$router->post('/api/loans/{id}/cancel', [LoanController::class, 'cancel']);
+$router->get('/api/members/search', [LoanController::class, 'searchMembers']);
+$router->get('/api/me/guarantees', [LoanController::class, 'myGuarantees']);
+$router->post('/api/guarantees/{id}/accept', [LoanController::class, 'accept']);
+$router->post('/api/guarantees/{id}/decline', [LoanController::class, 'decline']);
+
+// Loans - admins
+$router->get('/api/loans', [LoanController::class, 'index'], $admins);
+$router->post('/api/loans/{id}/approve', [LoanController::class, 'approve'], $admins);
+$router->post('/api/loans/{id}/reject', [LoanController::class, 'reject'], $admins);
+$router->post('/api/loans/{id}/disburse', [LoanController::class, 'disburse'], $admins);
+$router->post('/api/loans/{id}/payments', [LoanController::class, 'recordPayment'], $admins);
+$router->post('/api/loan-payments/{id}/reverse', [LoanController::class, 'reversePayment'], $admins);
+
+// The SACCO's rules
+$router->get('/api/settings', [SettingsController::class, 'index'], $admins);
+$router->patch('/api/settings', [SettingsController::class, 'update'], ['roles' => [Roles::SUPER_ADMIN]]);
 
 return $router;

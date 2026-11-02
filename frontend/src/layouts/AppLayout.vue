@@ -11,13 +11,20 @@ const menuOpen = ref(false)
 const links = computed(() => [
   { to: { name: 'dashboard' }, label: 'Dashboard', show: true },
   { to: { name: 'statement' }, label: 'My statement', show: true },
+  { to: { name: 'loans' }, label: 'Loans', show: true },
   { to: { name: 'users' }, label: 'Members & users', show: auth.isAdmin },
+  { to: { name: 'admin-loans' }, label: 'Loan applications', show: auth.isAdmin },
+  { to: { name: 'settings' }, label: 'Rules', show: auth.isAdmin },
 ].filter((l) => l.show))
 
-// A member's page belongs under "Members & users" in the menu
+// Pages inside a section light up that section's link
+const sections: Record<string, string[]> = {
+  users: ['member'],
+  loans: ['loan-apply', 'loan'],
+}
 const route = useRoute()
 function isCurrent(name: string) {
-  return route.name === name || (name === 'users' && route.name === 'member')
+  return route.name === name || (sections[name] ?? []).includes(String(route.name))
 }
 
 async function signOut() {

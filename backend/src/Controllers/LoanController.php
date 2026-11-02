@@ -1,0 +1,575 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Sacco\Controllers;
+
+use Sacco\Auth\Auth;
+use Sacco\Auth\Roles;
+use Sacco\Database;
+use Sacco\Http\Request;
+use Sacco\Http\Response;
+use Sacco\Loans\LoanMath;
+use Sacco\Loans\Loans;
+use Sacco\Support\Audit;
+use Sacco\Support\Money;
+
+/**
+ * Loans from application to the last repayment.
+ *
+ * Member: get a quote, apply with guarantors, add a guarantor if one declines, cancel.
+ * Guarantor: accept or decline (accepting ties up that much of their savings).
+ * Admin: approve or reject, record the disbursement (cheque), record and reverse repayments.
+ * Nobody acts as admin on their own loan.
+ */
+final class LoanController
+{
+    /** GET /api/loans/quote?amount=&months= - limit, rules and a repayment schedule to preview */
+    public function quote(Request $request): never
+    {
+        $rules = Loans::rules();
+        $eligibility = Loans::eligibility((int) Auth::id());
+        $amount = Money::parse($request->query('amount', ''));
+        $months = (int) $request->query('months', 0);
+
+        $schedule = null;
+        if ($amount !== null && $amount > 0 && $amount <= Loans::MAX_CENTS && $months >= 1 && $months <= $rules['max_months']) {
+            $rows = LoanMath::schedule($amount, $rules['interest_rate_monthly'], $months, date('Y-m-d'));
+            $schedule = [
+                'installment' => Money::toDecimal($rows[0]['total']),
+                'total_interest' => Money::toDecimal(array_sum(array_column($rows, 'interest'))),
+                'total_repayable' => Money::toDecimal(array_sum(array_column($rows, 'total'))),
+                'rows' => array_map(fn ($r) => [
+                    'number' => $r['number'],
+                    'due_date' => $r['due_date'],
+                    'principal' => Money::toDecimal($r['principal']),
+                    'interest' => Money::toDecimal($r['interest']),
+                    'total' => Money::toDecimal($r['total']),
+                    'balance_after' => Money::toDecimal($r['balance_after']),
+                ], $rows),
+            ];
+        }
+
+        Response::ok([
+            'rules' => $rules,
+            'eligibility' => array_map([Money::class, 'toDecimal'], $eligibility),
+            'schedule' => $schedule,
+        ]);
+    }
+
+    /** POST /api/loans { amount, months, purpose, guarantors: [{ user_id, amount }] } */
+    public function store(Request $request): never
+    {
+        $me = (int) Auth::id();
+        $rules = Loans::rules();
+        $errors = [];
+
+        $amount = Money::parse($request->input('amount'));
+        $months = (int) $request->input('months', 0);
+        $purpose = mb_substr($request->string('purpose'), 0, 255);
+
+        if ($amount === null || $amount <= 0) {
+            $errors['amount'] = 'Enter the amount you want to borrow.';
+        } elseif ($amount > Loans::MAX_CENTS) {
+            $errors['amount'] = 'That amount is too large.';
+        } else {
+            $limit = Loans::eligibility($me)['limit'];
+            if ($amount > $limit) {
+                $errors['amount'] = 'You can borrow up to ' . number_format($limit / 100) . ' right now.';
+            }
+        }
+        if ($months < 1 || $months > $rules['max_months']) {
+            $errors['months'] = "Choose between 1 and {$rules['max_months']} months.";
+        }
+        if ($purpose === '') {
+            $errors['purpose'] = 'Say briefly what the loan is for.';
+        }
+
+        $guarantors = $this->guarantors($request->input('guarantors', []), $me, $errors);
+        if (!$errors && $amount !== null) {
+            $needed = intdiv($amount * $rules['guarantee_cover_percent'], 100);
+            $pledged = array_sum(array_column($guarantors, 'amount'));
+            if (count($guarantors) < $rules['min_guarantors']) {
+                $errors['guarantors'] = "Choose at least {$rules['min_guarantors']} guarantor" . ($rules['min_guarantors'] === 1 ? '' : 's') . '.';
+            } elseif ($pledged < $needed) {
+                $errors['guarantors'] = 'Your guarantors\' amounts must add up to at least ' . number_format($needed / 100) . '.';
+            }
+        }
+
+        $db = Database::tenant();
+        $inProgress = $db->prepare("SELECT loan_no FROM loans WHERE user_id = ? AND status IN ('pending_guarantors', 'pending_approval', 'approved') LIMIT 1");
+        $inProgress->execute([$me]);
+        if ($no = $inProgress->fetchColumn()) {
+            Response::error("You already have an application in progress ($no). Wait for it to be decided, or cancel it.", 422);
+        }
+        if ($errors) {
+            Response::error(reset($errors), 422, $errors);
+        }
+
+        $loanId = Database::transaction(function (\PDO $db) use ($me, $amount, $months, $purpose, $rules, $guarantors) {
+            $db->prepare('INSERT INTO loans (user_id, amount, months, interest_rate_monthly, interest_method, purpose) VALUES (?, ?, ?, ?, ?, ?)')
+                ->execute([$me, Money::toDecimal($amount), $months, $rules['interest_rate_monthly'], $rules['interest_method'], $purpose]);
+            $id = (int) $db->lastInsertId();
+            $db->prepare('UPDATE loans SET loan_no = ? WHERE id = ?')->execute(['L' . str_pad((string) $id, 5, '0', STR_PAD_LEFT), $id]);
+            $insert = $db->prepare('INSERT INTO loan_guarantors (loan_id, guarantor_id, amount) VALUES (?, ?, ?)');
+            foreach ($guarantors as $g) {
+                $insert->execute([$id, $g['user_id'], Money::toDecimal($g['amount'])]);
+            }
+            Loans::advance($db, $id); // straight to approval when the SACCO needs no guarantors
+            return $id;
+        });
+        Audit::log('loan.applied', 'loan', $loanId, ['amount' => Money::toDecimal($amount), 'months' => $months]);
+
+        Response::ok(['loan' => $this->detail($loanId)], 201);
+    }
+
+    /** GET /api/me/loans */
+    public function mine(Request $request): never
+    {
+        $stmt = Database::tenant()->prepare('SELECT id FROM loans WHERE user_id = ? ORDER BY id DESC');
+        $stmt->execute([Auth::id()]);
+        Response::ok(['loans' => array_map(fn ($id) => $this->summary((int) $id), $stmt->fetchAll(\PDO::FETCH_COLUMN))]);
+    }
+
+    /** GET /api/loans?status=&q= (admin) */
+    public function index(Request $request): never
+    {
+        $db = Database::tenant();
+        $where = [];
+        $args = [];
+        $status = $request->string('status');
+        if ($status !== '') {
+            $where[] = 'l.status = ?';
+            $args[] = $status;
+        }
+        $q = $request->string('q');
+        if ($q !== '') {
+            $where[] = '(u.full_name LIKE ? OR u.account_no LIKE ? OR l.loan_no LIKE ?)';
+            array_push($args, "%$q%", "%$q%", "%$q%");
+        }
+        $sqlWhere = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+        $stmt = $db->prepare("SELECT l.id FROM loans l JOIN users u ON u.id = l.user_id $sqlWhere ORDER BY l.id DESC LIMIT 200");
+        $stmt->execute($args);
+
+        $counts = $db->query('SELECT status, COUNT(*) FROM loans GROUP BY status')->fetchAll(\PDO::FETCH_KEY_PAIR);
+
+        Response::ok([
+            'loans' => array_map(fn ($id) => $this->summary((int) $id), $stmt->fetchAll(\PDO::FETCH_COLUMN)),
+            'counts' => array_map('intval', $counts),
+        ]);
+    }
+
+    /** GET /api/loans/{id} - the borrower and admins see everything; a guarantor sees the outline */
+    public function show(Request $request): never
+    {
+        $loan = $this->find((int) $request->param('id'));
+        $user = Auth::user();
+        $isOwner = (int) $loan['user_id'] === (int) $user['id'];
+        $isAdmin = Roles::allows($user['role'], [Roles::ADMIN]);
+        if (!$isOwner && !$isAdmin) {
+            $stmt = Database::tenant()->prepare('SELECT 1 FROM loan_guarantors WHERE loan_id = ? AND guarantor_id = ?');
+            $stmt->execute([$loan['id'], $user['id']]);
+            if (!$stmt->fetchColumn()) {
+                Response::error('Loan not found.', 404);
+            }
+            Response::ok(['loan' => $this->summary((int) $loan['id'])]);
+        }
+        Response::ok(['loan' => $this->detail((int) $loan['id'])]);
+    }
+
+    /** POST /api/loans/{id}/guarantors { user_id, amount } - the borrower asks another member */
+    public function addGuarantor(Request $request): never
+    {
+        $loan = $this->find((int) $request->param('id'));
+        if ((int) $loan['user_id'] !== Auth::id()) {
+            Response::error('Only the borrower can add guarantors.', 403);
+        }
+        if ($loan['status'] !== 'pending_guarantors') {
+            Response::error('This loan doesn\'t need more guarantors.', 422);
+        }
+        $errors = [];
+        $list = $this->guarantors([['user_id' => $request->input('user_id'), 'amount' => $request->input('amount')]], (int) $loan['user_id'], $errors);
+        if ($errors) {
+            Response::error(reset($errors), 422, $errors);
+        }
+        $g = $list[0];
+
+        $db = Database::tenant();
+        $existing = $db->prepare('SELECT id, status FROM loan_guarantors WHERE loan_id = ? AND guarantor_id = ?');
+        $existing->execute([$loan['id'], $g['user_id']]);
+        $existing = $existing->fetch();
+        if ($existing && $existing['status'] !== 'declined') {
+            Response::error('That member is already a guarantor on this loan.', 422);
+        }
+        if ($existing) {
+            // They declined before; asking again (maybe for a different amount) is a fresh request
+            $db->prepare("UPDATE loan_guarantors SET status = 'pending', amount = ?, responded_at = NULL WHERE id = ?")
+                ->execute([Money::toDecimal($g['amount']), $existing['id']]);
+        } else {
+            $db->prepare('INSERT INTO loan_guarantors (loan_id, guarantor_id, amount) VALUES (?, ?, ?)')
+                ->execute([$loan['id'], $g['user_id'], Money::toDecimal($g['amount'])]);
+        }
+        Audit::log('loan.guarantor_added', 'loan', (int) $loan['id'], ['guarantor' => $g['user_id'], 'amount' => Money::toDecimal($g['amount'])]);
+
+        Response::ok(['loan' => $this->detail((int) $loan['id'])]);
+    }
+
+    /** POST /api/loans/{id}/cancel - the borrower (or an admin) withdraws it before disbursement */
+    public function cancel(Request $request): never
+    {
+        $loan = $this->find((int) $request->param('id'));
+        $user = Auth::user();
+        $isOwner = (int) $loan['user_id'] === (int) $user['id'];
+        if (!$isOwner && !Roles::allows($user['role'], [Roles::ADMIN])) {
+            Response::error('Loan not found.', 404);
+        }
+        if (!in_array($loan['status'], ['pending_guarantors', 'pending_approval', 'approved'], true)) {
+            Response::error('Only a loan that hasn\'t been paid out can be cancelled.', 422);
+        }
+        $this->close((int) $loan['id'], 'cancelled', null);
+        Audit::log('loan.cancelled', 'loan', (int) $loan['id']);
+        Response::ok(['loan' => $this->detail((int) $loan['id'])]);
+    }
+
+    /** POST /api/loans/{id}/approve { note? } (admin) */
+    public function approve(Request $request): never
+    {
+        $loan = $this->findForAdmin((int) $request->param('id'));
+        if ($loan['status'] !== 'pending_approval') {
+            Response::error('Only a loan whose guarantors have all agreed can be approved.', 422);
+        }
+        Database::tenant()->prepare("UPDATE loans SET status = 'approved', decided_by = ?, decided_at = NOW(), decision_note = ? WHERE id = ?")
+            ->execute([Auth::id(), mb_substr($request->string('note'), 0, 255) ?: null, $loan['id']]);
+        Audit::log('loan.approved', 'loan', (int) $loan['id']);
+        Response::ok(['loan' => $this->detail((int) $loan['id'])]);
+    }
+
+    /** POST /api/loans/{id}/reject { note } (admin) */
+    public function reject(Request $request): never
+    {
+        $loan = $this->findForAdmin((int) $request->param('id'));
+        if (!in_array($loan['status'], ['pending_guarantors', 'pending_approval', 'approved'], true)) {
+            Response::error('This loan can no longer be rejected.', 422);
+        }
+        $note = mb_substr($request->string('note'), 0, 255);
+        if ($note === '') {
+            Response::error('Give the reason - the member will see it.', 422, ['note' => 'Required']);
+        }
+        $this->close((int) $loan['id'], 'rejected', $note);
+        Audit::log('loan.rejected', 'loan', (int) $loan['id'], ['note' => $note]);
+        Response::ok(['loan' => $this->detail((int) $loan['id'])]);
+    }
+
+    /** POST /api/loans/{id}/disburse { disbursed_on, reference } (admin) - the cheque was issued; the schedule starts */
+    public function disburse(Request $request): never
+    {
+        $loan = $this->findForAdmin((int) $request->param('id'));
+        if ($loan['status'] !== 'approved') {
+            Response::error('Only an approved loan can be paid out.', 422);
+        }
+        $date = $this->date($request->string('disbursed_on') ?: date('Y-m-d'), 'disbursed_on');
+        $reference = mb_substr($request->string('reference'), 0, 80);
+        if ($reference === '') {
+            Response::error('Enter the cheque number or payment reference.', 422, ['reference' => 'Required']);
+        }
+
+        Database::transaction(function (\PDO $db) use ($loan, $date, $reference) {
+            $db->prepare("UPDATE loans SET status = 'active', disbursed_by = ?, disbursed_on = ?, disbursement_ref = ? WHERE id = ? AND status = 'approved'")
+                ->execute([Auth::id(), $date, $reference, $loan['id']]);
+            Loans::createSchedule($db, $loan, $date);
+        });
+        Audit::log('loan.disbursed', 'loan', (int) $loan['id'], ['on' => $date, 'reference' => $reference]);
+        Response::ok(['loan' => $this->detail((int) $loan['id'])]);
+    }
+
+    /** POST /api/loans/{id}/payments { amount, paid_on, reference?, narration? } (admin) */
+    public function recordPayment(Request $request): never
+    {
+        $loan = $this->findForAdmin((int) $request->param('id'));
+        if ($loan['status'] !== 'active') {
+            Response::error('Repayments can only be recorded on an active loan.', 422);
+        }
+        $cents = Money::parse($request->input('amount'));
+        if ($cents === null || $cents <= 0) {
+            Response::error('Enter an amount greater than zero.', 422, ['amount' => 'Required']);
+        }
+        $paidOn = $this->date($request->string('paid_on') ?: date('Y-m-d'), 'paid_on');
+        if ($paidOn < $loan['disbursed_on']) {
+            Response::error('A repayment can\'t be dated before the loan was paid out.', 422, ['paid_on' => 'Too early']);
+        }
+
+        $id = Database::transaction(function (\PDO $db) use ($loan, $cents, $paidOn, $request) {
+            $db->prepare('SELECT id FROM loans WHERE id = ? FOR UPDATE')->execute([$loan['id']]);
+            $left = Loans::position($db, (int) $loan['id'])['total_left'];
+            if ($cents > $left) {
+                Response::error('That is more than the ' . number_format($left / 100) . ' still owed on this loan.', 422, ['amount' => 'Too much']);
+            }
+            $db->prepare('INSERT INTO loan_payments (loan_id, amount, paid_on, reference, narration, created_by) VALUES (?, ?, ?, ?, ?, ?)')
+                ->execute([
+                    $loan['id'], Money::toDecimal($cents), $paidOn,
+                    mb_substr($request->string('reference'), 0, 80) ?: null,
+                    mb_substr($request->string('narration'), 0, 255) ?: null,
+                    Auth::id(),
+                ]);
+            $id = (int) $db->lastInsertId();
+            Loans::applyPayments($db, (int) $loan['id']);
+            return $id;
+        });
+        Audit::log('loan.payment_recorded', 'loan_payment', $id, ['loan' => (int) $loan['id'], 'amount' => Money::toDecimal($cents)]);
+        Response::ok(['loan' => $this->detail((int) $loan['id'])], 201);
+    }
+
+    /** POST /api/loan-payments/{id}/reverse { reason } (admin) */
+    public function reversePayment(Request $request): never
+    {
+        $db = Database::tenant();
+        $stmt = $db->prepare('SELECT p.*, (SELECT r.id FROM loan_payments r WHERE r.reversal_of = p.id) AS reversed_by FROM loan_payments p WHERE p.id = ?');
+        $stmt->execute([(int) $request->param('id')]);
+        $payment = $stmt->fetch() ?: Response::error('Repayment not found.', 404);
+        $loan = $this->findForAdmin((int) $payment['loan_id']);
+        if ($payment['reversal_of'] || $payment['reversed_by']) {
+            Response::error('This repayment has already been reversed.', 422);
+        }
+        $reason = mb_substr($request->string('reason'), 0, 255);
+        if ($reason === '') {
+            Response::error('Say why this repayment is being reversed.', 422, ['reason' => 'Required']);
+        }
+
+        Database::transaction(function (\PDO $db) use ($payment, $loan, $reason) {
+            $db->prepare('SELECT id FROM loans WHERE id = ? FOR UPDATE')->execute([$loan['id']]);
+            $db->prepare('INSERT INTO loan_payments (loan_id, amount, paid_on, reference, narration, reversal_of, created_by) VALUES (?, ?, CURDATE(), ?, ?, ?, ?)')
+                ->execute([$loan['id'], Money::toDecimal(-Money::fromDecimal($payment['amount'])), $payment['reference'], $reason, $payment['id'], Auth::id()]);
+            Loans::applyPayments($db, (int) $loan['id']);
+        });
+        Audit::log('loan.payment_reversed', 'loan_payment', (int) $payment['id'], ['reason' => $reason]);
+        Response::ok(['loan' => $this->detail((int) $loan['id'])]);
+    }
+
+    /** GET /api/me/guarantees - requests to guarantee others' loans, and what's pledged */
+    public function myGuarantees(Request $request): never
+    {
+        $db = Database::tenant();
+        $me = (int) Auth::id();
+        $stmt = $db->prepare(
+            "SELECT g.id, g.amount, g.status, g.created_at, g.responded_at, l.id AS loan_id, l.loan_no, l.amount AS loan_amount,
+                    l.months, l.purpose, l.status AS loan_status, u.full_name AS borrower_name
+             FROM loan_guarantors g JOIN loans l ON l.id = g.loan_id JOIN users u ON u.id = l.user_id
+             WHERE g.guarantor_id = ? AND g.status <> 'withdrawn'
+             ORDER BY g.status = 'pending' DESC, g.id DESC"
+        );
+        $stmt->execute([$me]);
+        Response::ok([
+            'guarantees' => $stmt->fetchAll(),
+            'pledged' => Money::toDecimal(Loans::pledged($db, $me)),
+            'free_savings' => Money::toDecimal(Loans::freeSavings($db, $me)),
+        ]);
+    }
+
+    /** POST /api/guarantees/{id}/accept */
+    public function accept(Request $request): never
+    {
+        $guarantee = $this->myPendingGuarantee((int) $request->param('id'));
+        Database::transaction(function (\PDO $db) use ($guarantee) {
+            // Lock the guarantor so two acceptances can't both spend the same free savings
+            $db->prepare('SELECT id FROM users WHERE id = ? FOR UPDATE')->execute([Auth::id()]);
+            $free = Loans::freeSavings($db, (int) Auth::id());
+            $pledge = Money::fromDecimal($guarantee['amount']);
+            if ($pledge > $free) {
+                Response::error('This needs ' . number_format($pledge / 100) . ' of your savings, but only ' . number_format($free / 100) . ' is free (not already pledged).', 422);
+            }
+            $db->prepare("UPDATE loan_guarantors SET status = 'accepted', responded_at = NOW() WHERE id = ? AND status = 'pending'")->execute([$guarantee['id']]);
+            Loans::advance($db, (int) $guarantee['loan_id']);
+        });
+        Audit::log('loan.guarantee_accepted', 'loan', (int) $guarantee['loan_id']);
+        Response::ok();
+    }
+
+    /** POST /api/guarantees/{id}/decline */
+    public function decline(Request $request): never
+    {
+        $guarantee = $this->myPendingGuarantee((int) $request->param('id'));
+        Database::tenant()->prepare("UPDATE loan_guarantors SET status = 'declined', responded_at = NOW() WHERE id = ? AND status = 'pending'")
+            ->execute([$guarantee['id']]);
+        Audit::log('loan.guarantee_declined', 'loan', (int) $guarantee['loan_id']);
+        Response::ok();
+    }
+
+    /** GET /api/members/search?q= - active members to pick as guarantors (names only, never balances) */
+    public function searchMembers(Request $request): never
+    {
+        $q = $request->string('q');
+        if (mb_strlen($q) < 2) {
+            Response::ok(['members' => []]);
+        }
+        $stmt = Database::tenant()->prepare(
+            "SELECT id, full_name, account_no FROM users
+             WHERE status = 'active' AND id <> ? AND (full_name LIKE ? OR account_no LIKE ? OR employee_no LIKE ?)
+             ORDER BY full_name LIMIT 10"
+        );
+        $stmt->execute([Auth::id(), "%$q%", "%$q%", "%$q%"]);
+        Response::ok(['members' => array_map(fn ($m) => ['id' => (int) $m['id'], 'full_name' => $m['full_name'], 'account_no' => $m['account_no']], $stmt->fetchAll())]);
+    }
+
+    // ----------------------------------------------------------------------
+
+    private function find(int $id): array
+    {
+        $stmt = Database::tenant()->prepare('SELECT * FROM loans WHERE id = ?');
+        $stmt->execute([$id]);
+        return $stmt->fetch() ?: Response::error('Loan not found.', 404);
+    }
+
+    private function findForAdmin(int $id): array
+    {
+        $loan = $this->find($id);
+        if ((int) $loan['user_id'] === Auth::id()) {
+            Response::error('This is your own loan. Another admin has to handle it.', 403);
+        }
+        return $loan;
+    }
+
+    private function myPendingGuarantee(int $id): array
+    {
+        $stmt = Database::tenant()->prepare(
+            'SELECT g.*, l.status AS loan_status FROM loan_guarantors g JOIN loans l ON l.id = g.loan_id WHERE g.id = ? AND g.guarantor_id = ?'
+        );
+        $stmt->execute([$id, Auth::id()]);
+        $g = $stmt->fetch() ?: Response::error('Request not found.', 404);
+        if ($g['status'] !== 'pending' || $g['loan_status'] !== 'pending_guarantors') {
+            Response::error('This request has already been answered or is no longer needed.', 422);
+        }
+        return $g;
+    }
+
+    /** Cancel or reject: guarantors who hadn't answered are no longer being asked */
+    private function close(int $loanId, string $status, ?string $note): void
+    {
+        Database::transaction(function (\PDO $db) use ($loanId, $status, $note) {
+            $db->prepare('UPDATE loans SET status = ?, decided_by = ?, decided_at = NOW(), decision_note = COALESCE(?, decision_note) WHERE id = ?')
+                ->execute([$status, Auth::id(), $note, $loanId]);
+            $db->prepare("UPDATE loan_guarantors SET status = 'withdrawn' WHERE loan_id = ? AND status = 'pending'")->execute([$loanId]);
+        });
+    }
+
+    private function date(string $value, string $field): string
+    {
+        $d = \DateTime::createFromFormat('!Y-m-d', $value);
+        if (!$d || $d->format('Y-m-d') !== $value) {
+            Response::error('Enter a valid date.', 422, [$field => 'Invalid']);
+        }
+        if ($value > date('Y-m-d')) {
+            Response::error('The date can\'t be in the future.', 422, [$field => 'Future']);
+        }
+        return $value;
+    }
+
+    /**
+     * @param array $errors filled with problems
+     * @return list<array{user_id: int, amount: int}>
+     */
+    private function guarantors(mixed $raw, int $borrowerId, array &$errors): array
+    {
+        if (!is_array($raw)) {
+            $errors['guarantors'] = 'Choose your guarantors.';
+            return [];
+        }
+        $list = [];
+        $seen = [];
+        $lookup = Database::tenant()->prepare("SELECT id FROM users WHERE id = ? AND status = 'active'");
+        foreach ($raw as $g) {
+            $userId = (int) ($g['user_id'] ?? 0);
+            $amount = Money::parse($g['amount'] ?? null);
+            if ($userId === $borrowerId) {
+                $errors['guarantors'] = 'You can\'t guarantee your own loan.';
+                continue;
+            }
+            if (isset($seen[$userId])) {
+                $errors['guarantors'] = 'Each guarantor can only be chosen once.';
+                continue;
+            }
+            $lookup->execute([$userId]);
+            if (!$lookup->fetchColumn()) {
+                $errors['guarantors'] = 'One of the guarantors isn\'t an active member.';
+                continue;
+            }
+            if ($amount === null || $amount <= 0) {
+                $errors['guarantors'] = 'Enter how much each guarantor is guaranteeing.';
+                continue;
+            }
+            $seen[$userId] = true;
+            $list[] = ['user_id' => $userId, 'amount' => $amount];
+        }
+        return $list;
+    }
+
+    /** A loan for lists: borrower, amounts and where it stands */
+    private function summary(int $id): array
+    {
+        $db = Database::tenant();
+        $stmt = $db->prepare('SELECT l.*, u.full_name AS borrower_name, u.account_no AS borrower_account_no FROM loans l JOIN users u ON u.id = l.user_id WHERE l.id = ?');
+        $stmt->execute([$id]);
+        $l = $stmt->fetch();
+        $position = in_array($l['status'], ['active', 'closed'], true) ? Loans::position($db, $id) : null;
+        $shortfall = $l['status'] === 'pending_guarantors' ? Loans::guaranteeShortfall($db, $l) : null;
+
+        return [
+            'id' => (int) $l['id'],
+            'loan_no' => $l['loan_no'],
+            'user_id' => (int) $l['user_id'],
+            'borrower_name' => $l['borrower_name'],
+            'borrower_account_no' => $l['borrower_account_no'],
+            'amount' => $l['amount'],
+            'months' => (int) $l['months'],
+            'interest_rate_monthly' => $l['interest_rate_monthly'],
+            'purpose' => $l['purpose'],
+            'status' => $l['status'],
+            'decision_note' => $l['decision_note'],
+            'disbursed_on' => $l['disbursed_on'],
+            'disbursement_ref' => $l['disbursement_ref'],
+            'closed_on' => $l['closed_on'],
+            'created_at' => $l['created_at'],
+            'position' => $position ? array_map(fn ($v) => is_int($v) ? Money::toDecimal($v) : $v, $position) : null,
+            'guarantee_shortfall' => $shortfall ? ['guarantors' => $shortfall['guarantors'], 'amount' => Money::toDecimal($shortfall['amount'])] : null,
+        ];
+    }
+
+    /** Everything about a loan: guarantors, schedule, repayments */
+    private function detail(int $id): array
+    {
+        $db = Database::tenant();
+        $loan = $this->summary($id);
+
+        $g = $db->prepare('SELECT g.id, g.guarantor_id, u.full_name, u.account_no, g.amount, g.status, g.responded_at FROM loan_guarantors g JOIN users u ON u.id = g.guarantor_id WHERE g.loan_id = ? ORDER BY g.id');
+        $g->execute([$id]);
+        $loan['guarantors'] = $g->fetchAll();
+
+        $i = $db->prepare('SELECT number, due_date, principal, interest, principal_paid, interest_paid FROM loan_installments WHERE loan_id = ? ORDER BY number');
+        $i->execute([$id]);
+        $loan['installments'] = $i->fetchAll();
+
+        // Before disbursement, the schedule it would have if paid out today
+        if (!$loan['installments'] && in_array($loan['status'], ['pending_guarantors', 'pending_approval', 'approved'], true)) {
+            $loan['projected'] = array_map(fn ($r) => [
+                'number' => $r['number'],
+                'due_date' => $r['due_date'],
+                'principal' => Money::toDecimal($r['principal']),
+                'interest' => Money::toDecimal($r['interest']),
+                'total' => Money::toDecimal($r['total']),
+            ], LoanMath::schedule(Money::fromDecimal($loan['amount']), $loan['interest_rate_monthly'], $loan['months'], date('Y-m-d')));
+        }
+
+        $p = $db->prepare(
+            'SELECT p.id, p.amount, p.paid_on, p.reference, p.narration, p.reversal_of, u.full_name AS created_by_name, p.created_at,
+                    (SELECT r.id FROM loan_payments r WHERE r.reversal_of = p.id) AS reversed_by
+             FROM loan_payments p LEFT JOIN users u ON u.id = p.created_by WHERE p.loan_id = ? ORDER BY p.id DESC'
+        );
+        $p->execute([$id]);
+        $loan['payments'] = $p->fetchAll();
+
+        $loan['borrower_eligibility'] = Roles::allows(Auth::user()['role'], [Roles::ADMIN])
+            ? array_map([Money::class, 'toDecimal'], Loans::eligibility((int) $loan['user_id'], $id))
+            : null;
+
+        return $loan;
+    }
+}

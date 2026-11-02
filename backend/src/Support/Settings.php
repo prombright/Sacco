@@ -18,4 +18,9 @@ final class Settings
         }
         return self::$all[$key] ?? $default;
     }
+
+    public static function forget(): void
+    {
+        self::$all = null;
+    }
 }

@@ -9,7 +9,7 @@ use Sacco\Auth\Roles;
 use Sacco\Config;
 
 /**
- * Maps METHOD /api/path/{param} to [Controller::class, 'method'].
+ * Maps METHOD /api/path/{param} to [Controller::class, 'method']. {id} matches digits only.
  *
  * Route options:
  * - 'auth' => false        public route (default: signed in)
@@ -44,7 +44,8 @@ final class Router
 
     private function add(string $method, string $path, array $handler, array $options): void
     {
-        $regex = '#^' . preg_replace('#\{([a-z_]+)\}#', '(?P<$1>[^/]+)', $path) . '$#';
+        // {id} only matches numbers, so /api/members/search never lands on /api/members/{id}
+        $regex = '#^' . preg_replace(['#\{id\}#', '#\{([a-z_]+)\}#'], ['(?P<id>\d+)', '(?P<$1>[^/]+)'], $path) . '$#';
         $this->routes[] = compact('method', 'regex', 'handler', 'options');
     }
 

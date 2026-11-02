@@ -8,6 +8,7 @@ use Sacco\Auth\Auth;
 use Sacco\Database;
 use Sacco\Http\Request;
 use Sacco\Http\Response;
+use Sacco\Loans\Loans;
 use Sacco\Support\Audit;
 use Sacco\Support\Ledger;
 use Sacco\Support\LedgerException;
@@ -32,9 +33,30 @@ final class TransactionController
     public function mySummary(Request $request): never
     {
         $id = (int) Auth::id();
+        $db = Database::tenant();
+
+        // Loan figures across their active loans: what's owed and the soonest instalment
+        $active = $db->prepare("SELECT id FROM loans WHERE user_id = ? AND status = 'active'");
+        $active->execute([$id]);
+        $owed = 0;
+        $next = null;
+        foreach ($active->fetchAll(\PDO::FETCH_COLUMN) as $loanId) {
+            $p = Loans::position($db, (int) $loanId);
+            $owed += $p['total_left'];
+            if ($p['next_due_date'] && (!$next || $p['next_due_date'] < $next['date'])) {
+                $next = ['date' => $p['next_due_date'], 'amount' => Money::toDecimal($p['next_due_amount'])];
+            }
+        }
+        $requests = $db->prepare("SELECT COUNT(*) FROM loan_guarantors g JOIN loans l ON l.id = g.loan_id WHERE g.guarantor_id = ? AND g.status = 'pending' AND l.status = 'pending_guarantors'");
+        $requests->execute([$id]);
+
         Response::ok([
             'balances' => Ledger::balances($id),
+            'pledged' => Money::toDecimal(Loans::pledged($db, $id)),
             'share_price' => Settings::get('share_price', '0'),
+            'loan_owed' => Money::toDecimal($owed),
+            'next_repayment' => $next,
+            'guarantee_requests' => (int) $requests->fetchColumn(),
             'recent' => Ledger::history($id, null, 1, 5)['transactions'],
         ]);
     }
@@ -117,6 +139,14 @@ final class TransactionController
                     $exists->execute([$user['id'], $account]);
                     if ($exists->fetchColumn()) {
                         throw new LedgerException('This account already has entries, so it can\'t get an opening balance. Use an adjustment instead.');
+                    }
+                }
+                // Savings pledged for someone's loan stay put until that loan is repaid
+                if ($account === 'savings' && $sign < 0) {
+                    $db->prepare('SELECT id FROM users WHERE id = ? FOR UPDATE')->execute([$user['id']]);
+                    $free = Loans::freeSavings($db, (int) $user['id']);
+                    if ($cents > $free) {
+                        throw new LedgerException('Only ' . number_format($free / 100, 2) . ' of these savings is free; the rest is pledged as a loan guarantee.');
                     }
                 }
                 return Ledger::post($db, (int) $user['id'], $account, $type, $sign * $cents, [

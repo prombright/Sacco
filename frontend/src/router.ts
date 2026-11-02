@@ -22,6 +22,11 @@ const router = createRouter({
       children: [
         { path: '', name: 'dashboard', component: () => import('@/pages/DashboardPage.vue'), meta: { title: 'Dashboard' } },
         { path: 'statement', name: 'statement', component: () => import('@/pages/StatementPage.vue'), meta: { title: 'My statement' } },
+        { path: 'loans', name: 'loans', component: () => import('@/pages/loans/LoansPage.vue'), meta: { title: 'Loans' } },
+        { path: 'loans/apply', name: 'loan-apply', component: () => import('@/pages/loans/ApplyLoanPage.vue'), meta: { title: 'Apply for a loan' } },
+        { path: 'loans/:id(\\d+)', name: 'loan', component: () => import('@/pages/loans/LoanPage.vue'), meta: { title: 'Loan' } },
+        { path: 'admin/loans', name: 'admin-loans', component: () => import('@/pages/admin/LoansAdminPage.vue'), meta: { admin: true, title: 'Loan applications' } },
+        { path: 'admin/settings', name: 'settings', component: () => import('@/pages/admin/SettingsPage.vue'), meta: { admin: true, title: 'SACCO rules' } },
         { path: 'users', name: 'users', component: () => import('@/pages/admin/UsersPage.vue'), meta: { admin: true, title: 'Members & users' } },
         { path: 'members/:id(\\d+)', name: 'member', component: () => import('@/pages/admin/MemberPage.vue'), meta: { admin: true, title: 'Member' } },
       ],
