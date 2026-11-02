@@ -13,6 +13,7 @@ use Sacco\Support\Audit;
 use Sacco\Support\Ledger;
 use Sacco\Support\LedgerException;
 use Sacco\Support\Money;
+use Sacco\Support\Savings;
 use Sacco\Support\Settings;
 
 /**
@@ -144,9 +145,9 @@ final class TransactionController
                 // Savings pledged for someone's loan stay put until that loan is repaid
                 if ($account === 'savings' && $sign < 0) {
                     $db->prepare('SELECT id FROM users WHERE id = ? FOR UPDATE')->execute([$user['id']]);
-                    $free = Loans::freeSavings($db, (int) $user['id']);
+                    $free = Savings::free($db, (int) $user['id']);
                     if ($cents > $free) {
-                        throw new LedgerException('Only ' . number_format($free / 100, 2) . ' of these savings is free; the rest is pledged as a loan guarantee.');
+                        throw new LedgerException('Only ' . number_format($free / 100, 2) . ' of these savings is free; the rest is pledged as a loan guarantee or held for a withdrawal request.');
                     }
                 }
                 return Ledger::post($db, (int) $user['id'], $account, $type, $sign * $cents, [

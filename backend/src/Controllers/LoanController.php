@@ -13,6 +13,7 @@ use Sacco\Loans\LoanMath;
 use Sacco\Loans\Loans;
 use Sacco\Support\Audit;
 use Sacco\Support\Money;
+use Sacco\Support\Savings;
 
 /**
  * Loans from application to the last repayment.
@@ -361,7 +362,7 @@ final class LoanController
         Response::ok([
             'guarantees' => $stmt->fetchAll(),
             'pledged' => Money::toDecimal(Loans::pledged($db, $me)),
-            'free_savings' => Money::toDecimal(Loans::freeSavings($db, $me)),
+            'free_savings' => Money::toDecimal(Savings::free($db, $me)),
         ]);
     }
 
@@ -372,7 +373,7 @@ final class LoanController
         Database::transaction(function (\PDO $db) use ($guarantee) {
             // Lock the guarantor so two acceptances can't both spend the same free savings
             $db->prepare('SELECT id FROM users WHERE id = ? FOR UPDATE')->execute([Auth::id()]);
-            $free = Loans::freeSavings($db, (int) Auth::id());
+            $free = Savings::free($db, (int) Auth::id());
             $pledge = Money::fromDecimal($guarantee['amount']);
             if ($pledge > $free) {
                 Response::error('This needs ' . number_format($pledge / 100) . ' of your savings, but only ' . number_format($free / 100) . ' is free (not already pledged).', 422);

@@ -75,6 +75,18 @@ To try the built app through Apache instead (http://localhost/sacco), run `npm r
 - Loan limit: 3 × savings, minus what they already owe.
 - These live in each SACCO's `settings` table so they can be changed without code changes.
 
+## Payroll file format
+
+The payroll upload reads the first sheet of an .xlsx, .xls or .csv file. It finds the header row
+by itself (title rows above it are fine), matches columns by name, and skips blank and TOTAL lines.
+
+Our own template (Office → Payroll → Download template) has: Account No, Name, Savings, Shares,
+Loan Repayment, Loan No. When the SACCO's real payroll sheet arrives, add its column headings to
+`COLUMNS` in `frontend/src/payroll.ts`. Nothing else needs to change.
+
+Every upload is checked first and nothing is saved until it is posted. Posting saves every row
+in one database transaction (all of it or none). A posted upload can be reversed as a whole.
+
 ## Database changes
 
 Never edit a SQL file that has been committed. Add a new numbered file

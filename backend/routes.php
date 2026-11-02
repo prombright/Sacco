@@ -5,6 +5,8 @@ declare(strict_types=1);
 use Sacco\Auth\Roles;
 use Sacco\Controllers\AuthController;
 use Sacco\Controllers\LoanController;
+use Sacco\Controllers\PayrollController;
+use Sacco\Controllers\WithdrawalController;
 use Sacco\Controllers\SettingsController;
 use Sacco\Controllers\TransactionController;
 use Sacco\Controllers\UserController;
@@ -58,6 +60,24 @@ $router->post('/api/loans/{id}/reject', [LoanController::class, 'reject'], $admi
 $router->post('/api/loans/{id}/disburse', [LoanController::class, 'disburse'], $admins);
 $router->post('/api/loans/{id}/payments', [LoanController::class, 'recordPayment'], $admins);
 $router->post('/api/loan-payments/{id}/reverse', [LoanController::class, 'reversePayment'], $admins);
+
+// Savings withdrawals (paid by cheque)
+$router->get('/api/me/withdrawals', [WithdrawalController::class, 'mine']);
+$router->post('/api/withdrawals', [WithdrawalController::class, 'store']);
+$router->get('/api/withdrawals/{id}', [WithdrawalController::class, 'show']);
+$router->post('/api/withdrawals/{id}/cancel', [WithdrawalController::class, 'cancel']);
+$router->get('/api/withdrawals', [WithdrawalController::class, 'index'], $admins);
+$router->post('/api/withdrawals/{id}/approve', [WithdrawalController::class, 'approve'], $admins);
+$router->post('/api/withdrawals/{id}/reject', [WithdrawalController::class, 'reject'], $admins);
+$router->post('/api/withdrawals/{id}/pay', [WithdrawalController::class, 'pay'], $admins);
+
+// Payroll uploads
+$router->get('/api/payroll/members', [PayrollController::class, 'members'], $admins);
+$router->post('/api/payroll/preview', [PayrollController::class, 'preview'], $admins);
+$router->get('/api/payroll/batches', [PayrollController::class, 'index'], $admins);
+$router->post('/api/payroll/batches', [PayrollController::class, 'post'], $admins);
+$router->get('/api/payroll/batches/{id}', [PayrollController::class, 'show'], $admins);
+$router->post('/api/payroll/batches/{id}/reverse', [PayrollController::class, 'reverse'], $admins);
 
 // The SACCO's rules
 $router->get('/api/settings', [SettingsController::class, 'index'], $admins);

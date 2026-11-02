@@ -7,6 +7,7 @@ namespace Sacco\Http;
 use Sacco\Auth\Auth;
 use Sacco\Auth\Roles;
 use Sacco\Config;
+use Sacco\Support\LedgerException;
 
 /**
  * Maps METHOD /api/path/{param} to [Controller::class, 'method']. {id} matches digits only.
@@ -65,6 +66,9 @@ final class Router
             [$class, $method] = $route['handler'];
             try {
                 (new $class())->$method($request);
+            } catch (LedgerException $e) {
+                // A money rule said no; the message is written for the person who tried
+                Response::error($e->getMessage(), 422);
             } catch (\Throwable $e) {
                 error_log('[sacco] ' . $e::class . ': ' . $e->getMessage() . "\n" . $e->getTraceAsString());
                 Response::error(Config::isDebug() ? $e->getMessage() : 'Something went wrong. Please try again.', 500);

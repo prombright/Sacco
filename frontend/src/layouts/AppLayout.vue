@@ -8,19 +8,28 @@ const auth = useAuth()
 const router = useRouter()
 const menuOpen = ref(false)
 
-const links = computed(() => [
-  { to: { name: 'dashboard' }, label: 'Dashboard', show: true },
-  { to: { name: 'statement' }, label: 'My statement', show: true },
-  { to: { name: 'loans' }, label: 'Loans', show: true },
-  { to: { name: 'users' }, label: 'Members & users', show: auth.isAdmin },
-  { to: { name: 'admin-loans' }, label: 'Loan applications', show: auth.isAdmin },
-  { to: { name: 'settings' }, label: 'Rules', show: auth.isAdmin },
-].filter((l) => l.show))
+// Everyone's own money
+const links = [
+  { to: { name: 'dashboard' }, label: 'Dashboard' },
+  { to: { name: 'statement' }, label: 'My statement' },
+  { to: { name: 'loans' }, label: 'Loans' },
+  { to: { name: 'withdrawals' }, label: 'Withdraw' },
+]
+
+// Running the SACCO: a second row, admins only
+const officeLinks = computed(() => auth.isAdmin ? [
+  { to: { name: 'users' }, label: 'Members' },
+  { to: { name: 'payroll' }, label: 'Payroll' },
+  { to: { name: 'admin-loans' }, label: 'Loan applications' },
+  { to: { name: 'admin-withdrawals' }, label: 'Withdrawals' },
+  { to: { name: 'settings' }, label: 'Rules' },
+] : [])
 
 // Pages inside a section light up that section's link
 const sections: Record<string, string[]> = {
   users: ['member'],
   loans: ['loan-apply', 'loan'],
+  payroll: ['payroll-batch'],
 }
 const route = useRoute()
 function isCurrent(name: string) {
@@ -85,7 +94,7 @@ async function signOut() {
       </div>
 
       <!-- Phones: the same links in a row under the header -->
-      <nav v-if="links.length > 1" class="flex gap-1 overflow-x-auto border-t border-gray-100 px-4 py-2 md:hidden" aria-label="Main">
+      <nav class="flex gap-1 overflow-x-auto border-t border-gray-100 px-4 py-2 md:hidden" aria-label="Main">
         <RouterLink
           v-for="link in links"
           :key="link.label"
@@ -95,6 +104,21 @@ async function signOut() {
         >
           {{ link.label }}
         </RouterLink>
+      </nav>
+
+      <nav v-if="officeLinks.length" class="border-t border-gray-100 bg-gray-50" aria-label="SACCO office">
+        <div class="mx-auto flex max-w-6xl items-center gap-1 overflow-x-auto px-4 py-1.5">
+          <span class="mr-2 whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-gray-500">Office</span>
+          <RouterLink
+            v-for="link in officeLinks"
+            :key="link.label"
+            :to="link.to"
+            class="whitespace-nowrap rounded-md px-2.5 py-1 text-sm font-medium text-gray-600 hover:bg-white hover:text-gray-900"
+            :class="{ '!bg-white !text-brand shadow-sm': isCurrent(link.to.name) }"
+          >
+            {{ link.label }}
+          </RouterLink>
+        </div>
       </nav>
     </header>
 

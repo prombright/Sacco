@@ -88,19 +88,16 @@ final class Loans
             $pledge = Money::fromDecimal($row['pledge']);
             if ($row['status'] === 'active') {
                 $loan = Money::fromDecimal($row['loan_amount']);
-                // Float only for the ratio: pledge x principal could pass the int range
-                $pledge = $loan > 0 ? (int) ceil($pledge * (Money::fromDecimal($row['principal_left']) / $loan)) : 0;
+                // Float only for the ratio (pledge x principal could pass the int range); rounded up
+                // to whole currency units so a pledge never shows stray cents
+                $share = $loan > 0 ? $pledge * (Money::fromDecimal($row['principal_left']) / $loan) : 0;
+                $pledge = (int) (ceil($share / LoanMath::UNIT) * LoanMath::UNIT);
             }
             $total += $pledge;
         }
         return $total;
     }
 
-    /** Savings minus pledges: what a member could withdraw or pledge again */
-    public static function freeSavings(PDO $db, int $userId): int
-    {
-        return max(0, Ledger::balance($db, $userId, 'savings') - self::pledged($db, $userId));
-    }
 
     /**
      * After a guarantor answers: once enough have accepted to cover the loan, it goes to the
