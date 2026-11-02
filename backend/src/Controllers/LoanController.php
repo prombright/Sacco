@@ -12,6 +12,7 @@ use Sacco\Http\Response;
 use Sacco\Loans\LoanMath;
 use Sacco\Loans\Loans;
 use Sacco\Support\Audit;
+use Sacco\Support\LedgerException;
 use Sacco\Support\Money;
 use Sacco\Support\Savings;
 
@@ -51,9 +52,11 @@ final class LoanController
             ];
         }
 
+        $membership = Loans::membership(Database::tenant(), (int) Auth::id());
         Response::ok([
             'rules' => $rules,
             'eligibility' => array_map([Money::class, 'toDecimal'], $eligibility),
+            'membership' => $membership + ['wait_reason' => Loans::borrowerWaitReason(Database::tenant(), (int) Auth::id())],
             'schedule' => $schedule,
         ]);
     }
@@ -64,6 +67,10 @@ final class LoanController
         $me = (int) Auth::id();
         $rules = Loans::rules();
         $errors = [];
+
+        if ($wait = Loans::borrowerWaitReason(Database::tenant(), $me)) {
+            Response::error($wait, 422);
+        }
 
         $amount = Money::parse($request->input('amount'));
         $months = (int) $request->input('months', 0);
@@ -112,9 +119,9 @@ final class LoanController
                 ->execute([$me, Money::toDecimal($amount), $months, $rules['interest_rate_monthly'], $rules['interest_method'], $purpose]);
             $id = (int) $db->lastInsertId();
             $db->prepare('UPDATE loans SET loan_no = ? WHERE id = ?')->execute(['L' . str_pad((string) $id, 5, '0', STR_PAD_LEFT), $id]);
-            $insert = $db->prepare('INSERT INTO loan_guarantors (loan_id, guarantor_id, amount) VALUES (?, ?, ?)');
+            $insert = $db->prepare('INSERT INTO loan_guarantors (loan_id, guarantor_id, amount, requested_amount) VALUES (?, ?, ?, ?)');
             foreach ($guarantors as $g) {
-                $insert->execute([$id, $g['user_id'], Money::toDecimal($g['amount'])]);
+                $insert->execute([$id, $g['user_id'], Money::toDecimal($g['amount']), Money::toDecimal($g['amount'])]);
             }
             Loans::advance($db, $id); // straight to approval when the SACCO needs no guarantors
             return $id;
@@ -204,11 +211,11 @@ final class LoanController
         }
         if ($existing) {
             // They declined before; asking again (maybe for a different amount) is a fresh request
-            $db->prepare("UPDATE loan_guarantors SET status = 'pending', amount = ?, responded_at = NULL WHERE id = ?")
-                ->execute([Money::toDecimal($g['amount']), $existing['id']]);
+            $db->prepare("UPDATE loan_guarantors SET status = 'pending', amount = ?, requested_amount = ?, responded_at = NULL WHERE id = ?")
+                ->execute([Money::toDecimal($g['amount']), Money::toDecimal($g['amount']), $existing['id']]);
         } else {
-            $db->prepare('INSERT INTO loan_guarantors (loan_id, guarantor_id, amount) VALUES (?, ?, ?)')
-                ->execute([$loan['id'], $g['user_id'], Money::toDecimal($g['amount'])]);
+            $db->prepare('INSERT INTO loan_guarantors (loan_id, guarantor_id, amount, requested_amount) VALUES (?, ?, ?, ?)')
+                ->execute([$loan['id'], $g['user_id'], Money::toDecimal($g['amount']), Money::toDecimal($g['amount'])]);
         }
         Audit::log('loan.guarantor_added', 'loan', (int) $loan['id'], ['guarantor' => $g['user_id'], 'amount' => Money::toDecimal($g['amount'])]);
 
@@ -352,7 +359,7 @@ final class LoanController
         $db = Database::tenant();
         $me = (int) Auth::id();
         $stmt = $db->prepare(
-            "SELECT g.id, g.amount, g.status, g.created_at, g.responded_at, l.id AS loan_id, l.loan_no, l.amount AS loan_amount,
+            "SELECT g.id, g.amount, g.requested_amount, g.status, g.created_at, g.responded_at, l.id AS loan_id, l.loan_no, l.amount AS loan_amount,
                     l.months, l.purpose, l.status AS loan_status, u.full_name AS borrower_name
              FROM loan_guarantors g JOIN loans l ON l.id = g.loan_id JOIN users u ON u.id = l.user_id
              WHERE g.guarantor_id = ? AND g.status <> 'withdrawn'
@@ -363,25 +370,44 @@ final class LoanController
             'guarantees' => $stmt->fetchAll(),
             'pledged' => Money::toDecimal(Loans::pledged($db, $me)),
             'free_savings' => Money::toDecimal(Savings::free($db, $me)),
+            'wait_reason' => Loans::guarantorWaitReason($db, $me, '', true),
         ]);
     }
 
-    /** POST /api/guarantees/{id}/accept */
+    /**
+     * POST /api/guarantees/{id}/accept { amount? } - the guarantor agrees, to the amount asked or
+     * to an amount of their own (up to the loan's size); it must fit in their free savings
+     */
     public function accept(Request $request): never
     {
         $guarantee = $this->myPendingGuarantee((int) $request->param('id'));
-        Database::transaction(function (\PDO $db) use ($guarantee) {
+        $offered = $request->input('amount');
+        $pledge = $offered === null || $offered === ''
+            ? Money::fromDecimal($guarantee['requested_amount'] ?? $guarantee['amount'])
+            : Money::parse($offered);
+        if ($pledge === null || $pledge <= 0) {
+            Response::error('Enter the amount you will guarantee.', 422, ['amount' => 'Required']);
+        }
+        $loanAmount = Money::fromDecimal($guarantee['loan_amount']);
+        if ($pledge > $loanAmount) {
+            Response::error('You can\'t guarantee more than the loan itself (' . number_format($loanAmount / 100) . ').', 422, ['amount' => 'Too much']);
+        }
+
+        Database::transaction(function (\PDO $db) use ($guarantee, $pledge) {
+            if ($wait = Loans::guarantorWaitReason($db, (int) Auth::id(), '', true)) {
+                throw new LedgerException($wait);
+            }
             // Lock the guarantor so two acceptances can't both spend the same free savings
             $db->prepare('SELECT id FROM users WHERE id = ? FOR UPDATE')->execute([Auth::id()]);
             $free = Savings::free($db, (int) Auth::id());
-            $pledge = Money::fromDecimal($guarantee['amount']);
             if ($pledge > $free) {
-                Response::error('This needs ' . number_format($pledge / 100) . ' of your savings, but only ' . number_format($free / 100) . ' is free (not already pledged).', 422);
+                throw new LedgerException('You have ' . number_format($free / 100) . ' free in your savings (not already pledged or being withdrawn), so you can guarantee up to that.');
             }
-            $db->prepare("UPDATE loan_guarantors SET status = 'accepted', responded_at = NOW() WHERE id = ? AND status = 'pending'")->execute([$guarantee['id']]);
+            $db->prepare("UPDATE loan_guarantors SET status = 'accepted', amount = ?, responded_at = NOW() WHERE id = ? AND status = 'pending'")
+                ->execute([Money::toDecimal($pledge), $guarantee['id']]);
             Loans::advance($db, (int) $guarantee['loan_id']);
         });
-        Audit::log('loan.guarantee_accepted', 'loan', (int) $guarantee['loan_id']);
+        Audit::log('loan.guarantee_accepted', 'loan', (int) $guarantee['loan_id'], ['amount' => Money::toDecimal($pledge), 'asked' => $guarantee['requested_amount']]);
         Response::ok();
     }
 
@@ -432,7 +458,7 @@ final class LoanController
     private function myPendingGuarantee(int $id): array
     {
         $stmt = Database::tenant()->prepare(
-            'SELECT g.*, l.status AS loan_status FROM loan_guarantors g JOIN loans l ON l.id = g.loan_id WHERE g.id = ? AND g.guarantor_id = ?'
+            'SELECT g.*, l.status AS loan_status, l.amount AS loan_amount FROM loan_guarantors g JOIN loans l ON l.id = g.loan_id WHERE g.id = ? AND g.guarantor_id = ?'
         );
         $stmt->execute([$id, Auth::id()]);
         $g = $stmt->fetch() ?: Response::error('Request not found.', 404);
@@ -476,7 +502,8 @@ final class LoanController
         }
         $list = [];
         $seen = [];
-        $lookup = Database::tenant()->prepare("SELECT id FROM users WHERE id = ? AND status = 'active'");
+        $db = Database::tenant();
+        $lookup = $db->prepare("SELECT full_name FROM users WHERE id = ? AND status = 'active'");
         foreach ($raw as $g) {
             $userId = (int) ($g['user_id'] ?? 0);
             $amount = Money::parse($g['amount'] ?? null);
@@ -489,8 +516,13 @@ final class LoanController
                 continue;
             }
             $lookup->execute([$userId]);
-            if (!$lookup->fetchColumn()) {
+            $name = $lookup->fetchColumn();
+            if (!$name) {
                 $errors['guarantors'] = 'One of the guarantors isn\'t an active member.';
+                continue;
+            }
+            if ($wait = Loans::guarantorWaitReason($db, $userId, $name)) {
+                $errors['guarantors'] = $wait;
                 continue;
             }
             if ($amount === null || $amount <= 0) {
@@ -540,7 +572,7 @@ final class LoanController
         $db = Database::tenant();
         $loan = $this->summary($id);
 
-        $g = $db->prepare('SELECT g.id, g.guarantor_id, u.full_name, u.account_no, g.amount, g.status, g.responded_at FROM loan_guarantors g JOIN users u ON u.id = g.guarantor_id WHERE g.loan_id = ? ORDER BY g.id');
+        $g = $db->prepare('SELECT g.id, g.guarantor_id, u.full_name, u.account_no, g.amount, g.requested_amount, g.status, g.responded_at FROM loan_guarantors g JOIN users u ON u.id = g.guarantor_id WHERE g.loan_id = ? ORDER BY g.id');
         $g->execute([$id]);
         $loan['guarantors'] = $g->fetchAll();
 

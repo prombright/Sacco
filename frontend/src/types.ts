@@ -7,6 +7,8 @@ export interface User {
   email: string | null
   employee_no: string | null
   account_no: string | null
+  /** Member since; null means "from their first savings entry" */
+  joined_on: string | null
   phone: string | null
   role: Role
   role_label: string
@@ -67,7 +69,10 @@ export interface LoanGuarantor {
   guarantor_id: number
   full_name: string
   account_no: string | null
+  /** What they agreed to (or, while pending, what was asked) */
   amount: string
+  /** What the borrower asked them for */
+  requested_amount: string | null
   status: 'pending' | 'accepted' | 'declined' | 'withdrawn'
   responded_at: string | null
 }
@@ -126,6 +131,8 @@ export interface LoanRules {
   max_months: number
   min_guarantors: number
   guarantee_cover_percent: number
+  min_member_months: number
+  guarantor_min_member_months: number
 }
 
 export interface Sacco {

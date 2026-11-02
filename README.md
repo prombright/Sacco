@@ -72,8 +72,12 @@ To try the built app through Apache instead (http://localhost/sacco), run `npm r
 ## Money rules (agreed so far)
 
 - Loan interest: **1% per month on a reducing balance**, equal monthly instalments.
-- Loan limit: 3 × savings, minus what they already owe.
-- These live in each SACCO's `settings` table so they can be changed without code changes.
+- Loan limit: **2 × savings**, minus what they already owe.
+- A borrower must have **saved for 6 months**; a guarantor must have been a **member for 6 months**.
+  Membership counts from the member's "Member since" date, or their first savings entry if that's blank.
+- Guarantors must have the amount free in their savings (not pledged elsewhere or being withdrawn),
+  and may agree to a smaller amount than the borrower asked for.
+- These live in each SACCO's `settings` table (Office → Rules) so they can be changed without code changes.
 
 ## Payroll file format
 

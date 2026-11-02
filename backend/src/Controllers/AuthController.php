@@ -153,6 +153,7 @@ final class AuthController
             'email' => $user['email'],
             'employee_no' => $user['employee_no'],
             'account_no' => $user['account_no'],
+            'joined_on' => $user['joined_on'] ?? null,
             'phone' => $user['phone'],
             'role' => $user['role'],
             'role_label' => Roles::label($user['role']),

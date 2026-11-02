@@ -149,7 +149,10 @@ function installmentState(i: Installment) {
           <li v-for="g in loan.guarantors" :key="g.id" class="flex items-center justify-between gap-2 p-4 text-sm">
             <div>
               <p class="font-medium">{{ g.full_name }}</p>
-              <p class="text-gray-600 tabular-nums">Guarantees {{ formatMoney(g.amount) }}</p>
+              <p v-if="g.status === 'accepted' && g.requested_amount && Number(g.amount) !== Number(g.requested_amount)" class="text-gray-600 tabular-nums">
+                Agreed to {{ formatMoney(g.amount) }} <span class="text-amber-800">of the {{ formatMoney(g.requested_amount) }} asked</span>
+              </p>
+              <p v-else class="text-gray-600 tabular-nums">{{ g.status === 'accepted' ? 'Guarantees' : 'Asked for' }} {{ formatMoney(g.amount) }}</p>
             </div>
             <StatusBadge :label="guarantorStatus[g.status].label" :style-class="guarantorStatus[g.status].style" />
           </li>

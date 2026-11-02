@@ -9,6 +9,8 @@ import MemberPicker from '@/components/MemberPicker.vue'
 interface Quote {
   rules: LoanRules
   eligibility: { savings: string; owed: string; limit: string }
+  /** How long they've saved; wait_reason is set when that's not long enough to borrow yet */
+  membership: { since: string | null; months: number; wait_reason: string | null }
   schedule: null | { installment: string; total_interest: string; total_repayable: string; rows: (Installment & { balance_after: string })[] }
 }
 
@@ -90,6 +92,14 @@ async function submit() {
     <RouterLink :to="{ name: 'loans' }" class="text-sm font-medium text-gray-600 hover:text-gray-900">← Loans</RouterLink>
     <h1 class="mt-3 text-xl font-semibold">Apply for a loan</h1>
 
+    <div v-if="quote?.membership.wait_reason" class="card mt-5 p-5">
+      <p class="font-medium">Not yet</p>
+      <p class="mt-1 text-sm text-gray-700">{{ quote.membership.wait_reason }}</p>
+      <p v-if="quote.membership.since" class="mt-2 text-sm text-gray-600">Saving since {{ formatDate(quote.membership.since) }}.</p>
+      <RouterLink :to="{ name: 'loans' }" class="btn-secondary mt-4">Back to loans</RouterLink>
+    </div>
+
+    <template v-else>
     <div v-if="quote" class="card mt-5 grid gap-4 p-5 sm:grid-cols-3">
       <div>
         <p class="text-sm text-gray-600">You can borrow up to</p>
@@ -170,7 +180,8 @@ async function submit() {
           <p class="mt-1 text-sm text-gray-600">
             Members who agree to stand behind your loan with part of their savings.
             You need {{ minGuarantors }}, and together they must cover {{ quote?.rules.guarantee_cover_percent ?? 100 }}% of the loan.
-            Each will be asked to agree on their own dashboard.
+            Guarantors must have been members for at least {{ quote?.rules.guarantor_min_member_months ?? 6 }} months.
+            Each will be asked on their own dashboard, and may agree to a different amount than you ask.
           </p>
         </div>
 
@@ -206,5 +217,6 @@ async function submit() {
         <button type="submit" class="btn-primary" :disabled="busy || !ready">{{ busy ? 'Sending…' : 'Send application' }}</button>
       </div>
     </form>
+    </template>
   </div>
 </template>

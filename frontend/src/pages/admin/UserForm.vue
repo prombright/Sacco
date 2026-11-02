@@ -17,6 +17,7 @@ const form = reactive({
   email: props.user?.email ?? '',
   employee_no: props.user?.employee_no ?? '',
   account_no: props.user?.account_no ?? '',
+  joined_on: props.user?.joined_on ?? '',
   phone: props.user?.phone ?? '',
   role: (props.user?.role ?? 'member') as Role,
   status: (props.user?.status ?? 'active') as UserStatus,
@@ -85,6 +86,13 @@ async function save() {
           <label for="phone" class="label">Phone</label>
           <input id="phone" v-model="form.phone" type="tel" class="input" autocomplete="off" />
         </div>
+      </div>
+
+      <div>
+        <label for="joined_on" class="label">Member since <span class="font-normal text-gray-400">(optional)</span></label>
+        <input id="joined_on" v-model="form.joined_on" type="date" :max="new Date().toLocaleDateString('en-CA')" class="input sm:w-1/2" />
+        <p class="mt-1 text-xs text-gray-500">When they joined the SACCO. Loans and guaranteeing need some months of membership. Leave blank to count from their first savings entry.</p>
+        <p v-if="errors.joined_on" class="field-error">{{ errors.joined_on }}</p>
       </div>
 
       <div class="grid gap-4 sm:grid-cols-2">

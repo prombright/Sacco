@@ -75,10 +75,10 @@ final class UserController
 
         $id = Database::transaction(function (\PDO $db) use ($data, $temporary) {
             $db->prepare(
-                'INSERT INTO users (full_name, email, employee_no, account_no, phone, role, status, source, password_hash, must_change_password, created_by)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, \'manual\', ?, 1, ?)'
+                'INSERT INTO users (full_name, email, employee_no, account_no, joined_on, phone, role, status, source, password_hash, must_change_password, created_by)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, \'manual\', ?, 1, ?)'
             )->execute([
-                $data['full_name'], $data['email'], $data['employee_no'], $data['account_no'], $data['phone'],
+                $data['full_name'], $data['email'], $data['employee_no'], $data['account_no'], $data['joined_on'], $data['phone'],
                 $data['role'], $data['status'], Passwords::hash($temporary), Auth::id(),
             ]);
             $id = (int) $db->lastInsertId();
@@ -110,14 +110,14 @@ final class UserController
         }
 
         Database::tenant()->prepare(
-            'UPDATE users SET full_name = ?, email = ?, employee_no = ?, account_no = ?, phone = ?, role = ?, status = ? WHERE id = ?'
+            'UPDATE users SET full_name = ?, email = ?, employee_no = ?, account_no = ?, joined_on = ?, phone = ?, role = ?, status = ? WHERE id = ?'
         )->execute([
             $data['full_name'], $data['email'], $data['employee_no'], $data['account_no'] ?? $user['account_no'],
-            $data['phone'], $data['role'], $data['status'], $user['id'],
+            $data['joined_on'], $data['phone'], $data['role'], $data['status'], $user['id'],
         ]);
 
         $changed = [];
-        foreach (['full_name', 'email', 'employee_no', 'account_no', 'phone', 'role', 'status'] as $field) {
+        foreach (['full_name', 'email', 'employee_no', 'account_no', 'joined_on', 'phone', 'role', 'status'] as $field) {
             if (($data[$field] ?? $user[$field]) !== $user[$field]) {
                 $changed[$field] = ['from' => $user[$field], 'to' => $data[$field]];
             }
@@ -172,6 +172,8 @@ final class UserController
             'email' => $value('email') !== null ? strtolower($value('email')) : null,
             'employee_no' => $value('employee_no'),
             'account_no' => $value('account_no'),
+            // Member since; blank means "from their first savings entry"
+            'joined_on' => $value('joined_on'),
             'phone' => $value('phone'),
             'role' => $value('role') ?? Roles::MEMBER,
             'status' => $value('status') ?? 'active',
@@ -186,6 +188,12 @@ final class UserController
         }
         if ($data['email'] !== null && !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
             $errors['email'] = 'That email address doesn\'t look right.';
+        }
+        if ($data['joined_on'] !== null) {
+            $d = \DateTime::createFromFormat('!Y-m-d', $data['joined_on']);
+            if (!$d || $d->format('Y-m-d') !== $data['joined_on'] || $data['joined_on'] > date('Y-m-d')) {
+                $errors['joined_on'] = 'Enter a valid date, not in the future.';
+            }
         }
         if (!in_array($data['role'], Roles::ALL, true)) {
             $errors['role'] = 'Choose a role.';

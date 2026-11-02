@@ -27,11 +27,69 @@ final class Loans
         return [
             'interest_rate_monthly' => Settings::get('loan_interest_rate_monthly', '1.0'),
             'interest_method' => Settings::get('loan_interest_method', 'reducing_balance'),
-            'savings_multiplier' => Settings::get('loan_savings_multiplier', '3'),
+            'savings_multiplier' => Settings::get('loan_savings_multiplier', '2'),
             'max_months' => (int) Settings::get('loan_max_months', '24'),
             'min_guarantors' => (int) Settings::get('loan_min_guarantors', '2'),
             'guarantee_cover_percent' => (int) Settings::get('loan_guarantee_cover_percent', '100'),
+            'min_member_months' => (int) Settings::get('loan_min_member_months', '6'),
+            'guarantor_min_member_months' => (int) Settings::get('guarantor_min_member_months', '6'),
         ];
+    }
+
+    /**
+     * How long someone has been saving with the SACCO: from their "member since" date, or when an
+     * admin hasn't set one, from their first savings entry that still stands (not reversed).
+     *
+     * @return array{since: ?string, months: int, eligible_on: ?string} eligible_on is filled in by the caller's rule
+     */
+    public static function membership(PDO $db, int $userId): array
+    {
+        $stmt = $db->prepare(
+            "SELECT COALESCE(u.joined_on, (
+                SELECT MIN(t.value_date) FROM transactions t
+                WHERE t.user_id = u.id AND t.account = 'savings' AND t.type <> 'reversal'
+                  AND NOT EXISTS (SELECT 1 FROM transactions r WHERE r.reversal_of = t.id)
+             )) FROM users u WHERE u.id = ?"
+        );
+        $stmt->execute([$userId]);
+        $since = $stmt->fetchColumn() ?: null;
+        $months = 0;
+        if ($since) {
+            $diff = (new \DateTimeImmutable($since))->diff(new \DateTimeImmutable('today'));
+            $months = $diff->invert ? 0 : $diff->y * 12 + $diff->m;
+        }
+        return ['since' => $since, 'months' => $months];
+    }
+
+    /** The day someone reaches $months of membership, or null if they haven't started saving */
+    public static function eligibleOn(?string $since, int $months): ?string
+    {
+        return $since ? LoanMath::addMonths($since, $months) : null;
+    }
+
+    /** Null when the member has saved long enough to borrow, else why not (for the member) */
+    public static function borrowerWaitReason(PDO $db, int $userId): ?string
+    {
+        $need = self::rules()['min_member_months'];
+        $m = self::membership($db, $userId);
+        if ($m['months'] >= $need) {
+            return null;
+        }
+        return $m['since']
+            ? "Loans are for members who have saved for $need months. You can apply from " . date('j M Y', strtotime(self::eligibleOn($m['since'], $need))) . '.'
+            : "Loans are for members who have saved for $need months. Your savings haven't started yet.";
+    }
+
+    /** Null when someone has been a member long enough to guarantee, else why not */
+    public static function guarantorWaitReason(PDO $db, int $userId, string $name, bool $self = false): ?string
+    {
+        $need = self::rules()['guarantor_min_member_months'];
+        if (self::membership($db, $userId)['months'] >= $need) {
+            return null;
+        }
+        return $self
+            ? "Guarantors must have been members for $need months, and you haven't yet."
+            : "$name has been a member for less than $need months, so can't be a guarantor yet.";
     }
 
     /**
