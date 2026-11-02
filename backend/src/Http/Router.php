@@ -1,0 +1,95 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Sacco\Http;
+
+use Sacco\Auth\Auth;
+use Sacco\Auth\Roles;
+use Sacco\Config;
+
+/**
+ * Maps METHOD /api/path/{param} to [Controller::class, 'method'].
+ *
+ * Route options:
+ * - 'auth' => false        public route (default: signed in)
+ * - 'roles' => [...]       only these roles (a super admin always passes, see Roles::allows)
+ * - 'before_password' => true   allowed while the user still has to change their temporary password
+ *
+ * Signed-in POST/PATCH/PUT/DELETE requests must carry the session's X-CSRF-Token header.
+ */
+final class Router
+{
+    private array $routes = [];
+
+    public function get(string $path, array $handler, array $options = []): void
+    {
+        $this->add('GET', $path, $handler, $options);
+    }
+
+    public function post(string $path, array $handler, array $options = []): void
+    {
+        $this->add('POST', $path, $handler, $options);
+    }
+
+    public function patch(string $path, array $handler, array $options = []): void
+    {
+        $this->add('PATCH', $path, $handler, $options);
+    }
+
+    public function delete(string $path, array $handler, array $options = []): void
+    {
+        $this->add('DELETE', $path, $handler, $options);
+    }
+
+    private function add(string $method, string $path, array $handler, array $options): void
+    {
+        $regex = '#^' . preg_replace('#\{([a-z_]+)\}#', '(?P<$1>[^/]+)', $path) . '$#';
+        $this->routes[] = compact('method', 'regex', 'handler', 'options');
+    }
+
+    public function dispatch(Request $request): never
+    {
+        $pathMatched = false;
+        foreach ($this->routes as $route) {
+            if (!preg_match($route['regex'], $request->path, $m)) {
+                continue;
+            }
+            $pathMatched = true;
+            if ($route['method'] !== $request->method) {
+                continue;
+            }
+            $request->params = array_filter($m, 'is_string', ARRAY_FILTER_USE_KEY);
+            $this->guard($request, $route['options']);
+            [$class, $method] = $route['handler'];
+            try {
+                (new $class())->$method($request);
+            } catch (\Throwable $e) {
+                error_log('[sacco] ' . $e::class . ': ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+                Response::error(Config::isDebug() ? $e->getMessage() : 'Something went wrong. Please try again.', 500);
+            }
+            Response::ok();
+        }
+        Response::error($pathMatched ? 'Method not allowed' : 'Not found', $pathMatched ? 405 : 404);
+    }
+
+    private function guard(Request $request, array $options): void
+    {
+        if (($options['auth'] ?? true) === false) {
+            return;
+        }
+        $user = Auth::user();
+        if (!$user) {
+            Response::error('Please sign in.', 401);
+        }
+        if ($request->method !== 'GET' && !hash_equals(Auth::csrfToken(), $request->header('X-CSRF-Token'))) {
+            Response::error('Your session has expired. Please refresh the page.', 419);
+        }
+        if ($user['must_change_password'] && empty($options['before_password'])) {
+            Response::error('Please change your temporary password first.', 403, ['code' => 'must_change_password']);
+        }
+        if (isset($options['roles']) && !Roles::allows($user['role'], $options['roles'])) {
+            Response::error('You do not have permission to do that.', 403);
+        }
+    }
+}

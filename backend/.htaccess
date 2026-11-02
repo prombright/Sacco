@@ -1,0 +1,3 @@
+# Nothing in backend/ is served directly except public/ (routed from the project root .htaccess).
+# This keeps .env, src/ and the SQL files private even if the folder is reachable.
+Require all denied
