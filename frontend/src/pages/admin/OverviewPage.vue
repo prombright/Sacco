@@ -7,6 +7,8 @@ import {
   CheckCircleIcon,
   ChevronRightIcon,
   ExclamationTriangleIcon,
+  MegaphoneIcon,
+  ShieldCheckIcon,
   UserPlusIcon,
 } from '@heroicons/vue/24/outline'
 import { api, ApiError } from '@/api'
@@ -34,7 +36,7 @@ interface Overview {
   funds: { month: string; value: string }[]
   collections: { month: string; value: string }[]
   loans_by_status: Partial<Record<LoanStatus, { count: number; amount: string }>>
-  recent: { text: string; actor: string; at: string }[]
+  recent: { text: string; actor: string; actor_role: string | null; action: string; link: string | null; at: string }[]
 }
 
 const auth = useAuth()
@@ -94,6 +96,31 @@ const totalIn = computed(() => moneyIn.value.reduce((s, r) => s + Number(r.value
 const totalOut = computed(() => moneyOut.value.reduce((s, r) => s + Number(r.value), 0))
 
 const statusOrder: LoanStatus[] = ['pending_guarantors', 'pending_approval', 'approved', 'active', 'closed']
+const loanCount = computed(() => statusOrder.reduce((s, k) => s + (data.value?.loans_by_status[k]?.count ?? 0), 0))
+const hoverStatus = ref<LoanStatus | null>(null)
+
+// The charts: the last 6 or 12 months
+const range = ref<6 | 12>(12)
+const funds6 = computed(() => data.value?.funds.slice(-range.value) ?? [])
+const collections6 = computed(() => data.value?.collections.slice(-range.value) ?? [])
+
+// The activity feed, by kind
+const filters = [
+  { key: 'all', label: 'All' },
+  { key: 'money', label: 'Money' },
+  { key: 'loans', label: 'Loans' },
+  { key: 'people', label: 'Members' },
+  { key: 'rules', label: 'Rules & setup' },
+] as const
+type Filter = (typeof filters)[number]['key']
+const filter = ref<Filter>('all')
+function kindOf(action: string): Filter {
+  if (action.startsWith('loan.') || action.startsWith('withdrawal.')) return 'loans'
+  if (/^(transaction|payroll|dividend|profit_share|cashbook|investment)\./.test(action)) return 'money'
+  if (/^(user|users|next_of_kin|member|password)\./.test(action)) return 'people'
+  return 'rules'
+}
+const activity = computed(() => (data.value?.recent ?? []).filter((r) => filter.value === 'all' || kindOf(r.action) === filter.value))
 
 function ago(at: string) {
   const mins = Math.round((Date.now() - new Date(at.replace(' ', 'T')).getTime()) / 60000)
@@ -120,8 +147,12 @@ const money = (v: number) => formatMoney(String(v))
             <template v-else>Everything is up to date.</template>
           </template>
         </p>
+        <p v-if="auth.isSuperAdmin" class="mt-2 inline-flex items-center gap-1.5 rounded-full bg-saffron-50 px-3 py-1 text-xs font-medium text-saffron-700">
+          <ShieldCheckIcon class="h-4 w-4" aria-hidden="true" />Every change you make is sent to the other office accounts
+        </p>
       </div>
       <div class="flex flex-wrap gap-2">
+        <RouterLink :to="{ name: 'notices' }" class="btn-secondary"><MegaphoneIcon class="h-4 w-4" />Post a notice</RouterLink>
         <RouterLink :to="{ name: 'member-import' }" class="btn-secondary"><UserPlusIcon class="h-4 w-4" />Import members</RouterLink>
         <RouterLink :to="{ name: 'payroll' }" class="btn-primary"><ArrowUpTrayIcon class="h-4 w-4" />Post this month's payroll</RouterLink>
       </div>
@@ -187,20 +218,26 @@ const money = (v: number) => formatMoney(String(v))
       </section>
 
       <!-- Trends -->
-      <section class="mt-6 grid gap-4 xl:grid-cols-5">
-        <div class="card p-5 xl:col-span-3">
+      <div class="mt-8 flex items-center justify-between gap-3">
+        <h2 class="text-lg font-semibold">Trends</h2>
+        <div class="flex rounded-lg bg-gray-200/60 p-0.5 text-xs font-semibold" role="radiogroup" aria-label="Period">
+          <button v-for="r in ([6, 12] as const)" :key="r" type="button" role="radio" :aria-checked="range === r" class="rounded-md px-3 py-1" :class="range === r ? 'bg-surface text-ink shadow-sm' : 'text-gray-600'" @click="range = r">Last {{ r }} months</button>
+        </div>
+      </div>
+      <section class="mt-3 grid gap-4 xl:grid-cols-5">
+        <div class="card p-5 xl:col-span-3 min-w-0">
           <div class="flex items-baseline justify-between gap-2">
             <h2 class="font-semibold">Member funds</h2>
             <p class="text-xs text-gray-500">Savings + shares at each month end</p>
           </div>
-          <MonthChart class="mt-4" :points="data.funds" kind="area" :color="chartColors.blue" label="Member funds" :format="money" />
+          <MonthChart :key="'f' + range" class="mt-4" :points="funds6" kind="area" :color="chartColors.blue" label="Member funds" :format="money" />
         </div>
-        <div class="card p-5 xl:col-span-2">
+        <div class="card p-5 xl:col-span-2 min-w-0">
           <div class="flex items-baseline justify-between gap-2">
             <h2 class="font-semibold">Loan repayments</h2>
             <p class="text-xs text-gray-500">Collected each month</p>
           </div>
-          <MonthChart class="mt-4" :points="data.collections" kind="bar" :color="chartColors.amber" label="Loan repayments" :format="money" />
+          <MonthChart :key="'c' + range" class="mt-4" :points="collections6" kind="bar" :color="chartColors.amber" label="Loan repayments" :format="money" />
         </div>
       </section>
 
@@ -238,8 +275,26 @@ const money = (v: number) => formatMoney(String(v))
             <h2 class="font-semibold">Loans</h2>
             <RouterLink :to="{ name: 'admin-loans' }" class="text-sm font-semibold text-brand hover:underline">All loans</RouterLink>
           </div>
-          <ul class="mt-4 divide-y divide-line text-sm">
-            <li v-for="s in statusOrder" :key="s" class="flex items-center justify-between py-2.5">
+          <div v-if="loanCount" class="mt-4 flex h-3 gap-0.5 overflow-hidden rounded-full" role="img" :aria-label="`${loanCount} loans by status`">
+            <div
+              v-for="s in statusOrder.filter((k) => data!.loans_by_status[k]?.count)"
+              :key="s"
+              class="h-full transition-opacity"
+              :class="[loanStatus[s].dot, hoverStatus && hoverStatus !== s ? 'opacity-30' : '']"
+              :style="{ width: (data!.loans_by_status[s]!.count / loanCount) * 100 + '%' }"
+              @pointerenter="hoverStatus = s"
+              @pointerleave="hoverStatus = null"
+            />
+          </div>
+          <ul class="mt-3 divide-y divide-line text-sm">
+            <li
+              v-for="s in statusOrder"
+              :key="s"
+              class="-mx-2 flex items-center justify-between rounded-lg px-2 py-2.5 transition-colors"
+              :class="{ 'bg-gray-50': hoverStatus === s }"
+              @pointerenter="hoverStatus = s"
+              @pointerleave="hoverStatus = null"
+            >
               <span class="flex items-center gap-2">
                 <span class="inline-block h-2 w-2 rounded-full" :class="loanStatus[s].dot" aria-hidden="true" />
                 {{ loanStatus[s].label }}
@@ -257,15 +312,30 @@ const money = (v: number) => formatMoney(String(v))
             <h2 class="font-semibold">Latest activity</h2>
             <RouterLink :to="{ name: 'reports' }" class="text-sm font-semibold text-brand hover:underline">Audit log</RouterLink>
           </div>
-          <ol class="mt-4 space-y-3 text-sm">
-            <li v-for="(r, i) in data.recent" :key="i" class="flex gap-3">
-              <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-navy-200" aria-hidden="true" />
-              <span class="flex-1">
-                <span class="font-semibold">{{ r.actor }}</span> <span class="text-gray-700">{{ r.text }}</span>
-                <span class="block text-xs text-gray-500">{{ ago(r.at) }}</span>
-              </span>
+          <div class="mt-3 flex flex-wrap gap-1.5" role="radiogroup" aria-label="Show">
+            <button
+              v-for="f in filters"
+              :key="f.key"
+              type="button"
+              role="radio"
+              :aria-checked="filter === f.key"
+              class="rounded-full px-2.5 py-1 text-xs font-semibold transition"
+              :class="filter === f.key ? 'bg-brand text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+              @click="filter = f.key"
+            >{{ f.label }}</button>
+          </div>
+          <ol class="mt-3 max-h-80 space-y-1 overflow-y-auto pr-1 text-sm [scrollbar-width:thin]">
+            <li v-for="(r, i) in activity" :key="i">
+              <component :is="r.link ? 'RouterLink' : 'div'" :to="r.link ?? undefined" class="-mx-2 flex gap-3 rounded-lg px-2 py-1.5" :class="{ 'hover:bg-gray-50': r.link }">
+                <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full" :class="r.actor_role === 'super_admin' ? 'bg-saffron-500' : 'bg-navy-200'" aria-hidden="true" />
+                <span class="flex-1">
+                  <span class="font-semibold">{{ r.actor }}</span>
+                  <span v-if="r.actor_role === 'super_admin'" class="ml-1 whitespace-nowrap rounded bg-saffron-100 px-1 py-px text-[10px] font-semibold uppercase tracking-wide text-saffron-700">Super admin</span>&#32;<span class="text-gray-700">{{ r.text }}</span>
+                  <span class="block text-xs text-gray-500">{{ ago(r.at) }}</span>
+                </span>
+              </component>
             </li>
-            <li v-if="!data.recent.length" class="text-gray-500">Nothing yet.</li>
+            <li v-if="!activity.length" class="py-2 text-gray-500">Nothing here yet.</li>
           </ol>
         </div>
       </section>

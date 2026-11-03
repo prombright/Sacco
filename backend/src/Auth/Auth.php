@@ -15,12 +15,13 @@ final class Auth
 {
     private static array|false|null $user = null;
 
-    public static function startSession(): void
+    /** The developer portal uses its own cookie, so it never mixes with a SACCO sign-in */
+    public static function startSession(string $name = 'sacco_session'): void
     {
         if (session_status() === PHP_SESSION_ACTIVE) {
             return;
         }
-        session_name('sacco_session');
+        session_name($name);
         session_set_cookie_params([
             'lifetime' => 0,
             'path' => '/',
@@ -32,7 +33,7 @@ final class Auth
 
         // Signed out after IDLE_MINUTES without activity
         $idle = (int) Config::get('SESSION_IDLE_MINUTES', 30) * 60;
-        if (isset($_SESSION['user_id'], $_SESSION['last_seen']) && time() - $_SESSION['last_seen'] > $idle) {
+        if ((isset($_SESSION['user_id']) || isset($_SESSION['dev_id'])) && isset($_SESSION['last_seen']) && time() - $_SESSION['last_seen'] > $idle) {
             self::logout();
             session_start();
         }

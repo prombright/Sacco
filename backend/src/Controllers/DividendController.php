@@ -9,6 +9,7 @@ use Sacco\Database;
 use Sacco\Http\Request;
 use Sacco\Http\Response;
 use Sacco\Loans\LoanMath;
+use Sacco\Support\Notify;
 use Sacco\Support\Audit;
 use Sacco\Support\Ledger;
 use Sacco\Support\LedgerException;
@@ -69,6 +70,12 @@ final class DividendController
             return $runId;
         });
         Audit::log('dividend.posted', 'dividend_run', $runId, ['label' => $label, 'rate' => $rate]);
+        $paid = Database::tenant()->prepare("SELECT user_id, amount FROM transactions WHERE dividend_run_id = ? AND type = 'dividend'");
+        $paid->execute([$runId]);
+        foreach ($paid->fetchAll() as $p) {
+            Notify::member((int) $p['user_id'], 'dividend', "Your $label dividend: " . Notify::money($p['amount']),
+                Notify::money($p['amount']) . " ($rate% of your share capital) has been added to your shares.", '/statement');
+        }
 
         Response::ok(['run' => $this->run($runId)], 201);
     }
@@ -124,6 +131,13 @@ final class DividendController
                 ->execute([Auth::id(), $reason, $id]);
         });
         Audit::log('dividend.reversed', 'dividend_run', $id, ['reason' => $reason]);
+        $who = Database::tenant()->prepare("SELECT DISTINCT user_id FROM transactions WHERE dividend_run_id = ? AND type = 'reversal'");
+        $who->execute([$id]);
+        $what = ($run['kind'] ?? 'dividend') === 'profit' ? 'profit share' : 'dividend';
+        foreach ($who->fetchAll(\PDO::FETCH_COLUMN) as $userId) {
+            Notify::member((int) $userId, 'money_reversed', "Your {$run['label']} $what was reversed",
+                "The SACCO office reversed the {$run['label']} $what: $reason. It has been taken back off your account.", '/statement');
+        }
         Response::ok(['run' => $this->run($id)]);
     }
 

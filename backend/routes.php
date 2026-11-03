@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Sacco\Auth\Roles;
 use Sacco\Controllers\AuthController;
 use Sacco\Controllers\CashbookController;
+use Sacco\Controllers\DevController;
 use Sacco\Controllers\DividendController;
 use Sacco\Controllers\InvestmentController;
 use Sacco\Controllers\MemberDetailsController;
@@ -161,6 +162,24 @@ $router->delete('/api/notices/{id}', [NoticeController::class, 'end'], $admins);
 // Messages to members (the bell)
 $router->get('/api/me/notifications', [NotificationController::class, 'index']);
 $router->post('/api/me/notifications/read', [NotificationController::class, 'read']);
+
+// The developer portal: every SACCO on this installation
+$dev = ['dev' => true];
+$router->get('/api/dev/me', [DevController::class, 'me'], ['auth' => false]);
+$router->post('/api/dev/login', [DevController::class, 'login'], ['auth' => false]);
+$router->post('/api/dev/logout', [DevController::class, 'logout'], $dev + ['before_password' => true]);
+$router->post('/api/dev/change-password', [DevController::class, 'changePassword'], $dev + ['before_password' => true]);
+$router->get('/api/dev/overview', [DevController::class, 'overview'], $dev);
+$router->get('/api/dev/log', [DevController::class, 'log'], $dev);
+$router->post('/api/dev/saccos', [DevController::class, 'create'], $dev);
+$router->get('/api/dev/saccos/{id}', [DevController::class, 'show'], $dev);
+$router->patch('/api/dev/saccos/{id}', [DevController::class, 'update'], $dev);
+$router->get('/api/dev/saccos/{id}/members', [DevController::class, 'members'], $dev);
+$router->get('/api/dev/saccos/{id}/activity', [DevController::class, 'activity'], $dev);
+$router->post('/api/dev/saccos/{id}/office-accounts', [DevController::class, 'addOfficeAccount'], $dev);
+$router->post('/api/dev/saccos/{id}/users/{user}/reset-password', [DevController::class, 'resetPassword'], $dev);
+$router->post('/api/dev/saccos/{id}/users/{user}/status', [DevController::class, 'setUserStatus'], $dev);
+$router->post('/api/dev/saccos/{id}/update-system', [DevController::class, 'updateSystem'], $dev);
 
 // The SACCO's rules
 $router->get('/api/settings', [SettingsController::class, 'index'], $admins);

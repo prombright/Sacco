@@ -9,6 +9,7 @@ use Sacco\Database;
 use Sacco\Http\Request;
 use Sacco\Http\Response;
 use Sacco\Loans\Loans;
+use Sacco\Support\Notify;
 use Sacco\Support\Audit;
 use Sacco\Support\Ledger;
 use Sacco\Support\LedgerException;
@@ -74,9 +75,11 @@ final class PayrollController
         $input = $this->rows($request);
 
         $started = microtime(true);
-        $batchId = Database::transaction(function (\PDO $db) use ($period, $valueDate, $fileName, $input, $request) {
+        $posted = [];
+        $batchId = Database::transaction(function (\PDO $db) use ($period, $valueDate, $fileName, $input, $request, &$posted) {
             // Checked again inside the transaction: balances may have moved since the preview
             $rows = $this->check($input);
+            $posted = $rows;
             $report = $this->report($period, $rows);
             if ($report['error_count'] > 0) {
                 Response::error('Some rows have problems. Fix them in the file and upload it again.', 422, ['report' => $report]);
@@ -107,6 +110,19 @@ final class PayrollController
             return $batchId;
         });
         Audit::log('payroll.posted', 'payroll_batch', $batchId, ['period' => $period, 'seconds' => round(microtime(true) - $started, 2)]);
+        // Each member hears what came off their pay and where it went
+        $month = date('F Y', strtotime("$period-01"));
+        foreach ($posted as $r) {
+            $parts = [];
+            $r['savings'] > 0 && $parts[] = Notify::cents($r['savings']) . ' to your savings';
+            $r['shares'] > 0 && $parts[] = Notify::cents($r['shares']) . ' to your shares';
+            $r['loan'] > 0 && $parts[] = Notify::cents($r['loan']) . ' off your loan';
+            if ($parts) {
+                $total = $r['savings'] + $r['shares'] + $r['loan'];
+                Notify::member($r['member_id'], 'money_in', "$month payroll: " . Notify::cents($total) . ' received',
+                    'From your ' . $month . ' pay: ' . implode(', ', $parts) . '.', '/statement');
+            }
+        }
 
         Response::ok(['batch' => $this->batch($batchId)], 201);
     }
@@ -204,6 +220,15 @@ final class PayrollController
                 ->execute([Auth::id(), $reason, $id]);
         });
         Audit::log('payroll.reversed', 'payroll_batch', $id, ['reason' => $reason]);
+        $who = Database::tenant()->prepare(
+            'SELECT user_id FROM transactions WHERE batch_id = ? UNION SELECT l.user_id FROM loan_payments p JOIN loans l ON l.id = p.loan_id WHERE p.batch_id = ?'
+        );
+        $who->execute([$id, $id]);
+        $month = date('F Y', strtotime($batch['period'] . '-01'));
+        foreach ($who->fetchAll(\PDO::FETCH_COLUMN) as $userId) {
+            Notify::member((int) $userId, 'money_reversed', "The $month payroll entries were reversed",
+                "The SACCO office reversed the $month payroll upload: $reason. Your balances are back to what they were before it.", '/statement');
+        }
 
         Response::ok(['batch' => $this->batch($id)]);
     }

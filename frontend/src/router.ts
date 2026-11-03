@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuth } from '@/stores/auth'
+import { useDev } from '@/stores/dev'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -10,6 +11,8 @@ declare module 'vue-router' {
     /** A member's own money: office accounts (no savings or loans of their own) go to the overview */
     member?: boolean
     title?: string
+    /** The developer portal: its own sign-in, separate from any SACCO's */
+    dev?: boolean
   }
 }
 
@@ -52,11 +55,30 @@ const router = createRouter({
         { path: 'members/:id(\\d+)', name: 'member', component: () => import('@/pages/admin/MemberPage.vue'), meta: { admin: true, title: 'Member' } },
       ],
     },
+    // The developer portal
+    { path: '/devportal/login', name: 'dev-login', component: () => import('@/pages/dev/DevLoginPage.vue'), meta: { dev: true, public: true } },
+    {
+      path: '/devportal',
+      component: () => import('@/layouts/DevLayout.vue'),
+      meta: { dev: true },
+      children: [
+        { path: '', name: 'dev-home', component: () => import('@/pages/dev/DevHomePage.vue'), meta: { dev: true } },
+        { path: 'saccos/:id(\\d+)', name: 'dev-sacco', component: () => import('@/pages/dev/DevSaccoPage.vue'), meta: { dev: true } },
+        { path: 'log', name: 'dev-log', component: () => import('@/pages/dev/DevLogPage.vue'), meta: { dev: true } },
+      ],
+    },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
 })
 
 router.beforeEach(async (to) => {
+  if (to.meta.dev) {
+    const dev = useDev()
+    if (!dev.loaded) await dev.load().catch(() => {})
+    document.title = 'Developer portal'
+    if (to.name === 'dev-login') return dev.developer && !dev.developer.must_change_password ? { name: 'dev-home' } : true
+    return dev.developer && !dev.developer.must_change_password ? true : { name: 'dev-login' }
+  }
   const auth = useAuth()
   if (!auth.loaded) {
     try {

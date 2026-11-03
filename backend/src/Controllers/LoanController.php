@@ -395,6 +395,8 @@ final class LoanController
             return $id;
         });
         Audit::log('loan.brought_in', 'loan', $loanId, ['member' => $userId, 'amount' => Money::toDecimal($amount), 'repaid' => Money::toDecimal($repaid)]);
+        $this->tellAboutLoan(['id' => $loanId, 'user_id' => $userId], 'loan_disbursed', 'Your loan is now in the app',
+            'Your loan of ' . Notify::cents($amount) . " from the SACCO's earlier records has been added, with " . Notify::cents($repaid) . ' already repaid.');
         Response::ok(['loan' => $this->detail($loanId)], 201);
     }
 
@@ -421,6 +423,8 @@ final class LoanController
             return ['paid' => $quote['amount'], 'waived' => $waived];
         });
         Audit::log('loan.settled_early', 'loan', (int) $loan['id'], ['amount' => Money::toDecimal($result['paid']), 'interest_waived' => Money::toDecimal($result['waived'])]);
+        $this->tellAboutLoan($loan, 'loan_repayment', "Loan {$loan['loan_no']} is paid off",
+            'You paid off the loan early with ' . Notify::cents($result['paid']) . ($result['waived'] > 0 ? ', and ' . Notify::cents($result['waived']) . ' of interest for later months was taken off.' : '.'));
         Response::ok(['loan' => $this->detail((int) $loan['id'])]);
     }
 
@@ -435,7 +439,7 @@ final class LoanController
             Response::error('The late-payment penalty is set to 0%. Set it on the Rules page first.', 422);
         }
         $result = Database::transaction(function (\PDO $db) use ($percent) {
-            $loans = $db->query("SELECT l.id, l.loan_no, u.full_name FROM loans l JOIN users u ON u.id = l.user_id WHERE l.status = 'active'")->fetchAll();
+            $loans = $db->query("SELECT l.id, l.loan_no, l.user_id, u.full_name FROM loans l JOIN users u ON u.id = l.user_id WHERE l.status = 'active'")->fetchAll();
             $already = $db->prepare("SELECT 1 FROM loan_charges WHERE loan_id = ? AND type = 'penalty' AND waived_at IS NULL AND DATE_FORMAT(charged_on, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')");
             $insert = $db->prepare("INSERT INTO loan_charges (loan_id, type, amount, charged_on, note, created_by) VALUES (?, 'penalty', ?, CURDATE(), ?, ?)");
             $charged = [];
@@ -454,11 +458,15 @@ final class LoanController
                 }
                 $insert->execute([$l['id'], Money::toDecimal($penalty), Loans::penaltyPercent() . '% of ' . number_format($late / 100) . ' late', Auth::id()]);
                 Loans::applyPayments($db, (int) $l['id']);
-                $charged[] = ['loan_no' => $l['loan_no'], 'borrower' => $l['full_name'], 'penalty' => Money::toDecimal($penalty)];
+                $charged[] = ['loan_no' => $l['loan_no'], 'borrower' => $l['full_name'], 'penalty' => Money::toDecimal($penalty), 'id' => (int) $l['id'], 'user_id' => (int) $l['user_id'], 'late' => $late];
             }
             return $charged;
         });
         Audit::log('loan.penalties_charged', null, null, ['count' => count($result)]);
+        foreach ($result as $c) {
+            $this->tellAboutLoan(['id' => $c['id'], 'user_id' => $c['user_id']], 'loan_penalty', 'Late-payment charge of ' . Notify::money($c['penalty']),
+                Notify::cents($c['late']) . " of loan {$c['loan_no']} is late, so a " . Loans::penaltyPercent() . '% charge of ' . Notify::money($c['penalty']) . ' was added.');
+        }
         Response::ok(['charged' => $result]);
     }
 
@@ -483,6 +491,8 @@ final class LoanController
             Loans::applyPayments($db, (int) $loan['id']);
         });
         Audit::log('loan.charge_waived', 'loan', (int) $loan['id'], ['charge' => (int) $charge['id'], 'reason' => $reason]);
+        $this->tellAboutLoan($loan, 'loan_repayment', 'A charge on your loan was waived',
+            'The ' . Notify::money($charge['amount']) . " charge on loan {$loan['loan_no']} was taken off: $reason.");
         Response::ok(['loan' => $this->detail((int) $loan['id'])]);
     }
 
@@ -508,6 +518,8 @@ final class LoanController
             mb_substr($request->string('narration'), 0, 255) ?: null
         ));
         Audit::log('loan.payment_recorded', 'loan_payment', $receipt['payment_id'], ['loan' => (int) $loan['id'], 'amount' => Money::toDecimal($cents)]);
+        $this->tellAboutLoan($loan, 'loan_repayment', 'Loan repayment of ' . Notify::cents($cents) . ' received',
+            'We received ' . Notify::cents($cents) . " for loan {$loan['loan_no']} on " . date('j M Y', strtotime($paidOn)) . '.');
         Response::ok(['loan' => $this->detail((int) $loan['id']), 'receipt' => $receipt], 201);
     }
 
@@ -603,6 +615,8 @@ final class LoanController
             Loans::applyPayments($db, (int) $loan['id']);
         });
         Audit::log('loan.payment_reversed', 'loan_payment', (int) $payment['id'], ['reason' => $reason]);
+        $this->tellAboutLoan($loan, 'money_reversed', 'A loan repayment was reversed',
+            'The repayment of ' . Notify::money($payment['amount']) . " on loan {$loan['loan_no']} dated " . date('j M Y', strtotime($payment['paid_on'])) . " was reversed: $reason.");
         Response::ok(['loan' => $this->detail((int) $loan['id'])]);
     }
 
@@ -695,6 +709,17 @@ final class LoanController
     // ----------------------------------------------------------------------
 
     /** A guarantor's answer, to the borrower */
+    /** Tells the borrower what happened to their loan, and where it now stands */
+    private function tellAboutLoan(array $loan, string $kind, string $title, string $text): void
+    {
+        $p = Loans::position(Database::tenant(), (int) $loan['id']);
+        $text .= $p['total_left'] > 0
+            ? ' Still to pay: ' . Notify::cents($p['total_left'])
+                . ($p['next_due_date'] ? '. Next: ' . Notify::cents($p['next_due_amount']) . ' by ' . date('j M Y', strtotime($p['next_due_date'])) : '') . '.'
+            : ' The loan is fully repaid.';
+        Notify::member((int) $loan['user_id'], $kind, $title, $text, '/loans/' . $loan['id']);
+    }
+
     private function tellBorrower(int $loanId, string $text): void
     {
         $stmt = Database::tenant()->prepare('SELECT user_id, status FROM loans WHERE id = ?');

@@ -19,50 +19,31 @@ if (PHP_SAPI !== 'cli') {
 
 require __DIR__ . '/../bootstrap.php';
 
-use Sacco\Auth\Passwords;
-use Sacco\Config;
-use Sacco\Database;
-use Sacco\Support\Migrator;
+use Sacco\Support\SaccoSetup;
 
 $opt = getopt('', ['code:', 'name:', 'short:', 'admin-name:', 'admin-email:', 'db:', 'domain:', 'currency:']);
-$code = strtolower(trim($opt['code'] ?? ''));
-$name = trim($opt['name'] ?? '');
-$adminName = trim($opt['admin-name'] ?? '');
-$adminEmail = strtolower(trim($opt['admin-email'] ?? ''));
+try {
+    $made = SaccoSetup::create([
+        'code' => $opt['code'] ?? '',
+        'name' => $opt['name'] ?? '',
+        'short_name' => $opt['short'] ?? null,
+        'domain' => $opt['domain'] ?? null,
+        'db_name' => $opt['db'] ?? null,
+        'currency' => $opt['currency'] ?? null,
+        'admin_name' => $opt['admin-name'] ?? '',
+        'admin_email' => $opt['admin-email'] ?? '',
+    ], fn ($l) => print($l . PHP_EOL));
+} catch (\InvalidArgumentException $e) {
+    exit($e->getMessage() . "
 
-if (!preg_match('/^[a-z0-9][a-z0-9-]{1,38}$/', $code) || $name === '' || $adminName === '' || !filter_var($adminEmail, FILTER_VALIDATE_EMAIL)) {
-    exit("Usage: php backend/bin/create-sacco.php --code=smacon --name=\"SMACON SACCO\" --admin-name=\"Jane Doe\" --admin-email=jane@example.com [--short=SMACON] [--db=sacco_smacon] [--domain=host] [--currency=UGX]\n");
-}
-$dbName = $opt['db'] ?? 'sacco_' . str_replace('-', '_', $code);
-
-// The platform database first, so the saccos table exists
-$platform = (string) Config::get('PLATFORM_DB_NAME', 'sacco_platform');
-Migrator::ensureDatabase($platform);
-Migrator::run($platform, 'platform');
-
-$exists = Database::platform()->prepare('SELECT 1 FROM saccos WHERE code = ?');
-$exists->execute([$code]);
-if ($exists->fetchColumn()) {
-    exit("A SACCO with code '$code' already exists.\n");
+Usage: php backend/bin/create-sacco.php --code=smacon --name=\"SMACON SACCO\" --admin-name=\"Jane Doe\" --admin-email=jane@example.com [--short=SMACON] [--db=sacco_smacon] [--domain=host] [--currency=UGX]
+");
 }
 
-Migrator::ensureDatabase($dbName);
-echo "Setting up $dbName\n";
-Migrator::run($dbName, 'tenant', fn ($l) => print($l . PHP_EOL));
-
-Database::platform()->prepare(
-    'INSERT INTO saccos (code, name, short_name, domain, db_name, currency) VALUES (?, ?, ?, ?, ?, ?)'
-)->execute([$code, $name, $opt['short'] ?? null, ($opt['domain'] ?? '') ?: null, $dbName, strtoupper($opt['currency'] ?? 'UGX')]);
-
-$temporary = Passwords::temporary();
-$db = Database::connect($dbName);
-$db->prepare(
-    "INSERT INTO users (full_name, email, role, password_hash, must_change_password) VALUES (?, ?, 'super_admin', ?, 1)"
-)->execute([$adminName, $adminEmail, Passwords::hash($temporary)]);
-$id = (int) $db->lastInsertId();
-$db->prepare('UPDATE users SET account_no = ? WHERE id = ?')->execute(['M' . str_pad((string) $id, 5, '0', STR_PAD_LEFT), $id]);
-$db->prepare("INSERT INTO audit_log (actor_id, action, subject_type, subject_id) VALUES (NULL, 'sacco.created', 'user', ?)")->execute([$id]);
-
-echo "\nSACCO '$name' is ready (code: $code).\n";
-echo "Super admin: $adminEmail\n";
-echo "Temporary password: $temporary   (shown once - they must change it at first login)\n";
+echo "
+SACCO '{$opt['name']}' is ready (code: {$made['code']}).
+";
+echo "Super admin: {$made['admin_email']}
+";
+echo "Temporary password: {$made['temporary_password']}   (shown once - they must change it at first login)
+";

@@ -270,7 +270,7 @@ async function signOut() {
         <span class="hidden whitespace-nowrap text-sm text-gray-500 xl:inline" :class="auth.isAdmin ? 'ml-4' : 'ml-auto'">
           {{ new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }) }}
         </span>
-        <NotificationBell v-if="!auth.isAdmin" class="ml-auto xl:ml-2" />
+        <NotificationBell :class="auth.isAdmin ? 'ml-2' : 'ml-auto xl:ml-2'" />
       </div>
       <div v-if="auth.isAdmin" class="px-4 pb-3 sm:hidden">
         <MemberSearch />

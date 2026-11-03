@@ -113,6 +113,7 @@ h3 {
  */
 .dark :is(.bg-red-50, .bg-red-50\/40, .bg-red-50\/60) { background-color: rgb(248 113 113 / 0.12); }
 .dark :is(.bg-amber-50, .bg-saffron-50, .bg-saffron-50\/40, .bg-amber-50\/40) { background-color: rgb(242 185 52 / 0.12); }
+.dark .from-saffron-50 { --tw-gradient-from: rgb(242 185 52 / 0.12) var(--tw-gradient-from-position); --tw-gradient-to: rgb(242 185 52 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
 .dark .bg-saffron-100 { background-color: rgb(242 185 52 / 0.18); }
 .dark :is(.bg-green-50, .bg-emerald-50) { background-color: rgb(52 211 153 / 0.12); }
 .dark :is(.bg-navy-50, .bg-blue-50) { background-color: rgb(154 162 230 / 0.16); }

@@ -73,6 +73,20 @@ final class Migrator
         return $applied;
     }
 
+    /** The update files a database hasn't had yet */
+    public static function pending(string $dbName, string $kind): array
+    {
+        $db = Database::connect($dbName);
+        try {
+            $done = $db->query('SELECT filename FROM schema_migrations')->fetchAll(PDO::FETCH_COLUMN);
+        } catch (\PDOException) {
+            $done = [];
+        }
+        $files = array_map('basename', glob(self::DIR . "/$kind/*.sql"));
+        sort($files, SORT_NATURAL);
+        return array_values(array_diff($files, $done));
+    }
+
     /** Splits a file on the semicolons that end a line, ignoring -- comments */
     private static function statements(string $sql): array
     {

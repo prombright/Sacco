@@ -8,6 +8,7 @@ use Sacco\Database;
 use Sacco\Http\Request;
 use Sacco\Http\Response;
 use Sacco\Loans\Loans;
+use Sacco\Support\Activity;
 use Sacco\Support\Money;
 
 /**
@@ -68,21 +69,8 @@ final class OfficeController
             'lent' => Money::fromDecimal($one('SELECT COALESCE(SUM(amount), 0) FROM loans WHERE disbursed_on >= ?', [$monthStart])),
         ];
 
-        // Member funds (savings + shares) at each of the last 12 month-ends
-        $months = [];
-        for ($i = 11; $i >= 0; $i--) {
-            $months[] = date('Y-m', strtotime("first day of -$i month"));
-        }
-        $before = Money::fromDecimal($one('SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE value_date < ?', [$months[0] . '-01']));
-        $byMonth = $db->prepare("SELECT DATE_FORMAT(value_date, '%Y-%m') AS m, SUM(amount) FROM transactions WHERE value_date >= ? GROUP BY m");
-        $byMonth->execute([$months[0] . '-01']);
-        $moves = $byMonth->fetchAll(\PDO::FETCH_KEY_PAIR);
-        $running = $before;
-        $funds = [];
-        foreach ($months as $m) {
-            $running += Money::fromDecimal($moves[$m] ?? null);
-            $funds[] = ['month' => $m, 'value' => Money::toDecimal($running)];
-        }
+        $months = self::months();
+        $funds = self::fundsTrend($db);
 
         // Loan repayments collected each month
         $rep = $db->prepare("SELECT DATE_FORMAT(paid_on, '%Y-%m') AS m, SUM(amount) FROM loan_payments WHERE paid_on >= ? GROUP BY m");
@@ -95,8 +83,8 @@ final class OfficeController
 
         // Latest activity, in words
         $recent = $db->query(
-            'SELECT a.action, a.subject_type, a.subject_id, a.details, a.created_at, u.full_name AS actor
-             FROM audit_log a LEFT JOIN users u ON u.id = a.actor_id ORDER BY a.id DESC LIMIT 8'
+            'SELECT a.action, a.subject_type, a.subject_id, a.details, a.created_at, u.full_name AS actor, u.role AS actor_role
+             FROM audit_log a LEFT JOIN users u ON u.id = a.actor_id ORDER BY a.id DESC LIMIT 30'
         )->fetchAll();
 
         Response::ok([
@@ -116,11 +104,55 @@ final class OfficeController
             'collections' => $collections,
             'loans_by_status' => array_map(fn ($r) => ['count' => (int) $r['n'], 'amount' => $r['amount']], $byStatus),
             'recent' => array_map(fn ($r) => [
-                'text' => self::describe($r),
-                'actor' => $r['actor'] ?? 'System',
+                'text' => Activity::describe($r),
+                'actor' => $r['actor'] ?? (str_starts_with($r['action'], 'platform.') ? 'System provider' : 'System'),
+                'actor_role' => $r['actor_role'],
+                'action' => $r['action'],
+                'link' => Activity::link($r),
                 'at' => $r['created_at'],
             ], $recent),
         ]);
+    }
+
+    /** The last 12 months, oldest first, as YYYY-MM */
+    public static function months(int $count = 12): array
+    {
+        $months = [];
+        for ($i = $count - 1; $i >= 0; $i--) {
+            $months[] = date('Y-m', strtotime("first day of -$i month"));
+        }
+        return $months;
+    }
+
+    /**
+     * Savings + shares at each of the last 12 month-ends: for the whole SACCO, or one member and
+     * one account when given.
+     */
+    public static function fundsTrend(\PDO $db, ?int $userId = null, ?string $account = null): array
+    {
+        $months = self::months();
+        $where = '1 = 1';
+        $args = [];
+        if ($userId) {
+            $where .= ' AND user_id = ?';
+            $args[] = $userId;
+        }
+        if ($account) {
+            $where .= ' AND account = ?';
+            $args[] = $account;
+        }
+        $before = $db->prepare("SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE $where AND value_date < ?");
+        $before->execute([...$args, $months[0] . '-01']);
+        $byMonth = $db->prepare("SELECT DATE_FORMAT(value_date, '%Y-%m') AS m, SUM(amount) FROM transactions WHERE $where AND value_date >= ? GROUP BY m");
+        $byMonth->execute([...$args, $months[0] . '-01']);
+        $moves = $byMonth->fetchAll(\PDO::FETCH_KEY_PAIR);
+        $running = Money::fromDecimal($before->fetchColumn());
+        $out = [];
+        foreach ($months as $m) {
+            $running += Money::fromDecimal($moves[$m] ?? null);
+            $out[] = ['month' => $m, 'value' => Money::toDecimal($running)];
+        }
+        return $out;
     }
 
     /** Things an admin needs to act on */
@@ -136,34 +168,5 @@ final class OfficeController
                 (SELECT COUNT(*) FROM users WHERE status = 'active' AND role = 'member' AND must_change_password = 1) AS members_not_signed_in"
         )->fetch();
         return array_map('intval', $counts);
-    }
-
-    /** An audit row as a short sentence */
-    private static function describe(array $r): string
-    {
-        $d = $r['details'] ? json_decode($r['details'], true) : [];
-        $amount = fn (string $k) => isset($d[$k]) ? number_format((float) $d[$k]) : '';
-        return match ($r['action']) {
-            'loan.applied' => "applied for a loan of {$amount('amount')}",
-            'loan.approved' => 'approved a loan',
-            'loan.rejected' => 'rejected a loan',
-            'loan.disbursed' => 'paid out a loan',
-            'loan.payment_recorded' => "recorded a loan repayment of {$amount('amount')}",
-            'loan.guarantee_accepted' => 'agreed to guarantee a loan',
-            'loan.guarantee_declined' => 'declined to guarantee a loan',
-            'withdrawal.requested' => "asked to withdraw {$amount('amount')}",
-            'withdrawal.approved' => 'approved a withdrawal',
-            'withdrawal.paid' => 'issued a withdrawal cheque',
-            'payroll.posted' => 'posted the payroll for ' . ($d['period'] ?? ''),
-            'payroll.reversed' => 'reversed a payroll upload',
-            'dividend.posted' => 'credited the ' . ($d['label'] ?? '') . ' dividend',
-            'transaction.recorded' => 'recorded a ' . str_replace('_', ' ', $d['type'] ?? 'entry') . " of {$amount('amount')}",
-            'transaction.reversed' => 'reversed an entry',
-            'user.created' => 'added a member',
-            'users.imported' => 'imported ' . ($d['count'] ?? '') . ' members',
-            'settings.changed' => 'changed the SACCO rules',
-            'password.changed' => 'changed their password',
-            default => str_replace(['.', '_'], [' ', ' '], $r['action']),
-        };
     }
 }

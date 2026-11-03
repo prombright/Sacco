@@ -10,6 +10,7 @@ use Sacco\Auth\Roles;
 use Sacco\Database;
 use Sacco\Http\Request;
 use Sacco\Http\Response;
+use Sacco\Support\Notify;
 use Sacco\Support\Audit;
 
 /**
@@ -128,6 +129,11 @@ final class UserController
         }
         if ($changed) {
             Audit::log('user.updated', 'user', (int) $user['id'], $changed);
+            if ($user['role'] === Roles::MEMBER && (int) $user['id'] !== (int) $actor['id']) {
+                $names = array_map(fn ($f) => str_replace(['_no', '_'], [' number', ' '], $f), array_keys($changed));
+                Notify::member((int) $user['id'], 'account_update', 'Your account details were updated',
+                    'The SACCO office changed your ' . implode(', ', $names) . '. If something looks wrong, contact the office.', '/profile');
+            }
         }
 
         Response::ok(['user' => AuthController::present($this->find((int) $user['id']))]);
@@ -145,6 +151,10 @@ final class UserController
             'UPDATE users SET password_hash = ?, must_change_password = 1, failed_attempts = 0, locked_until = NULL WHERE id = ?'
         )->execute([Passwords::hash($temporary), $user['id']]);
         Audit::log('user.password_reset', 'user', (int) $user['id']);
+        if ($user['role'] === Roles::MEMBER) {
+            Notify::member((int) $user['id'], 'account_update', 'Your password was reset',
+                'The SACCO office gave you a new temporary password on ' . date('j M Y \a\t H:i') . ". If you didn't ask for this, contact the office.", '/profile');
+        }
 
         Response::ok(['user' => AuthController::present($this->find((int) $user['id'])), 'temporary_password' => $temporary]);
     }

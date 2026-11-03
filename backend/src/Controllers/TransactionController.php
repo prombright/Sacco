@@ -9,6 +9,7 @@ use Sacco\Database;
 use Sacco\Http\Request;
 use Sacco\Http\Response;
 use Sacco\Loans\Loans;
+use Sacco\Support\Notify;
 use Sacco\Support\Audit;
 use Sacco\Support\Ledger;
 use Sacco\Support\LedgerException;
@@ -37,17 +38,34 @@ final class TransactionController
         $db = Database::tenant();
 
         // Loan figures across their active loans: what's owed and the soonest instalment
-        $active = $db->prepare("SELECT id FROM loans WHERE user_id = ? AND status = 'active'");
+        $active = $db->prepare("SELECT id, loan_no, amount, disbursed_on FROM loans WHERE user_id = ? AND status = 'active' ORDER BY disbursed_on");
         $active->execute([$id]);
         $owed = 0;
         $next = null;
-        foreach ($active->fetchAll(\PDO::FETCH_COLUMN) as $loanId) {
-            $p = Loans::position($db, (int) $loanId);
+        $loans = [];
+        foreach ($active->fetchAll() as $loan) {
+            $p = Loans::position($db, (int) $loan['id']);
             $owed += $p['total_left'];
             if ($p['next_due_date'] && (!$next || $p['next_due_date'] < $next['date'])) {
                 $next = ['date' => $p['next_due_date'], 'amount' => Money::toDecimal($p['next_due_amount'])];
             }
+            $loans[] = [
+                'id' => (int) $loan['id'],
+                'loan_no' => $loan['loan_no'],
+                'amount' => $loan['amount'],
+                'disbursed_on' => $loan['disbursed_on'],
+                'paid' => Money::toDecimal($p['paid']),
+                'total_left' => Money::toDecimal($p['total_left']),
+                'overdue' => Money::toDecimal($p['overdue']),
+                'next_due_date' => $p['next_due_date'],
+                'next_due_amount' => Money::toDecimal($p['next_due_amount']),
+            ];
         }
+        $savedThisYear = $db->prepare(
+            "SELECT COALESCE(SUM(t.amount), 0) FROM transactions t WHERE t.user_id = ? AND t.type IN ('deposit', 'opening_balance') AND t.value_date >= ?
+             AND NOT EXISTS (SELECT 1 FROM transactions r WHERE r.reversal_of = t.id)"
+        );
+        $savedThisYear->execute([$id, date('Y-01-01')]);
         $requests = $db->prepare("SELECT COUNT(*) FROM loan_guarantors g JOIN loans l ON l.id = g.loan_id WHERE g.guarantor_id = ? AND g.status = 'pending' AND l.status = 'pending_guarantors'");
         $requests->execute([$id]);
 
@@ -71,7 +89,16 @@ final class TransactionController
             'loan_owed' => Money::toDecimal($owed),
             'next_repayment' => $next,
             'guarantee_requests' => (int) $requests->fetchColumn(),
-            'recent' => Ledger::history($id, null, 1, 5)['transactions'],
+            'recent' => Ledger::history($id, null, 1, 6)['transactions'],
+            'loans' => $loans,
+            // What the main loan type allows now: savings x its multiplier, less what is owed
+            'loan_limit' => Money::toDecimal(Loans::eligibility($id, null, (int) (Loans::products($db)[0]['id'] ?? 0) ?: null)['limit']),
+            'loan_wait_reason' => Loans::borrowerWaitReason($db, $id),
+            'saved_this_year' => Money::toDecimal(Money::fromDecimal($savedThisYear->fetchColumn())),
+            'trend' => [
+                'savings' => OfficeController::fundsTrend($db, $id, 'savings'),
+                'shares' => OfficeController::fundsTrend($db, $id, 'shares'),
+            ],
         ]);
     }
 
@@ -287,6 +314,16 @@ final class TransactionController
         Audit::log('transaction.recorded', 'transaction', (int) $row['id'], [
             'member' => (int) $user['id'], 'account' => $account, 'type' => $type, 'amount' => $row['amount'],
         ]);
+        $balances = Ledger::balances((int) $user['id']);
+        $what = match ($type) {
+            'deposit' => "added to your $account",
+            'withdrawal' => "taken from your $account",
+            'opening_balance' => "recorded as your opening $account balance",
+            default => ($sign > 0 ? 'added to' : 'taken from') . " your $account (an adjustment)",
+        };
+        Notify::member((int) $user['id'], $sign > 0 ? 'money_in' : 'money_out', Notify::cents($cents) . " $what",
+            'Your ' . $account . ' balance is now ' . Notify::money($balances[$account]) . '. Dated ' . date('j M Y', strtotime($valueDate)) . '.'
+            . ($narration !== '' ? " Note: $narration" : ''), '/statement');
 
         Response::ok(['transaction' => Ledger::present($row), 'balances' => Ledger::balances((int) $user['id'])], 201);
     }
@@ -309,7 +346,11 @@ final class TransactionController
         } catch (LedgerException $e) {
             Response::error($e->getMessage(), 422);
         }
-        Audit::log('transaction.reversed', 'transaction', (int) $original['id'], ['reversal' => (int) $row['id'], 'reason' => $reason]);
+        Audit::log('transaction.reversed', 'transaction', (int) $original['id'], ['member' => (int) $original['user_id'], 'reversal' => (int) $row['id'], 'reason' => $reason]);
+        $account = $original['account'];
+        Notify::member((int) $original['user_id'], 'money_reversed', "An entry on your $account was reversed",
+            'The ' . str_replace('_', ' ', $original['type']) . ' of ' . Notify::money(ltrim($original['amount'], '-')) . ' dated ' . date('j M Y', strtotime($original['value_date']))
+            . " was reversed: $reason. Your $account balance is now " . Notify::money(Ledger::balances((int) $original['user_id'])[$account]) . '.', '/statement');
 
         Response::ok(['transaction' => Ledger::present($row), 'balances' => Ledger::balances((int) $original['user_id'])], 201);
     }

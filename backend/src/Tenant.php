@@ -15,6 +15,8 @@ namespace Sacco;
 final class Tenant
 {
     private static array $byCode = [];
+    /** Set while the developer portal works inside one SACCO (see actAs) */
+    private static ?array $acting = null;
 
     /** A SACCO by its code, or null */
     public static function find(string $code): ?array
@@ -50,8 +52,34 @@ final class Tenant
     /** The signed-in SACCO, else the one the request points at */
     public static function current(): ?array
     {
+        if (self::$acting) {
+            return self::$acting;
+        }
         $code = $_SESSION['sacco'] ?? null;
         return is_string($code) ? self::find($code) : self::fromRequest();
+    }
+
+    /**
+     * Runs $work against one SACCO's database, whatever the session points at: the developer
+     * portal uses it to read and look after every SACCO with the same code the app uses.
+     */
+    public static function actAs(array $sacco, callable $work): mixed
+    {
+        $before = self::$acting;
+        self::$acting = $sacco;
+        \Sacco\Support\Settings::forget();
+        try {
+            return $work(Database::tenant());
+        } finally {
+            self::$acting = $before;
+            \Sacco\Support\Settings::forget();
+        }
+    }
+
+    /** Forget cached SACCO rows after the developer portal changes one */
+    public static function forget(): void
+    {
+        self::$byCode = [];
     }
 
     public static function databaseName(): string

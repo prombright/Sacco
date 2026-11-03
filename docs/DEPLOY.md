@@ -78,6 +78,23 @@ cd ~/sacco && git pull && php backend/bin/migrate.php
 
 and if the screens changed, build and `scp` the `dist` folder again (step 3).
 
+## 6. The developer portal
+
+`/devportal` is for the people who run this installation (not SACCO staff). It shows every SACCO's
+figures, members, office accounts and full audit log; it can change a SACCO's details and look,
+pause it, add super admins and admins, reset passwords, apply database updates, and set up new
+SACCOs. Every change is logged in the platform's `platform_audit` table and in the SACCO's own
+audit log, and the SACCO's office accounts get a message about it.
+
+Developers are added from the server only:
+
+```
+php backend/bin/create-developer.php --name="Jane Doe" --email=jane@example.com
+```
+
+It prints a temporary password, changed at first sign-in. Run it again with the same email to reset
+a developer's password.
+
 ## Going live with St Mark's: checklist
 
 Do these in order, signed in as the super admin.

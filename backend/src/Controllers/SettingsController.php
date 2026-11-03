@@ -42,6 +42,12 @@ final class SettingsController
         ];
     }
 
+    /** A rule's name in words, for messages */
+    public static function label(string $key): string
+    {
+        return self::fields()[$key][0] ?? ucfirst(str_replace('_', ' ', $key));
+    }
+
     /** GET /api/settings (admin) */
     public function index(Request $request): never
     {

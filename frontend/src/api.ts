@@ -15,10 +15,17 @@ let csrfToken: string | null = null
 export function setCsrfToken(token: string | null) {
   csrfToken = token
 }
+// The developer portal signs in separately (its own session), so it has its own token
+let devCsrfToken: string | null = null
+export function setDevCsrfToken(token: string | null) {
+  devCsrfToken = token
+}
+const isDev = (url?: string) => !!url && url.startsWith('/dev/')
 
 http.interceptors.request.use((config) => {
-  if (csrfToken && config.method && config.method.toLowerCase() !== 'get') {
-    config.headers['X-CSRF-Token'] = csrfToken
+  const token = isDev(config.url) ? devCsrfToken : csrfToken
+  if (token && config.method && config.method.toLowerCase() !== 'get') {
+    config.headers['X-CSRF-Token'] = token
   }
   return config
 })
@@ -47,7 +54,8 @@ async function request<T>(method: string, url: string, body?: unknown, params?: 
     const err = e as AxiosError<{ message?: string; errors?: Record<string, string> }>
     const status = err.response?.status ?? 0
     const payload = err.response?.data
-    if (status === 401 || status === 419 || payload?.errors?.code === 'must_change_password') {
+    // The developer portal deals with its own sign-in
+    if (!isDev(url) && (status === 401 || status === 419 || payload?.errors?.code === 'must_change_password')) {
       onAuthProblem(status, payload?.errors?.code)
     }
     throw new ApiError(

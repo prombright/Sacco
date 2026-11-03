@@ -9,6 +9,7 @@ use Sacco\Auth\Roles;
 use Sacco\Database;
 use Sacco\Http\Request;
 use Sacco\Http\Response;
+use Sacco\Support\Notify;
 use Sacco\Support\Audit;
 use Sacco\Support\Money;
 
@@ -65,6 +66,10 @@ final class MemberDetailsController
             }
         });
         Audit::log('next_of_kin.saved', 'user', $userId, ['count' => count($clean)]);
+        if ($userId !== Auth::id()) {
+            Notify::member($userId, 'account_update', 'Your next of kin were updated',
+                'The SACCO office updated the people who receive your savings if anything happens to you. Check them under My profile.', '/profile');
+        }
         Response::ok(['next_of_kin' => $this->kin($userId)]);
     }
 
