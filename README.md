@@ -85,7 +85,7 @@ colour-blind separation and contrast; keep to them.
   counted automatically; **income statement** report
 - **Closing a membership**: pays out savings and shares once nothing is owed or guaranteed
 - **Notices** from the office on every member's dashboard
-- **Nightly backups** () and a deployment guide: [docs/DEPLOY.md](docs/DEPLOY.md)
+- **Nightly backups** (`backend/bin/backup.php`) and a deployment guide: [docs/DEPLOY.md](docs/DEPLOY.md)
 
 ## Users and sign-in
 
