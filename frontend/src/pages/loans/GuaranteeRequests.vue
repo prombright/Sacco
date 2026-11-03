@@ -71,7 +71,7 @@ onMounted(load)
         Agreeing ties up that much of your savings until the loan is repaid. You have {{ formatMoney(freeSavings) }} free to pledge,
         and you can agree to a smaller amount than you're asked for.
       </p>
-      <p v-if="waitReason" class="mt-3 rounded-lg bg-white px-3 py-2 text-sm text-amber-900">{{ waitReason }} You can still decline.</p>
+      <p v-if="waitReason" class="mt-3 rounded-lg bg-surface px-3 py-2 text-sm text-amber-900">{{ waitReason }} You can still decline.</p>
       <div v-if="error" class="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
       <ul class="mt-4 space-y-3">
         <li v-for="g in pending" :key="g.id" class="card p-4">

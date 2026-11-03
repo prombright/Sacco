@@ -55,7 +55,7 @@ function close() {
     <input
       v-model="q"
       type="search"
-      class="input rounded-full border-transparent bg-gray-100 pl-9 focus:bg-white"
+      class="input rounded-full border-transparent bg-gray-100 pl-9 focus:bg-surface"
       placeholder="Find a member: name, account or employee no."
       aria-label="Find a member"
       role="combobox"

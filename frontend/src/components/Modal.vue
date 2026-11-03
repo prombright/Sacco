@@ -14,7 +14,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
 <template>
   <Teleport to="body">
     <div class="fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center sm:p-4" @click.self="emit('close')">
-      <div class="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-white sm:max-w-lg sm:rounded-2xl" role="dialog" aria-modal="true" :aria-label="title">
+      <div class="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-surface sm:max-w-lg sm:rounded-2xl" role="dialog" aria-modal="true" :aria-label="title">
         <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <h2 class="font-semibold">{{ title }}</h2>
           <button type="button" class="rounded-lg p-1 text-gray-500 hover:bg-gray-100" aria-label="Close" @click="emit('close')">

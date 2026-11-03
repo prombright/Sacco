@@ -321,7 +321,7 @@ final class LoanController
             Response::error('You can\'t record a loan on your own account. Ask another admin.', 403);
         }
         $db = Database::tenant();
-        $u = $db->prepare('SELECT id, full_name FROM users WHERE id = ?');
+        $u = $db->prepare("SELECT id, full_name FROM users WHERE id = ? AND role = 'member'");
         $u->execute([$userId]);
         $u->fetch() ?: Response::error('Choose the member.', 422, ['user_id' => 'Required']);
 
@@ -483,25 +483,82 @@ final class LoanController
             Response::error('A repayment can\'t be dated before the loan was paid out.', 422, ['paid_on' => 'Too early']);
         }
 
-        $id = Database::transaction(function (\PDO $db) use ($loan, $cents, $paidOn, $request) {
-            $db->prepare('SELECT id FROM loans WHERE id = ? FOR UPDATE')->execute([$loan['id']]);
-            $left = Loans::position($db, (int) $loan['id'])['total_left'];
-            if ($cents > $left) {
-                Response::error('That is more than the ' . number_format($left / 100) . ' still owed on this loan.', 422, ['amount' => 'Too much']);
-            }
-            $db->prepare('INSERT INTO loan_payments (loan_id, amount, paid_on, reference, narration, created_by) VALUES (?, ?, ?, ?, ?, ?)')
-                ->execute([
-                    $loan['id'], Money::toDecimal($cents), $paidOn,
-                    mb_substr($request->string('reference'), 0, 80) ?: null,
-                    mb_substr($request->string('narration'), 0, 255) ?: null,
-                    Auth::id(),
-                ]);
-            $id = (int) $db->lastInsertId();
-            Loans::applyPayments($db, (int) $loan['id']);
-            return $id;
-        });
-        Audit::log('loan.payment_recorded', 'loan_payment', $id, ['loan' => (int) $loan['id'], 'amount' => Money::toDecimal($cents)]);
-        Response::ok(['loan' => $this->detail((int) $loan['id'])], 201);
+        $receipt = Database::transaction(fn (\PDO $db) => $this->postPayment(
+            $db, $loan, $cents, $paidOn,
+            mb_substr($request->string('reference'), 0, 80) ?: null,
+            mb_substr($request->string('narration'), 0, 255) ?: null
+        ));
+        Audit::log('loan.payment_recorded', 'loan_payment', $receipt['payment_id'], ['loan' => (int) $loan['id'], 'amount' => Money::toDecimal($cents)]);
+        Response::ok(['loan' => $this->detail((int) $loan['id']), 'receipt' => $receipt], 201);
+    }
+
+    /**
+     * GET /api/loans/{id}/payment-preview?amount=&paid_on= (admin) - what a repayment would do,
+     * worked out exactly as recording it would, then undone: how it splits between penalties,
+     * interest and principal, what is still owed after it, and the next amount due.
+     */
+    public function previewPayment(Request $request): never
+    {
+        $loan = $this->findForAdmin((int) $request->param('id'));
+        if ($loan['status'] !== 'active') {
+            Response::error('Repayments can only be recorded on an active loan.', 422);
+        }
+        $cents = Money::parse($request->query('amount', ''));
+        if ($cents === null || $cents <= 0) {
+            Response::ok(['receipt' => null]);
+        }
+        $paidOn = $request->string('paid_on') ?: date('Y-m-d');
+        if (!\DateTime::createFromFormat('!Y-m-d', $paidOn) || $paidOn < $loan['disbursed_on'] || $paidOn > date('Y-m-d')) {
+            $paidOn = date('Y-m-d');
+        }
+        $db = Database::tenant();
+        $db->beginTransaction();
+        try {
+            $receipt = $this->postPayment($db, $loan, $cents, $paidOn, null, null);
+        } finally {
+            $db->rollBack();
+        }
+        Response::ok(['receipt' => $receipt]);
+    }
+
+    /**
+     * Records a repayment and applies it. Returns its receipt: the split, what is still owed and
+     * what falls due next. Call inside a transaction.
+     */
+    private function postPayment(\PDO $db, array $loan, int $cents, string $paidOn, ?string $reference, ?string $narration): array
+    {
+        $db->prepare('SELECT id FROM loans WHERE id = ? FOR UPDATE')->execute([$loan['id']]);
+        $before = Loans::position($db, (int) $loan['id']);
+        if ($cents > $before['total_left']) {
+            throw new LedgerException('That is more than the ' . number_format($before['total_left'] / 100) . ' still owed on this loan.');
+        }
+        $db->prepare('INSERT INTO loan_payments (loan_id, amount, paid_on, reference, narration, created_by) VALUES (?, ?, ?, ?, ?, ?)')
+            ->execute([$loan['id'], Money::toDecimal($cents), $paidOn, $reference, $narration, Auth::id()]);
+        $paymentId = (int) $db->lastInsertId();
+        Loans::applyPayments($db, (int) $loan['id']);
+        $after = Loans::position($db, (int) $loan['id']);
+
+        $split = $db->prepare('SELECT part, SUM(amount) FROM loan_payment_allocations WHERE payment_id = ? GROUP BY part');
+        $split->execute([$paymentId]);
+        $parts = array_map([Money::class, 'fromDecimal'], $split->fetchAll(\PDO::FETCH_KEY_PAIR));
+        $status = $db->prepare('SELECT status FROM loans WHERE id = ?');
+        $status->execute([$loan['id']]);
+
+        return [
+            'payment_id' => $paymentId,
+            'amount' => Money::toDecimal($cents),
+            'paid_on' => $paidOn,
+            'penalties' => Money::toDecimal(($parts['penalty'] ?? 0) + ($parts['fee'] ?? 0)),
+            'interest' => Money::toDecimal($parts['interest'] ?? 0),
+            'principal' => Money::toDecimal($parts['principal'] ?? 0),
+            'owed_before' => Money::toDecimal($before['total_left']),
+            'owed_after' => Money::toDecimal($after['total_left']),
+            'principal_after' => Money::toDecimal($after['principal_left']),
+            'overdue_after' => Money::toDecimal($after['overdue']),
+            'next_due_date' => $after['next_due_date'],
+            'next_due_amount' => Money::toDecimal($after['next_due_amount']),
+            'closed' => $status->fetchColumn() === 'closed',
+        ];
     }
 
     /** POST /api/loan-payments/{id}/reverse { reason } (admin) */
@@ -607,7 +664,7 @@ final class LoanController
         }
         $stmt = Database::tenant()->prepare(
             "SELECT id, full_name, account_no FROM users
-             WHERE status = 'active' AND id <> ? AND (full_name LIKE ? OR account_no LIKE ? OR employee_no LIKE ?)
+             WHERE status = 'active' AND role = 'member' AND id <> ? AND (full_name LIKE ? OR account_no LIKE ? OR employee_no LIKE ?)
              ORDER BY full_name LIMIT 10"
         );
         $stmt->execute([Auth::id(), "%$q%", "%$q%", "%$q%"]);
@@ -687,7 +744,7 @@ final class LoanController
         $list = [];
         $seen = [];
         $db = Database::tenant();
-        $lookup = $db->prepare("SELECT full_name FROM users WHERE id = ? AND status = 'active'");
+        $lookup = $db->prepare("SELECT full_name FROM users WHERE id = ? AND status = 'active' AND role = 'member'");
         foreach ($raw as $g) {
             $userId = (int) ($g['user_id'] ?? 0);
             $amount = Money::parse($g['amount'] ?? null);
@@ -702,7 +759,7 @@ final class LoanController
             $lookup->execute([$userId]);
             $name = $lookup->fetchColumn();
             if (!$name) {
-                $errors['guarantors'] = 'One of the guarantors isn\'t an active member.';
+                $errors['guarantors'] = 'One of the guarantors isn\'t an active member (office accounts can\'t guarantee).';
                 continue;
             }
             if ($wait = Loans::guarantorWaitReason($db, $userId, $name)) {
@@ -788,6 +845,19 @@ final class LoanController
         );
         $p->execute([$id]);
         $loan['payments'] = $p->fetchAll();
+
+        // How each repayment that stands was split
+        $s = $db->prepare('SELECT payment_id, part, SUM(amount) AS amount FROM loan_payment_allocations WHERE loan_id = ? GROUP BY payment_id, part');
+        $s->execute([$id]);
+        $splits = [];
+        foreach ($s->fetchAll() as $row) {
+            $part = $row['part'] === 'fee' ? 'penalty' : $row['part'];
+            $splits[$row['payment_id']][$part] = Money::toDecimal(Money::fromDecimal($splits[$row['payment_id']][$part] ?? '0') + Money::fromDecimal($row['amount']));
+        }
+        foreach ($loan['payments'] as &$payment) {
+            $payment['split'] = $splits[$payment['id']] ?? null;
+        }
+        unset($payment);
 
         $c = $db->prepare('SELECT id, type, amount, paid, charged_on, note, waived_at FROM loan_charges WHERE loan_id = ? ORDER BY id DESC');
         $c->execute([$id]);

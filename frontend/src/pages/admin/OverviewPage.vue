@@ -135,7 +135,7 @@ const money = (v: number) => formatMoney(String(v))
             :key="t.text + t.verb"
             :to="t.to"
             class="group flex items-center gap-4 rounded-2xl border p-4 transition hover:shadow-lift"
-            :class="t.quiet ? 'border-line bg-white' : 'border-saffron-300 bg-saffron-50'"
+            :class="t.quiet ? 'border-line bg-surface' : 'border-saffron-300 bg-saffron-50'"
           >
             <span
               class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-lg font-bold tabular-nums"
@@ -147,7 +147,7 @@ const money = (v: number) => formatMoney(String(v))
             <ChevronRightIcon class="h-5 w-5 text-gray-400 transition group-hover:translate-x-0.5 group-hover:text-gray-700" aria-hidden="true" />
           </RouterLink>
         </div>
-        <div v-else class="flex items-center gap-3 rounded-2xl border border-line bg-white p-4 text-sm text-gray-700">
+        <div v-else class="flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 text-sm text-gray-700">
           <CheckCircleIcon class="h-6 w-6 text-emerald-600" aria-hidden="true" />
           Nothing is waiting: no loans or withdrawals to approve, and no cheques to issue.
         </div>
@@ -269,7 +269,7 @@ const money = (v: number) => formatMoney(String(v))
 
     <!-- Loading -->
     <div v-else-if="!error" class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-hidden="true">
-      <div v-for="i in 4" :key="i" class="h-28 animate-pulse rounded-2xl bg-white" />
+      <div v-for="i in 4" :key="i" class="h-28 animate-pulse rounded-2xl bg-surface" />
     </div>
   </div>
 </template>

@@ -7,6 +7,8 @@ declare module 'vue-router' {
     public?: boolean
     /** Admins and super admins only */
     admin?: boolean
+    /** A member's own money: office accounts (no savings or loans of their own) go to the overview */
+    member?: boolean
     title?: string
   }
 }
@@ -18,24 +20,24 @@ const router = createRouter({
     { path: '/change-password', name: 'change-password', component: () => import('@/pages/ChangePasswordPage.vue') },
     // Printable, so outside the app's header and menus
     { path: '/withdrawals/:id(\\d+)/slip', name: 'withdrawal-slip', component: () => import('@/pages/withdrawals/WithdrawalSlip.vue') },
-    { path: '/statement/print', name: 'statement-print', component: () => import('@/pages/StatementPrintPage.vue') },
+    { path: '/statement/print', name: 'statement-print', component: () => import('@/pages/StatementPrintPage.vue'), meta: { member: true } },
     { path: '/members/:id(\\d+)/statement', name: 'member-statement', component: () => import('@/pages/StatementPrintPage.vue'), meta: { admin: true } },
     {
       path: '/',
       component: () => import('@/layouts/AppLayout.vue'),
       children: [
-        { path: '', name: 'dashboard', component: () => import('@/pages/DashboardPage.vue'), meta: { title: 'My dashboard' } },
+        { path: '', name: 'dashboard', component: () => import('@/pages/DashboardPage.vue'), meta: { member: true, title: 'My dashboard' } },
         { path: 'office', name: 'overview', component: () => import('@/pages/admin/OverviewPage.vue'), meta: { admin: true, title: 'Overview' } },
         { path: 'members/import', name: 'member-import', component: () => import('@/pages/admin/MemberImportPage.vue'), meta: { admin: true, title: 'Import members' } },
-        { path: 'profile', name: 'profile', component: () => import('@/pages/ProfilePage.vue'), meta: { title: 'My profile' } },
+        { path: 'profile', name: 'profile', component: () => import('@/pages/ProfilePage.vue'), meta: { member: true, title: 'My profile' } },
         { path: 'admin/cashbook', name: 'cashbook', component: () => import('@/pages/admin/CashbookPage.vue'), meta: { admin: true, title: 'Income & expenses' } },
         { path: 'admin/notices', name: 'notices', component: () => import('@/pages/admin/NoticesPage.vue'), meta: { admin: true, title: 'Notices' } },
-        { path: 'statement', name: 'statement', component: () => import('@/pages/StatementPage.vue'), meta: { title: 'My statement' } },
-        { path: 'loans', name: 'loans', component: () => import('@/pages/loans/LoansPage.vue'), meta: { title: 'My loans' } },
-        { path: 'loans/apply', name: 'loan-apply', component: () => import('@/pages/loans/ApplyLoanPage.vue'), meta: { title: 'Apply for a loan' } },
+        { path: 'statement', name: 'statement', component: () => import('@/pages/StatementPage.vue'), meta: { member: true, title: 'My statement' } },
+        { path: 'loans', name: 'loans', component: () => import('@/pages/loans/LoansPage.vue'), meta: { member: true, title: 'My loans' } },
+        { path: 'loans/apply', name: 'loan-apply', component: () => import('@/pages/loans/ApplyLoanPage.vue'), meta: { member: true, title: 'Apply for a loan' } },
         { path: 'loans/:id(\\d+)', name: 'loan', component: () => import('@/pages/loans/LoanPage.vue'), meta: { title: 'Loan' } },
         { path: 'admin/loans', name: 'admin-loans', component: () => import('@/pages/admin/LoansAdminPage.vue'), meta: { admin: true, title: 'Loan applications' } },
-        { path: 'withdrawals', name: 'withdrawals', component: () => import('@/pages/withdrawals/WithdrawalsPage.vue'), meta: { title: 'Withdraw savings' } },
+        { path: 'withdrawals', name: 'withdrawals', component: () => import('@/pages/withdrawals/WithdrawalsPage.vue'), meta: { member: true, title: 'Withdraw savings' } },
         { path: 'admin/withdrawals', name: 'admin-withdrawals', component: () => import('@/pages/admin/WithdrawalsAdminPage.vue'), meta: { admin: true, title: 'Withdrawal requests' } },
         { path: 'admin/payroll', name: 'payroll', component: () => import('@/pages/admin/PayrollPage.vue'), meta: { admin: true, title: 'Payroll uploads' } },
         { path: 'admin/payroll/:id(\\d+)', name: 'payroll-batch', component: () => import('@/pages/admin/PayrollBatchPage.vue'), meta: { admin: true, title: 'Payroll upload' } },
@@ -73,6 +75,9 @@ router.beforeEach(async (to) => {
   }
   if (to.meta.admin && !auth.isAdmin) {
     return { name: 'dashboard' }
+  }
+  if (to.meta.member && auth.isAdmin) {
+    return { name: 'overview' }
   }
   return true
 })

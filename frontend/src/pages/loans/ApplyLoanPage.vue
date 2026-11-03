@@ -116,7 +116,7 @@ async function submit() {
         <label
           v-for="p in quote.products"
           :key="p.id"
-          class="cursor-pointer rounded-2xl border bg-white p-4 transition"
+          class="cursor-pointer rounded-2xl border bg-surface p-4 transition"
           :class="form.product_id === p.id ? 'border-brand ring-2 ring-brand/15' : 'border-line hover:border-gray-300'"
         >
           <input v-model="form.product_id" type="radio" :value="p.id" class="sr-only" />

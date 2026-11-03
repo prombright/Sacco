@@ -9,7 +9,7 @@ const tabs: { value: Account; label: string }[] = [
 </script>
 
 <template>
-  <div class="inline-flex rounded-lg border border-gray-200 bg-white p-1" role="tablist">
+  <div class="inline-flex rounded-lg border border-gray-200 bg-surface p-1" role="tablist">
     <button
       v-for="tab in tabs"
       :key="tab.value"

@@ -128,6 +128,7 @@ async function save() {
             <option v-if="auth.isSuperAdmin" value="super_admin">Super Admin</option>
           </select>
           <p v-if="!auth.isSuperAdmin" class="mt-1 text-xs text-gray-500">Only a super admin can add admins.</p>
+          <p v-if="form.role !== 'member'" class="mt-1 text-xs text-gray-500">An office account: it runs the SACCO and has no savings or loans. If this person also saves with the SACCO, give them a separate member account.</p>
           <p v-if="errors.role" class="field-error">{{ errors.role }}</p>
         </div>
         <div v-if="user">

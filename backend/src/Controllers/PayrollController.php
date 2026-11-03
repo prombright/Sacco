@@ -35,7 +35,7 @@ final class PayrollController
             "SELECT u.id, u.account_no, u.full_name, u.employee_no,
                     (SELECT SUM(t.amount) FROM transactions t WHERE t.batch_id = ? AND t.user_id = u.id AND t.account = 'savings' AND t.type = 'deposit') AS last_savings,
                     (SELECT SUM(t.amount) FROM transactions t WHERE t.batch_id = ? AND t.user_id = u.id AND t.account = 'shares' AND t.type = 'deposit') AS last_shares
-             FROM users u WHERE u.status = 'active' AND u.account_no IS NOT NULL ORDER BY u.full_name"
+             FROM users u WHERE u.status = 'active' AND u.role = 'member' AND u.account_no IS NOT NULL ORDER BY u.full_name"
         );
         $stmt->execute([$last, $last]);
         $members = $stmt->fetchAll();
@@ -239,7 +239,7 @@ final class PayrollController
     {
         $db = Database::tenant();
         $members = [];
-        foreach ($db->query('SELECT id, account_no, full_name, status FROM users WHERE account_no IS NOT NULL') as $u) {
+        foreach ($db->query("SELECT id, account_no, full_name, status FROM users WHERE role = 'member' AND account_no IS NOT NULL") as $u) {
             $members[strtolower(trim($u['account_no']))] = $u;
         }
         $activeLoans = [];

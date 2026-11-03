@@ -54,7 +54,7 @@ function printIt() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-paper px-4 py-6 print:bg-white print:p-0">
+  <div class="force-light min-h-screen bg-paper px-4 py-6 text-ink print:bg-white print:p-0">
     <div class="mx-auto mb-4 flex max-w-4xl flex-wrap items-end gap-3 print:hidden">
       <button type="button" class="btn-secondary" @click="$router.back()">← Back</button>
       <div><label for="from" class="label">From</label><input id="from" v-model="from" type="date" class="input" /></div>
@@ -65,7 +65,7 @@ function printIt() {
 
     <div v-if="error" class="mx-auto max-w-4xl rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{{ error }}</div>
 
-    <article v-if="data" class="mx-auto max-w-4xl rounded-2xl bg-white p-8 shadow-card print:max-w-none print:rounded-none print:p-0 print:shadow-none">
+    <article v-if="data" class="mx-auto max-w-4xl rounded-2xl bg-surface p-8 shadow-card print:max-w-none print:rounded-none print:p-0 print:shadow-none">
       <header class="flex flex-wrap items-start gap-4 border-b-2 border-navy-900 pb-5">
         <SaccoMark :sacco="auth.sacco" size="lg" />
         <div>

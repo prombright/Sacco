@@ -35,8 +35,8 @@ final class OfficeController
         // Headline totals
         $savings = Money::fromDecimal($one("SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE account = 'savings'"));
         $shares = Money::fromDecimal($one("SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE account = 'shares'"));
-        $members = (int) $one("SELECT COUNT(*) FROM users WHERE status = 'active'");
-        $newMembers = (int) $one("SELECT COUNT(*) FROM users WHERE created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')");
+        $members = (int) $one("SELECT COUNT(*) FROM users WHERE status = 'active' AND role = 'member'");
+        $newMembers = (int) $one("SELECT COUNT(*) FROM users WHERE role = 'member' AND created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')");
 
         $outstanding = 0;
         $arrears = 0;
@@ -133,7 +133,7 @@ final class OfficeController
                 (SELECT COUNT(*) FROM loans WHERE status = 'pending_guarantors') AS loans_waiting_guarantors,
                 (SELECT COUNT(*) FROM withdrawal_requests WHERE status = 'pending') AS withdrawals_to_approve,
                 (SELECT COUNT(*) FROM withdrawal_requests WHERE status = 'approved') AS withdrawals_to_pay,
-                (SELECT COUNT(*) FROM users WHERE status = 'active' AND must_change_password = 1) AS members_not_signed_in"
+                (SELECT COUNT(*) FROM users WHERE status = 'active' AND role = 'member' AND must_change_password = 1) AS members_not_signed_in"
         )->fetch();
         return array_map('intval', $counts);
     }

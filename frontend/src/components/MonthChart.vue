@@ -110,7 +110,7 @@ const tip = computed(() => {
       <!-- Gridlines and their values: recessive -->
       <g>
         <template v-for="t in scale.ticks" :key="t">
-          <line :x1="pad.left" :x2="width - pad.right" :y1="y(t)" :y2="y(t)" :stroke="t === 0 ? '#d6d3d1' : '#efedea'" stroke-width="1" />
+          <line :x1="pad.left" :x2="width - pad.right" :y1="y(t)" :y2="y(t)" :class="t === 0 ? 'stroke-gray-300' : 'stroke-gray-200'" stroke-width="1" />
           <text :x="pad.left - 8" :y="y(t) + 4" text-anchor="end" class="fill-gray-400 text-[11px] tabular-nums">{{ compact(t) }}</text>
         </template>
       </g>
@@ -141,7 +141,7 @@ const tip = computed(() => {
 
     <div
       v-if="tip"
-      class="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-lg bg-ink px-3 py-2 text-xs text-white shadow-lift"
+      class="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-lg bg-navy-950 px-3 py-2 text-xs text-white shadow-lift"
       :style="{ left: `${tip.left}px`, top: `${Math.max(tip.top - 10, 40)}px` }"
     >
       <p class="text-gray-300">{{ tip.month }}</p>

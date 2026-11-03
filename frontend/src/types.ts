@@ -95,7 +95,26 @@ export interface Installment {
   total?: string
 }
 
+/** What a repayment did (or would do): its split, what is owed after, what falls due next */
+export interface PaymentReceipt {
+  payment_id: number
+  amount: string
+  paid_on: string
+  penalties: string
+  interest: string
+  principal: string
+  owed_before: string
+  owed_after: string
+  principal_after: string
+  overdue_after: string
+  next_due_date: string | null
+  next_due_amount: string
+  closed: boolean
+}
+
 export interface LoanPayment {
+  /** How it was split, if it still stands */
+  split?: { principal?: string; interest?: string; penalty?: string } | null
   id: number
   amount: string
   paid_on: string

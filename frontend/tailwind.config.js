@@ -1,28 +1,36 @@
-import colors from 'tailwindcss/colors'
-
 /**
  * SACCO's own look - deliberately not Tusome's green:
  * - brand: the SACCO's colour (deep navy by default), set at runtime from its brand_color
  * - navy: the sidebar, fixed whatever the brand colour
  * - saffron: the accent - active items, highlights, things waiting for you
- * - gray is the warm "stone" scale and paper the warm page background, so it feels like paper
- *   and ledgers rather than a cold dashboard
+ *
+ * Light and dark mode: the greys, page background (paper), cards (surface), text (ink) and
+ * borders (line) are CSS variables (src/style.css) that change under `.dark`, so every page
+ * follows the theme without dark: variants everywhere. `white` stays white (text on navy).
  */
+const v = (name) => `rgb(var(--${name}) / <alpha-value>)`
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{vue,ts}'],
+  darkMode: 'class',
   theme: {
     extend: {
       fontFamily: {
         sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
       },
       colors: {
-        gray: colors.stone,
-        brand: 'rgb(var(--brand) / <alpha-value>)',
+        gray: Object.fromEntries([50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950].map((n) => [n, v(`g-${n}`)])),
+        brand: v('brand'),
+        paper: v('paper'),
+        surface: v('surface'),
+        ink: v('ink'),
+        line: v('line'),
         navy: {
           50: '#eef3fa',
           100: '#dbe5f3',
           200: '#b7c9e6',
+          300: '#8fabd8',
           600: '#2c5aa0',
           700: '#21477f',
           800: '#183564',
@@ -38,9 +46,6 @@ export default {
           600: '#c0851a',
           700: '#8f600c',
         },
-        paper: '#f5f3ee',
-        ink: '#151821',
-        line: '#e7e3da',
         // Charts: validated for colour-blind separation and contrast on white
         chart: {
           primary: '#2c5aa0',

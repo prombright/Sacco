@@ -27,7 +27,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-100 px-4 py-8 print:bg-white print:p-0">
+  <div class="force-light min-h-screen bg-gray-100 px-4 py-8 text-ink print:bg-white print:p-0">
     <div class="mx-auto mb-4 flex max-w-2xl justify-between print:hidden">
       <button type="button" class="btn-secondary" @click="$router.back()">← Back</button>
       <button type="button" class="btn-primary" @click="printSlip">Print</button>
@@ -35,7 +35,7 @@ onMounted(async () => {
 
     <div v-if="error" class="mx-auto max-w-2xl rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{{ error }}</div>
 
-    <article v-if="w" class="mx-auto max-w-2xl rounded-xl bg-white p-8 shadow-sm print:max-w-none print:rounded-none print:shadow-none">
+    <article v-if="w" class="mx-auto max-w-2xl rounded-xl bg-surface p-8 shadow-sm print:max-w-none print:rounded-none print:shadow-none">
       <header class="flex items-center gap-4 border-b border-gray-900 pb-4">
         <SaccoMark :sacco="auth.sacco" size="lg" />
         <div>

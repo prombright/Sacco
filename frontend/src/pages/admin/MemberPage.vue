@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { api, ApiError } from '@/api'
 import { useAuth } from '@/stores/auth'
@@ -28,6 +28,8 @@ const page = ref(1)
 const ledger = ref<Page<Transaction> | null>(null)
 const error = ref('')
 const recording = ref(false)
+// Office accounts (admin, super admin) have no money of their own: no balances, ledger or next of kin
+const isMember = computed(() => member.value?.role === 'member')
 const editingDetails = ref(false)
 const kin = ref<NextOfKin[]>([])
 
@@ -116,14 +118,23 @@ loadLedger()
         </div>
         <div class="flex flex-wrap gap-2">
           <button type="button" class="btn-secondary" @click="editingDetails = true">Edit details</button>
-          <RouterLink :to="{ name: 'member-statement', params: { id: member.id } }" class="btn-secondary">Print statement</RouterLink>
-          <button v-if="!isSelf" type="button" class="btn-primary" @click="recording = true">Record an entry</button>
+          <template v-if="isMember">
+            <RouterLink :to="{ name: 'member-statement', params: { id: member.id } }" class="btn-secondary">Print statement</RouterLink>
+            <button v-if="!isSelf" type="button" class="btn-primary" @click="recording = true">Record an entry</button>
+          </template>
         </div>
       </div>
-      <p v-if="isSelf" class="mt-3 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-600">
-        This is your own account. Another admin records and reverses entries on it.
-      </p>
 
+      <!-- Office accounts run the SACCO and hold no money of their own -->
+      <section v-if="!isMember" class="card mt-5 p-5">
+        <p class="eyebrow">{{ member.role_label }} · office account</p>
+        <p class="mt-2 text-sm text-gray-700">
+          This account runs the SACCO: {{ member.role === 'super_admin' ? 'everything, including the rules, loan products and other admins' : 'members, loans, withdrawals, payroll and reports' }}.
+          It has no savings, shares or loans, and can't apply for or guarantee a loan. If this person is also a member, they have a separate member account and sign in with that for their own money.
+        </p>
+      </section>
+
+      <template v-if="isMember">
       <div class="mt-5">
         <BalanceTiles :balances="balances" :share-price="sharePrice" />
       </div>
@@ -144,6 +155,7 @@ loadLedger()
         <p class="mt-1 text-sm text-gray-700">When a member leaves the SACCO: pays out their savings and shares by cheque and marks them as left. They must owe nothing and guarantee nobody first.</p>
         <button type="button" class="btn-secondary mt-3" @click="openExit">Close membership…</button>
       </section>
+      </template>
     </template>
 
     <UserForm v-if="editingDetails && member" :user="member" @close="editingDetails = false" @saved="editingDetails = false; loadMember()" />

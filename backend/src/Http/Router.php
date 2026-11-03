@@ -16,6 +16,7 @@ use Sacco\Support\LedgerException;
  * - 'auth' => false        public route (default: signed in)
  * - 'roles' => [...]       only these roles (a super admin always passes, see Roles::allows)
  * - 'before_password' => true   allowed while the user still has to change their temporary password
+ * - 'members_only' => true      a member's own money; office accounts (admins, super admin) are refused
  *
  * Signed-in POST/PATCH/PUT/DELETE requests must carry the session's X-CSRF-Token header.
  */
@@ -95,6 +96,10 @@ final class Router
         }
         if (isset($options['roles']) && !Roles::allows($user['role'], $options['roles'])) {
             Response::error('You do not have permission to do that.', 403);
+        }
+        // A member's own money: office accounts (admins, super admin) have none of their own
+        if (!empty($options['members_only']) && $user['role'] !== Roles::MEMBER) {
+            Response::error('This is an office account, which has no savings or loans. Sign in with your member account for that.', 403);
         }
     }
 }

@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
+import { CheckCircleIcon } from '@heroicons/vue/24/outline'
 import { useRoute } from 'vue-router'
 import { api, ApiError } from '@/api'
 import { useAuth } from '@/stores/auth'
-import type { Installment, Loan, LoanCharge, LoanPayment, PickedMember } from '@/types'
+import type { Installment, Loan, LoanCharge, LoanPayment, PaymentReceipt, PickedMember } from '@/types'
 import { formatDate, formatMoney } from '@/money'
 import { guarantorStatus, loanStatus } from '@/loans'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -58,9 +59,10 @@ async function act(path: string, body: Record<string, unknown> = {}, confirmText
   error.value = ''
   busy.value = true
   try {
-    const res = await api.post<{ loan: Loan } | null>(path, body)
+    const res = await api.post<{ loan: Loan; receipt?: PaymentReceipt } | null>(path, body)
     if (res && 'loan' in res) loan.value = res.loan
     else await load()
+    receipt.value = res && 'receipt' in res ? res.receipt ?? null : null
     dialog.value = null
   } catch (e) {
     const message = e instanceof ApiError ? e.message : 'Something went wrong. Please try again.'
@@ -70,6 +72,28 @@ async function act(path: string, body: Record<string, unknown> = {}, confirmText
     busy.value = false
   }
 }
+
+// --- Repayments: a live preview while typing, and a receipt after ----------------------
+
+/** Exactly what the repayment being typed would do (worked out by the server, then undone) */
+const preview = ref<PaymentReceipt | null>(null)
+const previewError = ref('')
+/** The last repayment recorded on this page */
+const receipt = ref<PaymentReceipt | null>(null)
+let previewTimer: ReturnType<typeof setTimeout> | undefined
+watch(() => [dialog.value, form.amount, form.date], () => {
+  clearTimeout(previewTimer)
+  preview.value = null
+  previewError.value = ''
+  if (dialog.value !== 'payment' || !loan.value || !Number(form.amount.replace(/[,\s]/g, ''))) return
+  previewTimer = setTimeout(async () => {
+    try {
+      preview.value = (await api.get<{ receipt: PaymentReceipt | null }>(`/loans/${loan.value!.id}/payment-preview`, { amount: form.amount, paid_on: form.date })).receipt
+    } catch (e) {
+      previewError.value = e instanceof ApiError ? e.message : ''
+    }
+  }, 300)
+})
 
 // --- Schedule ------------------------------------------------------------------------
 
@@ -95,13 +119,29 @@ function installmentState(i: Installment) {
     <template v-if="loan">
       <div class="mt-3 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 class="text-xl font-semibold tabular-nums">{{ formatMoney(loan.amount) }} <span class="font-normal text-gray-500">over {{ loan.months }} months</span></h1>
+          <h1 class="text-2xl font-bold tabular-nums">{{ formatMoney(loan.amount) }} <span class="font-normal text-gray-500">over {{ loan.months }} months</span></h1>
           <p class="mt-1 text-sm text-gray-600">
             {{ loan.loan_no }}<template v-if="loan.product_name"> · {{ loan.product_name }}</template><template v-if="!isOwner"> · {{ loan.borrower_name }} (<span class="font-mono">{{ loan.borrower_account_no }}</span>)</template>
             · {{ loan.purpose }} · {{ loan.interest_rate_monthly }}% a month, reducing balance
           </p>
         </div>
         <StatusBadge :label="loanStatus[loan.status].label" :style-class="loanStatus[loan.status].style" />
+      </div>
+
+      <!-- The repayment just recorded -->
+      <div v-if="receipt" class="mt-5 flex gap-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4" role="status">
+        <CheckCircleIcon class="h-6 w-6 shrink-0 text-emerald-700" aria-hidden="true" />
+        <div class="min-w-0 flex-1 text-sm">
+          <p class="font-semibold text-emerald-800">{{ formatMoney(receipt.amount) }} recorded{{ receipt.closed ? ' · the loan is fully repaid' : '' }}</p>
+          <p class="mt-1 text-gray-700">
+            Went to
+            <template v-if="Number(receipt.penalties)">penalties {{ formatMoney(receipt.penalties) }}, </template>
+            interest {{ formatMoney(receipt.interest) }} and principal {{ formatMoney(receipt.principal) }}.
+            Owed went from {{ formatMoney(receipt.owed_before) }} to <strong class="font-semibold">{{ formatMoney(receipt.owed_after) }}</strong>.
+            <template v-if="!receipt.closed && receipt.next_due_date"> Next due: {{ formatMoney(receipt.next_due_amount) }} on {{ formatDate(receipt.next_due_date) }}.</template>
+          </p>
+        </div>
+        <button type="button" class="self-start text-xs font-semibold text-gray-500 hover:text-gray-800" @click="receipt = null">Dismiss</button>
       </div>
 
       <!-- Where it stands, and what can be done next -->
@@ -219,6 +259,11 @@ function installmentState(i: Installment) {
               <p class="font-medium" :class="{ 'line-through': p.reversed_by }">
                 {{ p.reversal_of ? 'Reversal' : 'Repayment' }} · <span class="tabular-nums">{{ formatMoney(p.amount, { sign: true }) }}</span>
               </p>
+              <p v-if="p.split && !p.reversed_by" class="mt-1 flex flex-wrap gap-1.5 text-xs">
+                <span v-if="p.split.penalty" class="rounded-full bg-amber-50 px-2 py-0.5 text-amber-800">Penalty {{ formatMoney(p.split.penalty) }}</span>
+                <span v-if="p.split.interest" class="rounded-full bg-navy-50 px-2 py-0.5 text-navy-800">Interest {{ formatMoney(p.split.interest) }}</span>
+                <span v-if="p.split.principal" class="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-800">Principal {{ formatMoney(p.split.principal) }}</span>
+              </p>
               <p class="text-gray-600">{{ formatDate(p.paid_on) }}<template v-if="p.reference"> · {{ p.reference }}</template><template v-if="p.narration"> · {{ p.narration }}</template><template v-if="p.created_by_name"> · by {{ p.created_by_name }}</template></p>
             </div>
             <button v-if="canAdmin && !p.reversal_of && !p.reversed_by" type="button" class="btn-ghost px-2 py-1" @click="open('reverse', p)">Reverse</button>
@@ -267,15 +312,40 @@ function installmentState(i: Installment) {
     <Modal v-if="dialog === 'payment' && loan" title="Record a repayment" @close="dialog = null">
       <form class="space-y-4" @submit.prevent="act(`/loans/${loan.id}/payments`, { amount: form.amount, paid_on: form.date, reference: form.reference })">
         <div v-if="formError" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ formError }}</div>
-        <p v-if="loan.position" class="text-sm text-gray-700">{{ formatMoney(loan.position.total_left) }} still owed. A repayment pays the oldest instalment first: interest, then principal.</p>
+        <p v-if="loan.position" class="text-sm text-gray-700">
+          {{ formatMoney(loan.position.total_left) }} still owed. A repayment clears any penalty first, then the oldest instalment: its interest, then principal.
+        </p>
         <div class="grid gap-4 sm:grid-cols-2">
           <div><label for="amt" class="label">Amount</label><input id="amt" v-model="form.amount" class="input tabular-nums" inputmode="decimal" /></div>
           <div><label for="pdate" class="label">Date paid</label><input id="pdate" v-model="form.date" type="date" :max="today" class="input" /></div>
         </div>
         <div><label for="pref" class="label">Reference <span class="font-normal text-gray-400">(optional)</span></label><input id="pref" v-model="form.reference" class="input" maxlength="80" placeholder="Receipt or payroll month" /></div>
+
+        <!-- What this repayment will do -->
+        <div v-if="preview" class="rounded-xl border border-line bg-gray-50 p-4 text-sm" aria-live="polite">
+          <p class="eyebrow">This repayment</p>
+          <dl class="mt-2 space-y-1">
+            <div v-if="Number(preview.penalties)" class="flex justify-between"><dt class="text-gray-600">Clears penalties</dt><dd class="tabular-nums">{{ formatMoney(preview.penalties) }}</dd></div>
+            <div class="flex justify-between"><dt class="text-gray-600">Pays interest</dt><dd class="tabular-nums">{{ formatMoney(preview.interest) }}</dd></div>
+            <div class="flex justify-between"><dt class="text-gray-600">Reduces the principal by</dt><dd class="tabular-nums">{{ formatMoney(preview.principal) }}</dd></div>
+          </dl>
+          <div class="mt-3 grid grid-cols-2 gap-3 border-t border-line pt-3">
+            <div>
+              <p class="text-xs text-gray-500">Still owed after</p>
+              <p class="text-lg font-bold tabular-nums">{{ preview.closed ? 'Nothing: repaid' : formatMoney(preview.owed_after) }}</p>
+            </div>
+            <div v-if="!preview.closed && preview.next_due_date">
+              <p class="text-xs text-gray-500">Next amount due</p>
+              <p class="text-lg font-bold tabular-nums">{{ formatMoney(preview.next_due_amount) }}</p>
+              <p class="text-xs text-gray-500">{{ formatDate(preview.next_due_date) }}<template v-if="Number(preview.overdue_after)"> · {{ formatMoney(preview.overdue_after) }} still late</template></p>
+            </div>
+          </div>
+        </div>
+        <p v-else-if="previewError" class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{{ previewError }}</p>
+
         <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>
-          <button type="submit" class="btn-primary" :disabled="busy || !form.amount">Record repayment</button>
+          <button type="submit" class="btn-primary" :disabled="busy || !form.amount || !!previewError">Record repayment</button>
         </div>
       </form>
     </Modal>

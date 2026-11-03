@@ -65,7 +65,7 @@ final class ReportController
     private function members(): array
     {
         $db = Database::tenant();
-        $users = $db->query("SELECT id, account_no, full_name, employee_no, status, joined_on FROM users WHERE role IN ('member', 'admin', 'super_admin') ORDER BY full_name")->fetchAll();
+        $users = $db->query("SELECT id, account_no, full_name, employee_no, status, joined_on FROM users WHERE role = 'member' ORDER BY full_name")->fetchAll();
         $rows = [];
         foreach ($users as $u) {
             $id = (int) $u['id'];

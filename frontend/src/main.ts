@@ -9,10 +9,14 @@ import App from './App.vue'
 import router from './router'
 import { handleAuthProblems } from './api'
 import { useAuth } from './stores/auth'
+import { useTheme } from './stores/theme'
 
 const app = createApp(App)
 app.use(createPinia())
 app.use(router)
+
+// Light, dark or follow the device (already applied before the page drew; this keeps it in step)
+useTheme()
 
 // The server ended the session, or wants the temporary password changed: go to the right page
 handleAuthProblems((status, code) => {

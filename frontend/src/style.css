@@ -2,9 +2,56 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  /* RGB triplet of the SACCO's colour; replaced by its brand_color once it loads (deep navy) */
+/*
+ * Theme colours as "R G B" so Tailwind's /opacity works. Light is the default; `.dark` on <html>
+ * switches (stores/theme.ts). `.force-light` keeps printable pages light whatever the theme.
+ */
+:root,
+.force-light {
+  /* The SACCO's colour; replaced by its brand_color once it loads (deep navy) */
   --brand: 27 58 107;
+  --paper: 245 243 238;
+  --surface: 255 255 255;
+  --ink: 21 24 33;
+  --line: 231 227 218;
+  /* Warm stone greys */
+  --g-50: 250 250 249;
+  --g-100: 245 245 244;
+  --g-200: 231 229 228;
+  --g-300: 214 211 209;
+  --g-400: 168 162 158;
+  --g-500: 120 113 108;
+  --g-600: 87 83 78;
+  --g-700: 68 64 60;
+  --g-800: 41 37 36;
+  --g-900: 28 25 23;
+  --g-950: 12 10 9;
+  color-scheme: light;
+}
+
+.dark {
+  --paper: 10 14 22;
+  --surface: 19 25 36;
+  --ink: 232 235 240;
+  --line: 37 44 58;
+  /* The grey scale turned around: low numbers are dark backgrounds, high numbers light text */
+  --g-50: 23 29 41;
+  --g-100: 29 36 50;
+  --g-200: 42 50 65;
+  --g-300: 58 67 83;
+  --g-400: 98 108 125;
+  --g-500: 138 147 163;
+  --g-600: 169 177 191;
+  --g-700: 195 201 212;
+  --g-800: 221 225 232;
+  --g-900: 238 241 245;
+  --g-950: 247 249 251;
+  color-scheme: dark;
+}
+
+/* Printable pages keep light text colours too (the variables above already come back) */
+.dark .force-light {
+  color: rgb(21 24 33);
 }
 
 html {
@@ -13,7 +60,7 @@ html {
 
 body {
   @apply bg-paper text-ink antialiased;
-  font-feature-settings: 'tnum' 0;
+  transition: background-color 0.2s ease;
 }
 
 h1,
@@ -24,7 +71,7 @@ h3 {
 
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-400 focus-visible:ring-offset-2 focus-visible:ring-offset-paper disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primary {
     @apply btn bg-brand text-white shadow-sm hover:bg-brand/90;
@@ -33,19 +80,19 @@ h3 {
     @apply btn bg-saffron-500 text-navy-950 shadow-sm hover:bg-saffron-400;
   }
   .btn-secondary {
-    @apply btn border border-line bg-white text-ink shadow-sm hover:border-gray-300 hover:bg-gray-50;
+    @apply btn border border-line bg-surface text-ink shadow-sm hover:border-gray-300 hover:bg-gray-50;
   }
   .btn-ghost {
     @apply btn text-gray-700 hover:bg-gray-100;
   }
   .input {
-    @apply block w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink placeholder:text-gray-400 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/15 disabled:bg-gray-50 disabled:text-gray-500;
+    @apply block w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-gray-400 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/15 disabled:bg-gray-50 disabled:text-gray-500;
   }
   .label {
     @apply mb-1 block text-sm font-medium text-gray-700;
   }
   .card {
-    @apply rounded-2xl border border-line bg-white shadow-card;
+    @apply rounded-2xl border border-line bg-surface shadow-card;
   }
   .field-error {
     @apply mt-1 text-sm text-red-700;
@@ -59,6 +106,29 @@ h3 {
     @apply font-bold tabular-nums text-ink;
   }
 }
+
+/*
+ * Dark mode for the coloured tints (status badges, alerts, banners): soft see-through fills and
+ * lighter text, so they read on dark surfaces. Written once here instead of on every badge.
+ */
+.dark :is(.bg-red-50, .bg-red-50\/40, .bg-red-50\/60) { background-color: rgb(248 113 113 / 0.12); }
+.dark :is(.bg-amber-50, .bg-saffron-50, .bg-saffron-50\/40, .bg-amber-50\/40) { background-color: rgb(232 179 58 / 0.12); }
+.dark .bg-saffron-100 { background-color: rgb(232 179 58 / 0.18); }
+.dark :is(.bg-green-50, .bg-emerald-50) { background-color: rgb(52 211 153 / 0.12); }
+.dark :is(.bg-navy-50, .bg-blue-50) { background-color: rgb(143 171 216 / 0.14); }
+.dark .bg-navy-100 { background-color: rgb(143 171 216 / 0.22); }
+.dark .bg-brand\/10 { background-color: rgb(143 171 216 / 0.14); }
+.dark :is(.text-red-700, .text-red-800) { color: rgb(252 165 165); }
+.dark :is(.text-amber-700, .text-amber-800, .text-amber-900, .text-saffron-700) { color: rgb(240 199 102); }
+.dark :is(.text-green-700, .text-green-800, .text-emerald-700, .text-emerald-800, .text-emerald-600) { color: rgb(110 231 183); }
+.dark :is(.text-navy-800, .text-blue-800) { color: rgb(183 201 230); }
+.dark .text-brand { color: rgb(157 184 232); }
+.dark :is(.border-saffron-300, .border-amber-200) { border-color: rgb(232 179 58 / 0.35); }
+.dark :is(.border-red-200, .border-red-100) { border-color: rgb(248 113 113 / 0.3); }
+.dark .border-emerald-100 { border-color: rgb(52 211 153 / 0.25); }
+.dark .fill-navy-50 { fill: rgb(143 171 216 / 0.12); }
+.dark .shadow-card { box-shadow: none; }
+.dark .shadow-lift { box-shadow: 0 10px 30px -12px rgb(0 0 0 / 0.6); }
 
 @media print {
   body {

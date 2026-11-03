@@ -78,6 +78,9 @@ final class MemberExitController
         $stmt = Database::tenant()->prepare('SELECT * FROM users WHERE id = ?');
         $stmt->execute([(int) $request->param('id')]);
         $user = $stmt->fetch() ?: Response::error('Member not found.', 404);
+        if ($user['role'] !== 'member') {
+            Response::error('Office accounts have no membership to close.', 422);
+        }
         if ($user['status'] === 'left') {
             Response::error('This member has already left.', 422);
         }

@@ -24,6 +24,8 @@ use Sacco\Http\Router;
 $router = new Router();
 
 $admins = ['roles' => [Roles::ADMIN]];
+// A member's own money and profile; office accounts have none
+$members = ['members_only' => true];
 
 // Public
 $router->get('/api/sacco', [AuthController::class, 'sacco'], ['auth' => false]);
@@ -41,8 +43,8 @@ $router->patch('/api/users/{id}', [UserController::class, 'update'], $admins);
 $router->post('/api/users/{id}/reset-password', [UserController::class, 'resetPassword'], $admins);
 
 // A member's own savings and shares
-$router->get('/api/me/summary', [TransactionController::class, 'mySummary']);
-$router->get('/api/me/transactions', [TransactionController::class, 'myTransactions']);
+$router->get('/api/me/summary', [TransactionController::class, 'mySummary'], $members);
+$router->get('/api/me/transactions', [TransactionController::class, 'myTransactions'], $members);
 
 // Admins: members' accounts and recording entries
 $router->get('/api/members/{id}', [TransactionController::class, 'member'], $admins);
@@ -51,16 +53,16 @@ $router->post('/api/members/{id}/transactions', [TransactionController::class, '
 $router->post('/api/transactions/{id}/reverse', [TransactionController::class, 'reverse'], $admins);
 
 // Loans - members
-$router->get('/api/loans/quote', [LoanController::class, 'quote']);
-$router->get('/api/me/loans', [LoanController::class, 'mine']);
-$router->post('/api/loans', [LoanController::class, 'store']);
+$router->get('/api/loans/quote', [LoanController::class, 'quote'], $members);
+$router->get('/api/me/loans', [LoanController::class, 'mine'], $members);
+$router->post('/api/loans', [LoanController::class, 'store'], $members);
 $router->get('/api/loans/{id}', [LoanController::class, 'show']);
-$router->post('/api/loans/{id}/guarantors', [LoanController::class, 'addGuarantor']);
+$router->post('/api/loans/{id}/guarantors', [LoanController::class, 'addGuarantor'], $members);
 $router->post('/api/loans/{id}/cancel', [LoanController::class, 'cancel']);
 $router->get('/api/members/search', [LoanController::class, 'searchMembers']);
-$router->get('/api/me/guarantees', [LoanController::class, 'myGuarantees']);
-$router->post('/api/guarantees/{id}/accept', [LoanController::class, 'accept']);
-$router->post('/api/guarantees/{id}/decline', [LoanController::class, 'decline']);
+$router->get('/api/me/guarantees', [LoanController::class, 'myGuarantees'], $members);
+$router->post('/api/guarantees/{id}/accept', [LoanController::class, 'accept'], $members);
+$router->post('/api/guarantees/{id}/decline', [LoanController::class, 'decline'], $members);
 
 // Loans - admins
 $router->get('/api/loans', [LoanController::class, 'index'], $admins);
@@ -68,13 +70,14 @@ $router->post('/api/loans/{id}/approve', [LoanController::class, 'approve'], $ad
 $router->post('/api/loans/{id}/reject', [LoanController::class, 'reject'], $admins);
 $router->post('/api/loans/{id}/disburse', [LoanController::class, 'disburse'], $admins);
 $router->post('/api/loans/{id}/payments', [LoanController::class, 'recordPayment'], $admins);
+$router->get('/api/loans/{id}/payment-preview', [LoanController::class, 'previewPayment'], $admins);
 $router->post('/api/loan-payments/{id}/reverse', [LoanController::class, 'reversePayment'], $admins);
 
 // Savings withdrawals (paid by cheque)
-$router->get('/api/me/withdrawals', [WithdrawalController::class, 'mine']);
-$router->post('/api/withdrawals', [WithdrawalController::class, 'store']);
+$router->get('/api/me/withdrawals', [WithdrawalController::class, 'mine'], $members);
+$router->post('/api/withdrawals', [WithdrawalController::class, 'store'], $members);
 $router->get('/api/withdrawals/{id}', [WithdrawalController::class, 'show']);
-$router->post('/api/withdrawals/{id}/cancel', [WithdrawalController::class, 'cancel']);
+$router->post('/api/withdrawals/{id}/cancel', [WithdrawalController::class, 'cancel'], $members);
 $router->get('/api/withdrawals', [WithdrawalController::class, 'index'], $admins);
 $router->post('/api/withdrawals/{id}/approve', [WithdrawalController::class, 'approve'], $admins);
 $router->post('/api/withdrawals/{id}/reject', [WithdrawalController::class, 'reject'], $admins);
@@ -93,7 +96,7 @@ $router->get('/api/office/counts', [OfficeController::class, 'counts'], $admins)
 $router->get('/api/office/overview', [OfficeController::class, 'overview'], $admins);
 
 // Printable statements
-$router->get('/api/me/statement', [TransactionController::class, 'myStatement']);
+$router->get('/api/me/statement', [TransactionController::class, 'myStatement'], $members);
 $router->get('/api/members/{id}/statement', [TransactionController::class, 'memberStatement'], $admins);
 
 // Bringing in many members at once from Excel
@@ -121,8 +124,8 @@ $router->post('/api/loans/{id}/settle', [LoanController::class, 'settle'], $admi
 $router->post('/api/loan-charges/{id}/waive', [LoanController::class, 'waiveCharge'], $admins);
 
 // Member details: next of kin, own profile, leaving the SACCO
-$router->get('/api/me/profile', [MemberDetailsController::class, 'myProfile']);
-$router->post('/api/me/next-of-kin', [MemberDetailsController::class, 'save']);
+$router->get('/api/me/profile', [MemberDetailsController::class, 'myProfile'], $members);
+$router->post('/api/me/next-of-kin', [MemberDetailsController::class, 'save'], $members);
 $router->get('/api/members/{id}/next-of-kin', [MemberDetailsController::class, 'index'], $admins);
 $router->post('/api/members/{id}/next-of-kin', [MemberDetailsController::class, 'save'], $admins);
 $router->get('/api/members/{id}/exit', [MemberExitController::class, 'quote'], $admins);

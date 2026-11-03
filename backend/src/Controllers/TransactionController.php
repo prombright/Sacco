@@ -204,6 +204,9 @@ final class TransactionController
     public function store(Request $request): never
     {
         $user = $this->findUser((int) $request->param('id'));
+        if ($user['role'] !== 'member') {
+            Response::error('This is an office account; it has no savings or shares. Record it on the person\'s member account.', 422);
+        }
         if ((int) $user['id'] === Auth::id()) {
             Response::error('You can\'t record entries on your own account. Ask another admin.', 403);
         }
