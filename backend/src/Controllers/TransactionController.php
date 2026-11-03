@@ -51,7 +51,18 @@ final class TransactionController
         $requests = $db->prepare("SELECT COUNT(*) FROM loan_guarantors g JOIN loans l ON l.id = g.loan_id WHERE g.guarantor_id = ? AND g.status = 'pending' AND l.status = 'pending_guarantors'");
         $requests->execute([$id]);
 
+        // Dividends that still stand (not reversed): all of them, and the latest
+        $dividends = $db->prepare(
+            "SELECT t.amount, t.reference, t.value_date FROM transactions t
+             WHERE t.user_id = ? AND t.type = 'dividend' AND NOT EXISTS (SELECT 1 FROM transactions r WHERE r.reversal_of = t.id)
+             ORDER BY t.id DESC"
+        );
+        $dividends->execute([$id]);
+        $dividends = $dividends->fetchAll();
+
         Response::ok([
+            'dividends_total' => Money::toDecimal(array_sum(array_map(fn ($d) => Money::fromDecimal($d['amount']), $dividends))),
+            'last_dividend' => $dividends[0] ?? null,
             'balances' => Ledger::balances($id),
             'pledged' => Money::toDecimal(Loans::pledged($db, $id)),
             'share_price' => Settings::get('share_price', '0'),

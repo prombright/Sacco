@@ -15,6 +15,8 @@ interface Summary {
   loan_owed: string
   next_repayment: { date: string; amount: string } | null
   guarantee_requests: number
+  dividends_total: string
+  last_dividend: { amount: string; reference: string; value_date: string } | null
   recent: Transaction[]
 }
 
@@ -79,8 +81,11 @@ onMounted(async () => {
       </RouterLink>
       <div class="card p-5">
         <p class="text-sm font-medium text-gray-600">Dividend earnings</p>
-        <p class="mt-2 text-2xl font-semibold text-gray-300">—</p>
-        <p class="mt-1 text-xs text-gray-400">Coming with dividends</p>
+        <p class="mt-2 text-2xl font-semibold tabular-nums">{{ summary ? formatMoney(summary.dividends_total) : '…' }}</p>
+        <p v-if="summary?.last_dividend" class="mt-1 text-xs text-gray-500">
+          Last: {{ formatMoney(summary.last_dividend.amount) }} ({{ summary.last_dividend.reference }}), added to your shares
+        </p>
+        <p v-else class="mt-1 text-xs text-gray-500">Paid on your share capital, added to your shares</p>
       </div>
     </div>
 

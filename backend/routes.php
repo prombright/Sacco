@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 use Sacco\Auth\Roles;
 use Sacco\Controllers\AuthController;
+use Sacco\Controllers\DividendController;
 use Sacco\Controllers\LoanController;
+use Sacco\Controllers\ReportController;
 use Sacco\Controllers\PayrollController;
 use Sacco\Controllers\WithdrawalController;
 use Sacco\Controllers\SettingsController;
@@ -78,6 +80,17 @@ $router->get('/api/payroll/batches', [PayrollController::class, 'index'], $admin
 $router->post('/api/payroll/batches', [PayrollController::class, 'post'], $admins);
 $router->get('/api/payroll/batches/{id}', [PayrollController::class, 'show'], $admins);
 $router->post('/api/payroll/batches/{id}/reverse', [PayrollController::class, 'reverse'], $admins);
+
+// Dividends on share capital
+$router->post('/api/dividends/preview', [DividendController::class, 'preview'], $admins);
+$router->get('/api/dividends', [DividendController::class, 'index'], $admins);
+$router->post('/api/dividends', [DividendController::class, 'post'], $admins);
+$router->get('/api/dividends/{id}', [DividendController::class, 'show'], $admins);
+$router->post('/api/dividends/{id}/reverse', [DividendController::class, 'reverse'], $admins);
+
+// Reports (shown on screen and downloaded as Excel)
+$router->get('/api/reports', [ReportController::class, 'index'], $admins);
+$router->get('/api/reports/{name}', [ReportController::class, 'show'], $admins);
 
 // The SACCO's rules
 $router->get('/api/settings', [SettingsController::class, 'index'], $admins);

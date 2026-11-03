@@ -22,6 +22,8 @@ const officeLinks = computed(() => auth.isAdmin ? [
   { to: { name: 'payroll' }, label: 'Payroll' },
   { to: { name: 'admin-loans' }, label: 'Loan applications' },
   { to: { name: 'admin-withdrawals' }, label: 'Withdrawals' },
+  { to: { name: 'dividends' }, label: 'Dividends' },
+  { to: { name: 'reports' }, label: 'Reports' },
   { to: { name: 'settings' }, label: 'Rules' },
 ] : [])
 
@@ -30,6 +32,7 @@ const sections: Record<string, string[]> = {
   users: ['member'],
   loans: ['loan-apply', 'loan'],
   payroll: ['payroll-batch'],
+  dividends: ['dividend-run'],
 }
 const route = useRoute()
 function isCurrent(name: string) {

@@ -45,8 +45,8 @@ final class Ledger
         }
 
         $db->prepare(
-            'INSERT INTO transactions (user_id, account, type, amount, balance_after, value_date, reference, narration, reversal_of, batch_id, created_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO transactions (user_id, account, type, amount, balance_after, value_date, reference, narration, reversal_of, batch_id, dividend_run_id, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         )->execute([
             $userId, $account, $type, Money::toDecimal($cents), Money::toDecimal($balance),
             $meta['value_date'] ?? date('Y-m-d'),
@@ -54,13 +54,14 @@ final class Ledger
             $meta['narration'] ?? null,
             $meta['reversal_of'] ?? null,
             $meta['batch_id'] ?? null,
+            $meta['dividend_run_id'] ?? null,
             $meta['created_by'] ?? Auth::id(),
         ]);
         return self::find($db, (int) $db->lastInsertId());
     }
 
     /** Cancels a row with an equal and opposite one. A row can be reversed once; a reversal can't be. */
-    public static function reverse(PDO $db, int $transactionId, string $reason, ?int $batchId = null): array
+    public static function reverse(PDO $db, int $transactionId, string $reason, ?int $batchId = null, ?int $dividendRunId = null): array
     {
         $original = self::find($db, $transactionId);
         if (!$original) {
@@ -77,6 +78,7 @@ final class Ledger
             'reference' => $original['reference'],
             'narration' => $reason,
             'batch_id' => $batchId,
+            'dividend_run_id' => $dividendRunId,
         ]);
     }
 
