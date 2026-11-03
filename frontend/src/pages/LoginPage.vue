@@ -12,7 +12,7 @@ const router = useRouter()
 
 const login = ref('')
 const password = ref('')
-// Only needed when this web address doesn't already belong to the SACCO they want
+// Only asked for when this web address doesn't belong to a SACCO (each SACCO has its own address)
 const otherSacco = ref(!auth.sacco)
 const saccoCode = ref('')
 const error = ref('')
@@ -112,11 +112,6 @@ async function submit() {
           </form>
 
           <p class="mt-6 text-sm text-gray-600">Forgot your password? Ask your SACCO office to reset it.</p>
-          <p v-if="!otherSacco" class="mt-2 text-sm">
-            <button type="button" class="font-medium text-gray-600 underline hover:text-gray-900" @click="otherSacco = true">
-              Signing in to a different SACCO?
-            </button>
-          </p>
         </div>
       </div>
     </section>
