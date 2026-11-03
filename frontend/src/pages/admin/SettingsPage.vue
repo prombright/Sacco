@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { api, ApiError } from '@/api'
 import { useAuth } from '@/stores/auth'
+import LoanProducts from './LoanProducts.vue'
 
 interface Setting {
   key: string
@@ -50,14 +51,17 @@ async function save() {
 </script>
 
 <template>
-  <div class="max-w-2xl">
-    <h1 class="text-xl font-semibold">SACCO rules</h1>
+  <div class="max-w-4xl space-y-6">
+    <h1 class="text-2xl font-bold">SACCO rules</h1>
     <p class="mt-1 text-sm text-gray-600">
       Set by the committee.
       <template v-if="!auth.isSuperAdmin">Only a super admin can change them.</template>
     </p>
 
-    <form class="card mt-5 space-y-4 p-5" novalidate @submit.prevent="save">
+    <LoanProducts />
+
+    <form class="card space-y-4 p-5" novalidate @submit.prevent="save">
+      <h2 class="font-semibold">General rules</h2>
       <div v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
       <div v-if="message" class="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800" role="status">{{ message }}</div>
 

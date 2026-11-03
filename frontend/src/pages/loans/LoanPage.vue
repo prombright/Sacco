@@ -3,7 +3,7 @@ import { computed, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { api, ApiError } from '@/api'
 import { useAuth } from '@/stores/auth'
-import type { Installment, Loan, LoanPayment, PickedMember } from '@/types'
+import type { Installment, Loan, LoanCharge, LoanPayment, PickedMember } from '@/types'
 import { formatDate, formatMoney } from '@/money'
 import { guarantorStatus, loanStatus } from '@/loans'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -34,11 +34,12 @@ load()
 
 // --- Actions: each opens a small form in a dialog --------------------------------------
 
-type Dialog = 'reject' | 'disburse' | 'payment' | 'reverse' | 'guarantor' | null
+type Dialog = 'reject' | 'disburse' | 'payment' | 'reverse' | 'guarantor' | 'settle' | 'waive' | null
 const dialog = ref<Dialog>(null)
 const form = reactive({ note: '', date: today, reference: '', amount: '', reason: '' })
 const newGuarantor = ref<(PickedMember & { amount: string }) | null>(null)
 const reversing = ref<LoanPayment | null>(null)
+const waiving = ref<LoanCharge | null>(null)
 const formError = ref('')
 const busy = ref(false)
 
@@ -86,7 +87,7 @@ function installmentState(i: Installment) {
 <template>
   <div>
     <RouterLink :to="canAdmin ? { name: 'admin-loans' } : { name: 'loans' }" class="text-sm font-medium text-gray-600 hover:text-gray-900">
-      ← {{ canAdmin ? 'Loan applications' : 'Loans' }}
+      ← {{ canAdmin ? 'Loans' : 'My loans' }}
     </RouterLink>
 
     <div v-if="error" class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
@@ -96,7 +97,7 @@ function installmentState(i: Installment) {
         <div>
           <h1 class="text-xl font-semibold tabular-nums">{{ formatMoney(loan.amount) }} <span class="font-normal text-gray-500">over {{ loan.months }} months</span></h1>
           <p class="mt-1 text-sm text-gray-600">
-            {{ loan.loan_no }}<template v-if="!isOwner"> · {{ loan.borrower_name }} (<span class="font-mono">{{ loan.borrower_account_no }}</span>)</template>
+            {{ loan.loan_no }}<template v-if="loan.product_name"> · {{ loan.product_name }}</template><template v-if="!isOwner"> · {{ loan.borrower_name }} (<span class="font-mono">{{ loan.borrower_account_no }}</span>)</template>
             · {{ loan.purpose }} · {{ loan.interest_rate_monthly }}% a month, reducing balance
           </p>
         </div>
@@ -127,6 +128,7 @@ function installmentState(i: Installment) {
             <button v-if="loan.status === 'pending_approval'" type="button" class="btn-primary" :disabled="busy" @click="act(`/loans/${loan.id}/approve`, {}, `Approve ${loan.borrower_name}'s loan of ${formatMoney(loan.amount)}?`)">Approve</button>
             <button v-if="loan.status === 'approved'" type="button" class="btn-primary" @click="open('disburse')">Record the payout</button>
             <button v-if="loan.status === 'active'" type="button" class="btn-primary" @click="open('payment')">Record a repayment</button>
+            <button v-if="loan.status === 'active' && loan.settlement" type="button" class="btn-secondary" @click="open('settle')">Pay off early</button>
             <button v-if="['pending_guarantors', 'pending_approval', 'approved'].includes(loan.status)" type="button" class="btn-secondary" @click="open('reject')">Reject</button>
           </template>
           <template v-if="isOwner">
@@ -189,6 +191,25 @@ function installmentState(i: Installment) {
         </div>
       </section>
 
+      <!-- Penalties and other charges -->
+      <section v-if="loan.charges?.length" class="mt-8">
+        <h2 class="font-semibold">Penalties</h2>
+        <ul class="card mt-3 divide-y divide-line">
+          <li v-for="c in loan.charges" :key="c.id" class="flex flex-wrap items-center justify-between gap-2 p-4 text-sm" :class="{ 'text-gray-400': c.waived_at }">
+            <div>
+              <p class="font-medium" :class="{ 'line-through': c.waived_at }">Late-payment penalty · <span class="tabular-nums">{{ formatMoney(c.amount) }}</span></p>
+              <p class="text-gray-600">{{ formatDate(c.charged_on) }}<template v-if="c.note"> · {{ c.note }}</template></p>
+            </div>
+            <div class="flex items-center gap-2">
+              <span v-if="!c.waived_at" class="text-xs font-semibold" :class="Number(c.paid) >= Number(c.amount) ? 'text-emerald-700' : 'text-amber-700'">
+                {{ Number(c.paid) >= Number(c.amount) ? 'Paid' : `${formatMoney(String(Number(c.amount) - Number(c.paid)))} to pay` }}
+              </span>
+              <button v-if="canAdmin && !c.waived_at && Number(c.paid) < Number(c.amount)" type="button" class="btn-ghost px-2 py-1" @click="waiving = c; open('waive')">Waive</button>
+            </div>
+          </li>
+        </ul>
+      </section>
+
       <!-- Repayments -->
       <section v-if="loan.payments?.length" class="mt-8">
         <h2 class="font-semibold">Repayments</h2>
@@ -224,7 +245,14 @@ function installmentState(i: Installment) {
     <Modal v-if="dialog === 'disburse' && loan" title="Record the payout" @close="dialog = null">
       <form class="space-y-4" @submit.prevent="act(`/loans/${loan.id}/disburse`, { disbursed_on: form.date, reference: form.reference })">
         <div v-if="formError" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ formError }}</div>
-        <p class="text-sm text-gray-700">Record the cheque issued to {{ loan.borrower_name }} for <strong class="font-semibold">{{ formatMoney(loan.amount) }}</strong>. The repayment schedule starts from this date.</p>
+        <p class="text-sm text-gray-700">Record the cheque issued to {{ loan.borrower_name }}. The repayment schedule starts from this date.</p>
+        <dl class="grid grid-cols-2 gap-y-1 rounded-xl bg-gray-50 p-3 text-sm">
+          <dt class="text-gray-600">Loan</dt><dd class="text-right tabular-nums">{{ formatMoney(loan.amount) }}</dd>
+          <template v-if="Number(loan.processing_fee) > 0">
+            <dt class="text-gray-600">Processing fee</dt><dd class="text-right tabular-nums">−{{ formatMoney(loan.processing_fee) }}</dd>
+          </template>
+          <dt class="font-semibold">Cheque amount</dt><dd class="text-right font-semibold tabular-nums">{{ formatMoney(String(Number(loan.amount) - Number(loan.processing_fee || 0))) }}</dd>
+        </dl>
         <div class="grid gap-4 sm:grid-cols-2">
           <div><label for="ref" class="label">Cheque number</label><input id="ref" v-model="form.reference" class="input" maxlength="80" /></div>
           <div><label for="date" class="label">Date issued</label><input id="date" v-model="form.date" type="date" :max="today" class="input" /></div>
@@ -260,6 +288,36 @@ function installmentState(i: Installment) {
         <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>
           <button type="submit" class="btn-primary" :disabled="busy || !form.reason.trim()">Reverse repayment</button>
+        </div>
+      </form>
+    </Modal>
+
+    <Modal v-if="dialog === 'settle' && loan?.settlement" title="Pay off early" @close="dialog = null">
+      <form class="space-y-4" @submit.prevent="act(`/loans/${loan.id}/settle`, { reference: form.reference })">
+        <div v-if="formError" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ formError }}</div>
+        <p class="text-sm text-gray-700">
+          {{ loan.borrower_name }} pays everything off today: the principal still owed, any penalties, and interest only up to this month.
+        </p>
+        <dl class="grid grid-cols-2 gap-y-1 rounded-xl bg-gray-50 p-3 text-sm">
+          <dt class="font-semibold">To pay today</dt><dd class="text-right font-semibold tabular-nums">{{ formatMoney(loan.settlement.amount) }}</dd>
+          <dt class="text-gray-600">Interest they save</dt><dd class="text-right tabular-nums text-emerald-700">{{ formatMoney(loan.settlement.interest_saved) }}</dd>
+        </dl>
+        <div><label for="sref" class="label">Reference <span class="font-normal text-gray-400">(optional)</span></label><input id="sref" v-model="form.reference" class="input" maxlength="80" placeholder="Receipt or bank slip" /></div>
+        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>
+          <button type="submit" class="btn-primary" :disabled="busy">Record payment and close loan</button>
+        </div>
+      </form>
+    </Modal>
+
+    <Modal v-if="dialog === 'waive' && waiving" title="Waive a penalty" @close="dialog = null">
+      <form class="space-y-4" @submit.prevent="act(`/loan-charges/${waiving.id}/waive`, { reason: form.reason })">
+        <div v-if="formError" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ formError }}</div>
+        <p class="text-sm text-gray-700">The {{ formatMoney(waiving.amount) }} penalty of {{ formatDate(waiving.charged_on) }} will no longer be owed.</p>
+        <div><label for="wreason" class="label">Why?</label><input id="wreason" v-model="form.reason" class="input" maxlength="200" placeholder="e.g. Payroll was late, not the member" /></div>
+        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>
+          <button type="submit" class="btn-primary" :disabled="busy || !form.reason.trim()">Waive penalty</button>
         </div>
       </form>
     </Modal>

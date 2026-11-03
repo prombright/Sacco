@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 use Sacco\Auth\Roles;
 use Sacco\Controllers\AuthController;
+use Sacco\Controllers\CashbookController;
 use Sacco\Controllers\DividendController;
+use Sacco\Controllers\MemberDetailsController;
+use Sacco\Controllers\MemberExitController;
+use Sacco\Controllers\NoticeController;
+use Sacco\Controllers\ProductController;
 use Sacco\Controllers\LoanController;
 use Sacco\Controllers\MemberImportController;
 use Sacco\Controllers\OfficeController;
@@ -105,6 +110,34 @@ $router->post('/api/dividends/{id}/reverse', [DividendController::class, 'revers
 // Reports (shown on screen and downloaded as Excel)
 $router->get('/api/reports', [ReportController::class, 'index'], $admins);
 $router->get('/api/reports/{name}', [ReportController::class, 'show'], $admins);
+
+// Loan products, penalties, early settlement
+$router->get('/api/loan-products', [ProductController::class, 'index']);
+$router->post('/api/loan-products', [ProductController::class, 'store'], ['roles' => [Roles::SUPER_ADMIN]]);
+$router->patch('/api/loan-products/{id}', [ProductController::class, 'update'], ['roles' => [Roles::SUPER_ADMIN]]);
+$router->post('/api/loans/penalties/run', [LoanController::class, 'runPenalties'], $admins);
+$router->post('/api/loans/existing', [LoanController::class, 'recordExisting'], $admins);
+$router->post('/api/loans/{id}/settle', [LoanController::class, 'settle'], $admins);
+$router->post('/api/loan-charges/{id}/waive', [LoanController::class, 'waiveCharge'], $admins);
+
+// Member details: next of kin, own profile, leaving the SACCO
+$router->get('/api/me/profile', [MemberDetailsController::class, 'myProfile']);
+$router->post('/api/me/next-of-kin', [MemberDetailsController::class, 'save']);
+$router->get('/api/members/{id}/next-of-kin', [MemberDetailsController::class, 'index'], $admins);
+$router->post('/api/members/{id}/next-of-kin', [MemberDetailsController::class, 'save'], $admins);
+$router->get('/api/members/{id}/exit', [MemberExitController::class, 'quote'], $admins);
+$router->post('/api/members/{id}/exit', [MemberExitController::class, 'close'], $admins);
+
+// The SACCO's own income and expenses
+$router->get('/api/cashbook', [CashbookController::class, 'index'], $admins);
+$router->post('/api/cashbook', [CashbookController::class, 'store'], $admins);
+$router->post('/api/cashbook/{id}/reverse', [CashbookController::class, 'reverse'], $admins);
+
+// Notices to members
+$router->get('/api/notices/current', [NoticeController::class, 'current']);
+$router->get('/api/notices', [NoticeController::class, 'index'], $admins);
+$router->post('/api/notices', [NoticeController::class, 'store'], $admins);
+$router->delete('/api/notices/{id}', [NoticeController::class, 'end'], $admins);
 
 // The SACCO's rules
 $router->get('/api/settings', [SettingsController::class, 'index'], $admins);

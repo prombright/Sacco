@@ -2,21 +2,22 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { api, ApiError } from '@/api'
-import type { Installment, Loan, LoanRules, PickedMember } from '@/types'
+import type { Installment, Loan, LoanProduct, LoanRules, PickedMember } from '@/types'
 import { formatDate, formatMoney } from '@/money'
 import MemberPicker from '@/components/MemberPicker.vue'
 
 interface Quote {
+  products: LoanProduct[]
   rules: LoanRules
   eligibility: { savings: string; owed: string; limit: string }
   /** How long they've saved; wait_reason is set when that's not long enough to borrow yet */
   membership: { since: string | null; months: number; wait_reason: string | null }
-  schedule: null | { installment: string; total_interest: string; total_repayable: string; rows: (Installment & { balance_after: string })[] }
+  schedule: null | { installment: string; total_interest: string; total_repayable: string; processing_fee: string; you_receive: string; rows: (Installment & { balance_after: string })[] }
 }
 
 const router = useRouter()
 
-const form = reactive({ amount: '', months: 12, purpose: '' })
+const form = reactive({ product_id: 0, amount: '', months: 12, purpose: '' })
 const guarantors = ref<(PickedMember & { amount: string })[]>([])
 const quote = ref<Quote | null>(null)
 const showSchedule = ref(false)
@@ -44,13 +45,20 @@ const ready = computed(() => amountNumber.value > 0 && form.purpose.trim() !== '
 
 async function loadQuote() {
   try {
-    quote.value = await api.get<Quote>('/loans/quote', { amount: form.amount.replace(/[,\s]/g, '') || undefined, months: form.months })
+    quote.value = await api.get<Quote>('/loans/quote', {
+      product_id: form.product_id || undefined,
+      amount: form.amount.replace(/[,\s]/g, '') || undefined,
+      months: form.months,
+    })
+    // The first product is chosen until the member picks another; months stay within its limit
+    form.product_id ||= quote.value.rules.product_id ?? 0
+    if (form.months > quote.value.rules.max_months) form.months = quote.value.rules.max_months
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Couldn\'t work out your loan limit.'
   }
 }
 let timer: ReturnType<typeof setTimeout> | undefined
-watch(() => [form.amount, form.months], () => {
+watch(() => [form.product_id, form.amount, form.months], () => {
   clearTimeout(timer)
   timer = setTimeout(loadQuote, 300)
 })
@@ -68,6 +76,7 @@ async function submit() {
   busy.value = true
   try {
     const res = await api.post<{ loan: Loan }>('/loans', {
+      product_id: form.product_id,
       amount: form.amount,
       months: form.months,
       purpose: form.purpose,
@@ -90,7 +99,7 @@ async function submit() {
 <template>
   <div class="mx-auto max-w-3xl">
     <RouterLink :to="{ name: 'loans' }" class="text-sm font-medium text-gray-600 hover:text-gray-900">← Loans</RouterLink>
-    <h1 class="mt-3 text-xl font-semibold">Apply for a loan</h1>
+    <h1 class="mt-3 text-2xl font-bold">Apply for a loan</h1>
 
     <div v-if="quote?.membership.wait_reason" class="card mt-5 p-5">
       <p class="font-medium">Not yet</p>
@@ -100,6 +109,29 @@ async function submit() {
     </div>
 
     <template v-else>
+    <!-- Which kind of loan -->
+    <fieldset v-if="quote && quote.products.length > 1" class="mt-5">
+      <legend class="label">Type of loan</legend>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <label
+          v-for="p in quote.products"
+          :key="p.id"
+          class="cursor-pointer rounded-2xl border bg-white p-4 transition"
+          :class="form.product_id === p.id ? 'border-brand ring-2 ring-brand/15' : 'border-line hover:border-gray-300'"
+        >
+          <input v-model="form.product_id" type="radio" :value="p.id" class="sr-only" />
+          <span class="flex items-start justify-between gap-2">
+            <span class="font-semibold">{{ p.name }}</span>
+            <span class="rounded-full bg-navy-50 px-2 py-0.5 text-xs font-semibold text-navy-800">{{ p.interest_rate_monthly }}% a month</span>
+          </span>
+          <span v-if="p.description" class="mt-1 block text-sm text-gray-600">{{ p.description }}</span>
+          <span class="mt-2 block text-xs text-gray-500">
+            Up to {{ p.max_months }} months · {{ p.savings_multiplier }}× savings<template v-if="Number(p.processing_fee_percent)"> · {{ p.processing_fee_percent }}% fee</template>
+          </span>
+        </label>
+      </div>
+    </fieldset>
+
     <div v-if="quote" class="card mt-5 grid gap-4 p-5 sm:grid-cols-3">
       <div>
         <p class="text-sm text-gray-600">You can borrow up to</p>
@@ -150,6 +182,10 @@ async function submit() {
               <p class="text-lg font-semibold tabular-nums">{{ formatMoney(quote.schedule.total_repayable) }}</p>
             </div>
           </div>
+          <p v-if="Number(quote.schedule.processing_fee) > 0" class="mt-3 border-t border-line pt-3 text-sm text-gray-700">
+            A {{ quote.rules.processing_fee_percent }}% processing fee of {{ formatMoney(quote.schedule.processing_fee) }} comes off the cheque:
+            you receive <strong class="font-semibold">{{ formatMoney(quote.schedule.you_receive) }}</strong>.
+          </p>
           <button type="button" class="mt-3 text-sm font-medium text-brand hover:underline" @click="showSchedule = !showSchedule">
             {{ showSchedule ? 'Hide' : 'See' }} the month-by-month schedule
           </button>

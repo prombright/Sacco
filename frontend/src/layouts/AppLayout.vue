@@ -6,6 +6,7 @@ import {
   ArrowUpTrayIcon,
   BanknotesIcon,
   Bars3Icon,
+  CalculatorIcon,
   ChartBarIcon,
   ClipboardDocumentCheckIcon,
   Cog6ToothIcon,
@@ -13,8 +14,10 @@ import {
   HomeIcon,
   InboxStackIcon,
   KeyIcon,
+  MegaphoneIcon,
   ReceiptPercentIcon,
   Squares2X2Icon,
+  UserCircleIcon,
   UsersIcon,
   WalletIcon,
   XMarkIcon,
@@ -46,6 +49,7 @@ const mine: NavLink[] = [
   { name: 'statement', label: 'My statement', icon: DocumentTextIcon },
   { name: 'loans', label: 'My loans', icon: BanknotesIcon, also: ['loan-apply'] },
   { name: 'withdrawals', label: 'Withdraw savings', icon: WalletIcon },
+  { name: 'profile', label: 'My profile', icon: UserCircleIcon },
 ]
 
 // Running the SACCO (admins), with counts of what's waiting
@@ -58,6 +62,8 @@ const officeLinks = computed<NavLink[]>(() => {
     { name: 'admin-withdrawals', label: 'Withdrawals', icon: InboxStackIcon, badge: w ? w.withdrawals_to_approve + w.withdrawals_to_pay : 0 },
     { name: 'payroll', label: 'Payroll uploads', icon: ArrowUpTrayIcon, also: ['payroll-batch'] },
     { name: 'dividends', label: 'Dividends', icon: ReceiptPercentIcon, also: ['dividend-run'] },
+    { name: 'cashbook', label: 'Income & expenses', icon: CalculatorIcon },
+    { name: 'notices', label: 'Notices', icon: MegaphoneIcon },
     { name: 'reports', label: 'Reports', icon: ChartBarIcon },
     { name: 'settings', label: 'SACCO rules', icon: Cog6ToothIcon },
   ]

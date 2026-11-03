@@ -5,6 +5,7 @@ import type { Loan, LoanStatus } from '@/types'
 import { formatDate, formatMoney } from '@/money'
 import { loanStatus } from '@/loans'
 import StatusBadge from '@/components/StatusBadge.vue'
+import ExistingLoanForm from './ExistingLoanForm.vue'
 
 // In the order an admin works through them
 const tabs: { status: LoanStatus; label: string }[] = [
@@ -23,6 +24,27 @@ const loans = ref<Loan[]>([])
 const counts = ref<Record<string, number>>({})
 const loading = ref(true)
 const error = ref('')
+const charging = ref(false)
+const charged = ref('')
+const bringingIn = ref(false)
+
+/** Charges every late loan its penalty; safe to press again (once per loan per month) */
+async function chargePenalties() {
+  if (!confirm('Charge the late-payment penalty on every loan with instalments past their due date? Each loan is charged at most once a month.')) return
+  charging.value = true
+  error.value = ''
+  try {
+    const res = await api.post<{ charged: { loan_no: string; borrower: string; penalty: string }[] }>('/loans/penalties/run')
+    charged.value = res.charged.length
+      ? `Penalties charged on ${res.charged.length} loan${res.charged.length === 1 ? '' : 's'}: ` + res.charged.map((c) => `${c.borrower} (${c.loan_no}) ${formatMoney(c.penalty)}`).join(', ') + '.'
+      : 'No loan needed a penalty: none is late, or each late one was already charged this month.'
+    await load()
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.message : "Couldn't charge penalties."
+  } finally {
+    charging.value = false
+  }
+}
 
 async function load() {
   loading.value = true
@@ -45,8 +67,17 @@ onMounted(load)
 
 <template>
   <div>
-    <h1 class="text-xl font-semibold">Loan applications</h1>
-    <p class="mt-1 text-sm text-gray-600">Approve, pay out and record repayments. Your own loans are handled by another admin.</p>
+    <div class="flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h1 class="text-2xl font-bold">Loans</h1>
+        <p class="mt-1 text-sm text-gray-600">Approve, pay out and record repayments. Your own loans are handled by another admin.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <button type="button" class="btn-secondary" :disabled="charging" @click="chargePenalties">Charge late-payment penalties</button>
+        <button type="button" class="btn-primary" @click="bringingIn = true">Record a loan from old records</button>
+      </div>
+    </div>
+    <div v-if="charged" class="mt-4 rounded-lg bg-saffron-50 px-4 py-3 text-sm text-gray-800" role="status">{{ charged }}</div>
 
     <div class="mt-5 flex gap-1 overflow-x-auto pb-1" role="tablist">
       <button
@@ -86,5 +117,6 @@ onMounted(load)
       </li>
       <li v-if="!loading && !loans.length" class="px-4 py-10 text-center text-sm text-gray-500">Nothing here.</li>
     </ul>
+    <ExistingLoanForm v-if="bringingIn" @close="bringingIn = false" />
   </div>
 </template>

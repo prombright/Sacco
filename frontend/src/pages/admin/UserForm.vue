@@ -19,6 +19,12 @@ const form = reactive({
   account_no: props.user?.account_no ?? '',
   joined_on: props.user?.joined_on ?? '',
   phone: props.user?.phone ?? '',
+  national_id: props.user?.national_id ?? '',
+  date_of_birth: props.user?.date_of_birth ?? '',
+  gender: props.user?.gender ?? '',
+  department: props.user?.department ?? '',
+  position: props.user?.position ?? '',
+  address: props.user?.address ?? '',
   role: (props.user?.role ?? 'member') as Role,
   status: (props.user?.status ?? 'active') as UserStatus,
 })
@@ -87,6 +93,24 @@ async function save() {
           <input id="phone" v-model="form.phone" type="tel" class="input" autocomplete="off" />
         </div>
       </div>
+
+      <details class="rounded-xl border border-line p-3" :open="!!(form.national_id || form.date_of_birth || form.department)">
+        <summary class="cursor-pointer text-sm font-semibold text-gray-700">More details: ID, date of birth, department…</summary>
+        <div class="mt-3 grid gap-4 sm:grid-cols-2">
+          <div><label for="national_id" class="label">National ID (NIN)</label><input id="national_id" v-model="form.national_id" class="input uppercase" maxlength="30" autocomplete="off" /></div>
+          <div>
+            <label for="dob" class="label">Date of birth</label><input id="dob" v-model="form.date_of_birth" type="date" class="input" />
+            <p v-if="errors.date_of_birth" class="field-error">{{ errors.date_of_birth }}</p>
+          </div>
+          <div>
+            <label for="gender" class="label">Gender</label>
+            <select id="gender" v-model="form.gender" class="input"><option value="">Not recorded</option><option value="female">Female</option><option value="male">Male</option></select>
+          </div>
+          <div><label for="department" class="label">Department</label><input id="department" v-model="form.department" class="input" maxlength="80" placeholder="e.g. Sciences, Bursar's office" /></div>
+          <div><label for="position" class="label">Position</label><input id="position" v-model="form.position" class="input" maxlength="80" placeholder="e.g. Teacher, Cook" /></div>
+          <div><label for="address" class="label">Home address</label><input id="address" v-model="form.address" class="input" maxlength="255" /></div>
+        </div>
+      </details>
 
       <div>
         <label for="joined_on" class="label">Member since <span class="font-normal text-gray-400">(optional)</span></label>

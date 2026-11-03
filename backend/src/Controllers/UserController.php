@@ -75,10 +75,11 @@ final class UserController
 
         $id = Database::transaction(function (\PDO $db) use ($data, $temporary) {
             $db->prepare(
-                'INSERT INTO users (full_name, email, employee_no, account_no, joined_on, phone, role, status, source, password_hash, must_change_password, created_by)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, \'manual\', ?, 1, ?)'
+                'INSERT INTO users (full_name, email, employee_no, account_no, joined_on, phone, national_id, date_of_birth, gender, department, position, address, role, status, source, password_hash, must_change_password, created_by)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, \'manual\', ?, 1, ?)'
             )->execute([
                 $data['full_name'], $data['email'], $data['employee_no'], $data['account_no'], $data['joined_on'], $data['phone'],
+                $data['national_id'], $data['date_of_birth'], $data['gender'], $data['department'], $data['position'], $data['address'],
                 $data['role'], $data['status'], Passwords::hash($temporary), Auth::id(),
             ]);
             $id = (int) $db->lastInsertId();
@@ -110,14 +111,17 @@ final class UserController
         }
 
         Database::tenant()->prepare(
-            'UPDATE users SET full_name = ?, email = ?, employee_no = ?, account_no = ?, joined_on = ?, phone = ?, role = ?, status = ? WHERE id = ?'
+            'UPDATE users SET full_name = ?, email = ?, employee_no = ?, account_no = ?, joined_on = ?, phone = ?,
+                national_id = ?, date_of_birth = ?, gender = ?, department = ?, position = ?, address = ?, role = ?, status = ? WHERE id = ?'
         )->execute([
             $data['full_name'], $data['email'], $data['employee_no'], $data['account_no'] ?? $user['account_no'],
-            $data['joined_on'], $data['phone'], $data['role'], $data['status'], $user['id'],
+            $data['joined_on'], $data['phone'],
+            $data['national_id'], $data['date_of_birth'], $data['gender'], $data['department'], $data['position'], $data['address'],
+            $data['role'], $data['status'], $user['id'],
         ]);
 
         $changed = [];
-        foreach (['full_name', 'email', 'employee_no', 'account_no', 'joined_on', 'phone', 'role', 'status'] as $field) {
+        foreach (['full_name', 'email', 'employee_no', 'account_no', 'joined_on', 'phone', 'national_id', 'date_of_birth', 'gender', 'department', 'position', 'address', 'role', 'status'] as $field) {
             if (($data[$field] ?? $user[$field]) !== $user[$field]) {
                 $changed[$field] = ['from' => $user[$field], 'to' => $data[$field]];
             }
@@ -175,6 +179,12 @@ final class UserController
             // Member since; blank means "from their first savings entry"
             'joined_on' => $value('joined_on'),
             'phone' => $value('phone'),
+            'national_id' => $value('national_id') !== null ? strtoupper($value('national_id')) : null,
+            'date_of_birth' => $value('date_of_birth'),
+            'gender' => $value('gender'),
+            'department' => $value('department'),
+            'position' => $value('position'),
+            'address' => $value('address'),
             'role' => $value('role') ?? Roles::MEMBER,
             'status' => $value('status') ?? 'active',
         ];
@@ -194,6 +204,15 @@ final class UserController
             if (!$d || $d->format('Y-m-d') !== $data['joined_on'] || $data['joined_on'] > date('Y-m-d')) {
                 $errors['joined_on'] = 'Enter a valid date, not in the future.';
             }
+        }
+        if ($data['date_of_birth'] !== null) {
+            $d = \DateTime::createFromFormat('!Y-m-d', $data['date_of_birth']);
+            if (!$d || $d->format('Y-m-d') !== $data['date_of_birth'] || $data['date_of_birth'] > date('Y-m-d', strtotime('-16 years'))) {
+                $errors['date_of_birth'] = 'Enter a valid date of birth.';
+            }
+        }
+        if ($data['gender'] !== null && !in_array($data['gender'], ['female', 'male'], true)) {
+            $errors['gender'] = 'Choose female or male.';
         }
         if (!in_array($data['role'], Roles::ALL, true)) {
             $errors['role'] = 'Choose a role.';

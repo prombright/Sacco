@@ -25,13 +25,9 @@ final class SettingsController
         $int = fn (int $min, int $max) => fn ($v) => filter_var($v, FILTER_VALIDATE_INT, ['options' => ['min_range' => $min, 'max_range' => $max]]) !== false ? (string) (int) $v : null;
 
         return [
-            'loan_interest_rate_monthly' => ['Loan interest, % per month', $decimal(0, 10)],
-            'loan_savings_multiplier' => ['Loan limit, times savings', $decimal(0, 20)],
-            'loan_max_months' => ['Longest loan, months', $int(1, 120)],
-            'loan_min_guarantors' => ['Guarantors needed', $int(0, 10)],
-            'loan_guarantee_cover_percent' => ['Guarantees must cover, % of the loan', $int(0, 300)],
             'loan_min_member_months' => ['Months of saving before a loan', $int(0, 120)],
             'guarantor_min_member_months' => ['Months of membership to be a guarantor', $int(0, 120)],
+            'loan_penalty_percent' => ['Late-payment penalty, % of what is late (0 = none)', $decimal(0, 50)],
             'share_price' => ['Price of one share', $decimal(0, 1_000_000_000)],
         ];
     }

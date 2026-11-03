@@ -53,7 +53,7 @@ docs/                   how we work
    ```
    Open http://localhost:5174. Vite forwards `/api` to the PHP API in XAMPP.
 
-**After every pull** run `php backend/bin/migrate.php`, which applies any new SQL files to the
+**After every pull** run `php backend/bin/migrate.php` (and once after migration 007, `php backend/bin/rebuild-loans.php`), which applies any new SQL files to the
 platform database and to every SACCO's database.
 
 To try the built app through Apache instead (http://localhost/sacco), run `npm run build:local`.
@@ -75,6 +75,17 @@ colour-blind separation and contrast; keep to them.
 - **Import members** from Excel with their opening savings and shares (for going live), then
   download every new member's sign-in details
 - **Printable statements** for any period, for members themselves and for admins
+- **Loan products** (normal, emergency, school fees...) with their own rate, term, limit,
+  processing fee (taken off the cheque) and guarantor rules
+- **Late-payment penalties** (a % of what is late, at most once a month per loan, can be waived),
+  **paying a loan off early** (interest only to the current month) and **loans from the old records**
+- **Member details**: national ID, date of birth, gender, department, position, address, and
+  **next of kin** with their shares
+- **Income & expenses**: the SACCO's own income and spending; loan interest, penalties and fees are
+  counted automatically; **income statement** report
+- **Closing a membership**: pays out savings and shares once nothing is owed or guaranteed
+- **Notices** from the office on every member's dashboard
+- **Nightly backups** () and a deployment guide: [docs/DEPLOY.md](docs/DEPLOY.md)
 
 ## Users and sign-in
 

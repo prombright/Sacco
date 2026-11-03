@@ -9,6 +9,12 @@ export interface User {
   account_no: string | null
   /** Member since; null means "from their first savings entry" */
   joined_on: string | null
+  national_id: string | null
+  date_of_birth: string | null
+  gender: 'female' | 'male' | null
+  department: string | null
+  position: string | null
+  address: string | null
   phone: string | null
   role: Role
   role_label: string
@@ -56,6 +62,8 @@ export type LoanStatus = 'pending_guarantors' | 'pending_approval' | 'approved' 
 export interface LoanPosition {
   principal_left: string
   interest_left: string
+  charges_left: string
+  overdue_instalments: string
   total_left: string
   paid: string
   total_interest: string
@@ -122,6 +130,44 @@ export interface Loan {
   projected?: Installment[]
   payments?: LoanPayment[]
   borrower_eligibility?: { savings: string; owed: string; limit: string } | null
+  product_name: string | null
+  /** Taken off the cheque at payout (an estimate until then) */
+  processing_fee: string
+  settled_early_on: string | null
+  charges?: LoanCharge[]
+  /** What paying it all off today would cost (admins, active loans) */
+  settlement?: { amount: string; interest_saved: string } | null
+}
+
+export interface LoanCharge {
+  id: number
+  type: 'penalty' | 'fee'
+  amount: string
+  paid: string
+  charged_on: string
+  note: string | null
+  waived_at: string | null
+}
+
+export interface LoanProduct {
+  id: number
+  name: string
+  description: string | null
+  interest_rate_monthly: string
+  max_months: number
+  savings_multiplier: string
+  processing_fee_percent: string
+  min_guarantors: number
+  guarantee_cover_percent: number
+  status: 'active' | 'archived'
+}
+
+export interface NextOfKin {
+  id?: number
+  full_name: string
+  relationship: string
+  phone: string | null
+  share: string
 }
 
 export interface LoanRules {
@@ -133,6 +179,9 @@ export interface LoanRules {
   guarantee_cover_percent: number
   min_member_months: number
   guarantor_min_member_months: number
+  processing_fee_percent: string
+  product_id: number | null
+  product_name: string | null
 }
 
 export interface Sacco {

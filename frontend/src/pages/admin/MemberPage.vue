@@ -3,7 +3,12 @@ import { ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { api, ApiError } from '@/api'
 import { useAuth } from '@/stores/auth'
-import type { Account, Balances, Page, Transaction, User } from '@/types'
+import type { Account, Balances, NextOfKin, Page, Transaction, User } from '@/types'
+import { formatMoney } from '@/money'
+import MemberDetails from '@/components/MemberDetails.vue'
+import NextOfKinEditor from '@/components/NextOfKinEditor.vue'
+import Modal from '@/components/Modal.vue'
+import UserForm from './UserForm.vue'
 import BalanceTiles from '@/components/BalanceTiles.vue'
 import AccountTabs from '@/components/AccountTabs.vue'
 import TransactionList from '@/components/TransactionList.vue'
@@ -23,6 +28,38 @@ const page = ref(1)
 const ledger = ref<Page<Transaction> | null>(null)
 const error = ref('')
 const recording = ref(false)
+const editingDetails = ref(false)
+const kin = ref<NextOfKin[]>([])
+
+// Closing the membership: what would be paid out, and what has to be cleared first
+interface ExitQuote { savings: string; shares: string; loans_owed: string; blockers: string[] }
+const exitQuote = ref<ExitQuote | null>(null)
+const exitForm = ref({ reason: '', cheque_no: '', exit_date: new Date().toLocaleDateString('en-CA') })
+const exitError = ref('')
+const exiting = ref(false)
+
+async function openExit() {
+  exitError.value = ''
+  exitQuote.value = await api.get<ExitQuote>(`/members/${id}/exit`)
+}
+async function closeMembership() {
+  exitError.value = ''
+  exiting.value = true
+  try {
+    await api.post(`/members/${id}/exit`, exitForm.value)
+    exitQuote.value = null
+    await loadMember()
+    await loadLedger()
+  } catch (e) {
+    exitError.value = e instanceof ApiError ? e.message : 'Couldn\'t close the membership.'
+  } finally {
+    exiting.value = false
+  }
+}
+async function loadKin() {
+  kin.value = (await api.get<{ next_of_kin: NextOfKin[] }>(`/members/${id}/next-of-kin`)).next_of_kin
+}
+loadKin().catch(() => {})
 const reversing = ref<Transaction | null>(null)
 
 // An admin's own account is handled by another admin
@@ -63,7 +100,7 @@ loadLedger()
 
 <template>
   <div>
-    <RouterLink :to="{ name: 'users' }" class="text-sm font-medium text-gray-600 hover:text-gray-900">← Members &amp; users</RouterLink>
+    <RouterLink :to="{ name: 'users' }" class="text-sm font-medium text-gray-600 hover:text-gray-900">← Members</RouterLink>
 
     <div v-if="error" class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
 
@@ -78,6 +115,7 @@ loadLedger()
           </p>
         </div>
         <div class="flex flex-wrap gap-2">
+          <button type="button" class="btn-secondary" @click="editingDetails = true">Edit details</button>
           <RouterLink :to="{ name: 'member-statement', params: { id: member.id } }" class="btn-secondary">Print statement</RouterLink>
           <button v-if="!isSelf" type="button" class="btn-primary" @click="recording = true">Record an entry</button>
         </div>
@@ -95,7 +133,46 @@ loadLedger()
         <TransactionList :transactions="ledger?.transactions ?? []" :can-reverse="!isSelf" @reverse="reversing = $event" />
       </div>
       <Pager v-if="ledger" :page="ledger.page" :per-page="ledger.per_page" :total="ledger.total" @go="page = $event" />
+
+      <div class="mt-8 grid gap-6 lg:grid-cols-2">
+        <MemberDetails :user="member" />
+        <NextOfKinEditor :people="kin" :save-url="`/members/${member.id}/next-of-kin`" @saved="kin = $event" />
+      </div>
+
+      <section v-if="member.status !== 'left' && !isSelf" class="mt-8 rounded-2xl border border-red-200 bg-red-50/40 p-5">
+        <h2 class="font-semibold text-red-800">Close membership</h2>
+        <p class="mt-1 text-sm text-gray-700">When a member leaves the SACCO: pays out their savings and shares by cheque and marks them as left. They must owe nothing and guarantee nobody first.</p>
+        <button type="button" class="btn-secondary mt-3" @click="openExit">Close membership…</button>
+      </section>
     </template>
+
+    <UserForm v-if="editingDetails && member" :user="member" @close="editingDetails = false" @saved="editingDetails = false; loadMember()" />
+
+    <Modal v-if="exitQuote && member" :title="`Close ${member.full_name}'s membership`" @close="exitQuote = null">
+      <div class="space-y-4">
+        <div v-if="exitError" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ exitError }}</div>
+        <div v-if="exitQuote.blockers.length" class="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
+          <p class="font-semibold">First clear:</p>
+          <ul class="mt-2 list-disc space-y-1 pl-5"><li v-for="b in exitQuote.blockers" :key="b">{{ b }}</li></ul>
+        </div>
+        <template v-else>
+          <dl class="grid grid-cols-2 gap-y-1 rounded-xl bg-gray-50 p-3 text-sm">
+            <dt class="text-gray-600">Savings</dt><dd class="text-right tabular-nums">{{ formatMoney(exitQuote.savings) }}</dd>
+            <dt class="text-gray-600">Share capital</dt><dd class="text-right tabular-nums">{{ formatMoney(exitQuote.shares) }}</dd>
+            <dt class="font-semibold">Cheque amount</dt><dd class="text-right font-semibold tabular-nums">{{ formatMoney(String(Number(exitQuote.savings) + Number(exitQuote.shares))) }}</dd>
+          </dl>
+          <div><label for="xreason" class="label">Why are they leaving?</label><input id="xreason" v-model="exitForm.reason" class="input" maxlength="255" placeholder="e.g. Left the school, retired" /></div>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div><label for="xcheque" class="label">Cheque number</label><input id="xcheque" v-model="exitForm.cheque_no" class="input" maxlength="80" /></div>
+            <div><label for="xdate" class="label">Date</label><input id="xdate" v-model="exitForm.exit_date" type="date" class="input" /></div>
+          </div>
+        </template>
+        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" class="btn-secondary" @click="exitQuote = null">{{ exitQuote.blockers.length ? 'Close' : 'Cancel' }}</button>
+          <button v-if="!exitQuote.blockers.length" type="button" class="btn-primary !bg-red-700 hover:!bg-red-800" :disabled="exiting || !exitForm.reason.trim()" @click="closeMembership">Pay out and close membership</button>
+        </div>
+      </div>
+    </Modal>
 
     <RecordTransaction v-if="recording && member && balances" :member="member" :account="account" :balances="balances" @close="recording = false" @saved="saved" />
     <ReverseTransaction v-if="reversing" :transaction="reversing" @close="reversing = null" @saved="saved" />

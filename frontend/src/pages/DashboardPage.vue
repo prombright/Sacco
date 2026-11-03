@@ -5,6 +5,7 @@ import { useAuth } from '@/stores/auth'
 import type { Balances, Transaction } from '@/types'
 import BalanceTiles from '@/components/BalanceTiles.vue'
 import TransactionList from '@/components/TransactionList.vue'
+import NoticeBoard from '@/components/NoticeBoard.vue'
 import { formatDate, formatMoney } from '@/money'
 
 const auth = useAuth()
@@ -41,8 +42,11 @@ onMounted(async () => {
 
 <template>
   <div>
-    <h1 class="text-xl font-semibold">Hello, {{ auth.user?.full_name.split(' ')[0] }}</h1>
+    <p class="eyebrow">My account</p>
+    <h1 class="mt-1 text-2xl font-bold sm:text-3xl">Hello, {{ auth.user?.full_name.split(' ')[0] }}</h1>
     <p class="mt-1 text-sm text-gray-600">Account number <span class="font-mono">{{ auth.user?.account_no }}</span></p>
+
+    <NoticeBoard class="mt-5" />
 
     <div v-if="error" class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
 

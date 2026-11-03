@@ -24,6 +24,7 @@ final class ReportController
         'members' => ['Member balances', 'Savings, shares, pledges and loans for every member, as of now.', false],
         'loans' => ['Loan portfolio', 'Every loan not yet repaid: what was lent, what is still owed, and what is late.', false],
         'arrears' => ['Loans in arrears', 'Active loans with instalments past their due date.', false],
+        'income' => ['Income statement', 'What the SACCO earned (loan interest, penalties, fees, other income) and spent, and the surplus.', true],
         'journal' => ['Transactions journal', 'Every savings, shares and loan entry in a date range.', true],
         'audit' => ['Audit log', 'Who did what in the system, in a date range.', true],
     ];
@@ -176,6 +177,44 @@ final class ReportController
             ['overdue', 'Overdue', 'money'],
             ['days_late', 'Days late', 'number'],
         ], $rows);
+    }
+
+    /** Income less expenses for the period, line by line */
+    private function income(string $from, string $to): array
+    {
+        $loan = CashbookController::loanIncome($from, $to);
+        $stmt = Database::tenant()->prepare('SELECT kind, category, SUM(amount) AS total FROM cashbook WHERE entry_date BETWEEN ? AND ? GROUP BY kind, category ORDER BY kind, category');
+        $stmt->execute([$from, $to]);
+        $book = $stmt->fetchAll();
+
+        $rows = [];
+        $income = 0;
+        foreach ([['Loan interest received', $loan['interest']], ['Late-payment penalties received', $loan['penalties']], ['Loan processing fees', $loan['processing_fees']]] as [$item, $amount]) {
+            $rows[] = ['section' => 'Income', 'item' => $item, 'amount' => Money::fromDecimal($amount)];
+            $income += Money::fromDecimal($amount);
+        }
+        foreach ($book as $b) {
+            if ($b['kind'] === 'income' && Money::fromDecimal($b['total']) !== 0) {
+                $rows[] = ['section' => 'Income', 'item' => $b['category'], 'amount' => Money::fromDecimal($b['total'])];
+                $income += Money::fromDecimal($b['total']);
+            }
+        }
+        $rows[] = ['section' => 'Income', 'item' => 'Total income', 'amount' => $income];
+        $expenses = 0;
+        foreach ($book as $b) {
+            if ($b['kind'] === 'expense' && Money::fromDecimal($b['total']) !== 0) {
+                $rows[] = ['section' => 'Expenses', 'item' => $b['category'], 'amount' => Money::fromDecimal($b['total'])];
+                $expenses += Money::fromDecimal($b['total']);
+            }
+        }
+        $rows[] = ['section' => 'Expenses', 'item' => 'Total expenses', 'amount' => $expenses];
+        $rows[] = ['section' => 'Result', 'item' => $income >= $expenses ? 'Surplus' : 'Deficit', 'amount' => $income - $expenses];
+
+        return $this->finish([
+            ['section', 'Section', 'text'],
+            ['item', 'Item', 'text'],
+            ['amount', 'Amount', 'money'],
+        ], $rows, totals: false);
     }
 
     private function journal(string $from, string $to): array

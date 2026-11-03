@@ -36,6 +36,60 @@ final class Loans
         ];
     }
 
+    /** Late-payment penalty, % of what is late ("0" = no penalties) */
+    public static function penaltyPercent(): string
+    {
+        return Settings::get('loan_penalty_percent', '0');
+    }
+
+    /** The SACCO's loan products */
+    public static function products(PDO $db, bool $activeOnly = true): array
+    {
+        $rows = $db->query('SELECT * FROM loan_products' . ($activeOnly ? " WHERE status = 'active'" : '') . ' ORDER BY id')->fetchAll();
+        return array_map(fn ($p) => self::presentProduct($p), $rows);
+    }
+
+    public static function presentProduct(array $p): array
+    {
+        $trim = fn ($v) => rtrim(rtrim((string) $v, '0'), '.');
+        return [
+            'id' => (int) $p['id'],
+            'name' => $p['name'],
+            'description' => $p['description'],
+            'interest_rate_monthly' => $trim($p['interest_rate_monthly']),
+            'max_months' => (int) $p['max_months'],
+            'savings_multiplier' => $trim($p['savings_multiplier']),
+            'processing_fee_percent' => $trim($p['processing_fee_percent']) ?: '0',
+            'min_guarantors' => (int) $p['min_guarantors'],
+            'guarantee_cover_percent' => (int) $p['guarantee_cover_percent'],
+            'status' => $p['status'],
+        ];
+    }
+
+    /** A product's terms in the shape of rules(); the SACCO's general rules when there's no product */
+    public static function productRules(PDO $db, ?int $productId): array
+    {
+        $rules = self::rules() + ['processing_fee_percent' => '0', 'product_id' => null, 'product_name' => null];
+        if ($productId) {
+            $stmt = $db->prepare('SELECT * FROM loan_products WHERE id = ?');
+            $stmt->execute([$productId]);
+            if ($row = $stmt->fetch()) {
+                $p = self::presentProduct($row);
+                $rules = array_merge($rules, [
+                    'interest_rate_monthly' => $p['interest_rate_monthly'],
+                    'max_months' => $p['max_months'],
+                    'savings_multiplier' => $p['savings_multiplier'],
+                    'min_guarantors' => $p['min_guarantors'],
+                    'guarantee_cover_percent' => $p['guarantee_cover_percent'],
+                    'processing_fee_percent' => $p['processing_fee_percent'],
+                    'product_id' => $p['id'],
+                    'product_name' => $p['name'],
+                ]);
+            }
+        }
+        return $rules;
+    }
+
     /**
      * How long someone has been saving with the SACCO: from their "member since" date, or when an
      * admin hasn't set one, from their first savings entry that still stands (not reversed).
@@ -98,12 +152,12 @@ final class Loans
      *
      * @return array{savings: int, owed: int, limit: int} cents
      */
-    public static function eligibility(int $userId, ?int $exceptLoanId = null): array
+    public static function eligibility(int $userId, ?int $exceptLoanId = null, ?int $productId = null): array
     {
         $db = Database::tenant();
         $savings = Ledger::balance($db, $userId, 'savings');
         $owed = self::owedOnOpenLoans($db, $userId, $exceptLoanId);
-        $multiplier = (int) Money::parse(self::rules()['savings_multiplier']); // "3" -> 300
+        $multiplier = (int) Money::parse(self::productRules($db, $productId)['savings_multiplier']); // "2" -> 200
         $limit = max(0, intdiv($savings * $multiplier, 100) - $owed);
         return ['savings' => $savings, 'owed' => $owed, 'limit' => $limit];
     }
@@ -181,7 +235,7 @@ final class Loans
      */
     public static function guaranteeShortfall(PDO $db, array $loan): ?array
     {
-        $rules = self::rules();
+        $rules = self::productRules($db, isset($loan['product_id']) ? (int) $loan['product_id'] : null);
         $stmt = $db->prepare("SELECT COUNT(*) AS n, COALESCE(SUM(amount), 0) AS total FROM loan_guarantors WHERE loan_id = ? AND status = 'accepted'");
         $stmt->execute([$loan['id']]);
         $accepted = $stmt->fetch();
@@ -201,9 +255,11 @@ final class Loans
     }
 
     /**
-     * Works out what each instalment has had paid, from scratch, from all repayments that stand
-     * (not reversed). Each repayment goes to the oldest unpaid instalment first: its interest, then
-     * its principal. Closes the loan when everything is paid, reopens it if a reversal undoes that.
+     * Works out, from scratch, what every charge and instalment has had paid, from all repayments
+     * that stand (not reversed), and records how each repayment was split. Each repayment clears
+     * unpaid charges (penalties) first, oldest first, then the oldest unpaid instalment: its
+     * interest, then its principal. Closes the loan when everything is paid; reopens it if a
+     * reversal undoes that.
      */
     public static function applyPayments(PDO $db, int $loanId): void
     {
@@ -217,25 +273,50 @@ final class Loans
             'interest_paid' => 0,
         ], $installments->fetchAll());
 
+        $charges = $db->prepare('SELECT id, type, amount, charged_on FROM loan_charges WHERE loan_id = ? AND waived_at IS NULL ORDER BY charged_on, id');
+        $charges->execute([$loanId]);
+        $charges = array_map(fn ($c) => ['id' => (int) $c['id'], 'type' => $c['type'], 'amount' => Money::fromDecimal($c['amount']), 'charged_on' => $c['charged_on'], 'paid' => 0], $charges->fetchAll());
+
         $payments = $db->prepare(
-            'SELECT p.amount, p.paid_on FROM loan_payments p
+            'SELECT p.id, p.amount, p.paid_on FROM loan_payments p
              WHERE p.loan_id = ? AND p.reversal_of IS NULL
                AND NOT EXISTS (SELECT 1 FROM loan_payments r WHERE r.reversal_of = p.id)
              ORDER BY p.paid_on, p.id'
         );
         $payments->execute([$loanId]);
+        $db->prepare('DELETE FROM loan_payment_allocations WHERE loan_id = ?')->execute([$loanId]);
+        $allocate = $db->prepare('INSERT INTO loan_payment_allocations (payment_id, loan_id, part, amount) VALUES (?, ?, ?, ?)');
+
         $lastPaidOn = null;
         foreach ($payments->fetchAll() as $payment) {
             $left = Money::fromDecimal($payment['amount']);
             $lastPaidOn = $payment['paid_on'];
+            $split = ['penalty' => 0, 'fee' => 0, 'interest' => 0, 'principal' => 0];
+            foreach ($charges as &$charge) {
+                // A repayment only clears charges that already existed when it was made
+                if ($charge['charged_on'] > $payment['paid_on']) {
+                    continue;
+                }
+                $take = min($left, $charge['amount'] - $charge['paid']);
+                $charge['paid'] += $take;
+                $split[$charge['type']] += $take;
+                $left -= $take;
+            }
+            unset($charge);
             foreach ($rows as &$row) {
                 foreach (['interest', 'principal'] as $part) {
                     $take = min($left, $row[$part] - $row[$part . '_paid']);
                     $row[$part . '_paid'] += $take;
+                    $split[$part] += $take;
                     $left -= $take;
                 }
             }
             unset($row);
+            foreach ($split as $part => $cents) {
+                if ($cents > 0) {
+                    $allocate->execute([$payment['id'], $loanId, $part, Money::toDecimal($cents)]);
+                }
+            }
         }
 
         $update = $db->prepare('UPDATE loan_installments SET principal_paid = ?, interest_paid = ? WHERE id = ?');
@@ -243,6 +324,11 @@ final class Loans
         foreach ($rows as $row) {
             $update->execute([Money::toDecimal($row['principal_paid']), Money::toDecimal($row['interest_paid']), $row['id']]);
             $allPaid = $allPaid && $row['principal_paid'] === $row['principal'] && $row['interest_paid'] === $row['interest'];
+        }
+        $updateCharge = $db->prepare('UPDATE loan_charges SET paid = ? WHERE id = ?');
+        foreach ($charges as $charge) {
+            $updateCharge->execute([Money::toDecimal($charge['paid']), $charge['id']]);
+            $allPaid = $allPaid && $charge['paid'] === $charge['amount'];
         }
 
         if ($allPaid) {
@@ -252,7 +338,7 @@ final class Loans
         }
     }
 
-    /** Totals for a disbursed loan, in cents */
+    /** Totals for a disbursed loan, in cents. Unpaid charges (penalties) count as owed and overdue. */
     public static function position(PDO $db, int $loanId): array
     {
         $stmt = $db->prepare(
@@ -262,6 +348,10 @@ final class Loans
         );
         $stmt->execute([$loanId]);
         $t = array_map([Money::class, 'fromDecimal'], $stmt->fetch());
+
+        $c = $db->prepare('SELECT COALESCE(SUM(amount - paid), 0) FROM loan_charges WHERE loan_id = ? AND waived_at IS NULL');
+        $c->execute([$loanId]);
+        $chargesLeft = Money::fromDecimal($c->fetchColumn());
 
         $next = $db->prepare(
             'SELECT due_date, (principal + interest - principal_paid - interest_paid) AS due
@@ -276,16 +366,67 @@ final class Loans
              FROM loan_installments WHERE loan_id = ? AND due_date < CURDATE()'
         );
         $overdue->execute([$loanId]);
+        $overdueInstalments = Money::fromDecimal($overdue->fetchColumn());
 
         return [
             'principal_left' => $t['principal'] - $t['principal_paid'],
             'interest_left' => $t['interest'] - $t['interest_paid'],
-            'total_left' => $t['principal'] + $t['interest'] - $t['principal_paid'] - $t['interest_paid'],
+            'charges_left' => $chargesLeft,
+            'total_left' => $t['principal'] + $t['interest'] - $t['principal_paid'] - $t['interest_paid'] + $chargesLeft,
             'paid' => $t['principal_paid'] + $t['interest_paid'],
             'total_interest' => $t['interest'],
             'next_due_date' => $next['due_date'] ?? null,
-            'next_due_amount' => $next ? Money::fromDecimal($next['due']) : 0,
-            'overdue' => Money::fromDecimal($overdue->fetchColumn()),
+            'next_due_amount' => ($next ? Money::fromDecimal($next['due']) : 0) + $chargesLeft,
+            // Penalties are charged on late instalments only; unpaid charges are added for display
+            'overdue_instalments' => $overdueInstalments,
+            'overdue' => $overdueInstalments + $chargesLeft,
         ];
+    }
+
+    /**
+     * Paying the loan off today: the principal still owed, unpaid charges, and the interest of
+     * instalments already due plus the month now running - not the months after it.
+     *
+     * @return array{amount: int, interest_saved: int}
+     */
+    public static function settlementQuote(PDO $db, int $loanId): array
+    {
+        $p = self::position($db, $loanId);
+        $stmt = $db->prepare(
+            'SELECT interest - interest_paid FROM loan_installments
+             WHERE loan_id = ? AND principal + interest > principal_paid + interest_paid ORDER BY number'
+        );
+        $stmt->execute([$loanId]);
+        $interestDue = array_map([Money::class, 'fromDecimal'], $stmt->fetchAll(\PDO::FETCH_COLUMN));
+        $late = $db->prepare('SELECT COUNT(*) FROM loan_installments WHERE loan_id = ? AND due_date < CURDATE() AND principal + interest > principal_paid + interest_paid');
+        $late->execute([$loanId]);
+        $keep = (int) $late->fetchColumn() + 1;
+        $interestKept = array_sum(array_slice($interestDue, 0, $keep));
+        return [
+            'amount' => $p['principal_left'] + $p['charges_left'] + $interestKept,
+            'interest_saved' => array_sum($interestDue) - $interestKept,
+            'keep' => $keep,
+        ];
+    }
+
+    /**
+     * Before an early settlement payment: interest for the months the member will no longer borrow
+     * is taken off the schedule. The first $keep unpaid instalments (late ones and the month now
+     * running) keep their interest. Returns the cents waived.
+     */
+    public static function waiveFutureInterest(PDO $db, int $loanId, int $keep): int
+    {
+        $stmt = $db->prepare(
+            'SELECT id, interest, interest_paid FROM loan_installments
+             WHERE loan_id = ? AND principal + interest > principal_paid + interest_paid ORDER BY number'
+        );
+        $stmt->execute([$loanId]);
+        $waived = 0;
+        $update = $db->prepare('UPDATE loan_installments SET interest = interest_paid WHERE id = ?');
+        foreach (array_slice($stmt->fetchAll(), $keep) as $i) {
+            $waived += Money::fromDecimal($i['interest']) - Money::fromDecimal($i['interest_paid']);
+            $update->execute([$i['id']]);
+        }
+        return $waived;
     }
 }

@@ -26,11 +26,14 @@ use Sacco\Support\Savings;
  */
 final class LoanController
 {
-    /** GET /api/loans/quote?amount=&months= - limit, rules and a repayment schedule to preview */
+    /** GET /api/loans/quote?product_id=&amount=&months= - products, limit, rules and a schedule to preview */
     public function quote(Request $request): never
     {
-        $rules = Loans::rules();
-        $eligibility = Loans::eligibility((int) Auth::id());
+        $db = Database::tenant();
+        $products = Loans::products($db);
+        $productId = (int) $request->query('product_id', 0) ?: ($products[0]['id'] ?? null);
+        $rules = Loans::productRules($db, $productId);
+        $eligibility = Loans::eligibility((int) Auth::id(), null, $productId);
         $amount = Money::parse($request->query('amount', ''));
         $months = (int) $request->query('months', 0);
 
@@ -53,7 +56,13 @@ final class LoanController
         }
 
         $membership = Loans::membership(Database::tenant(), (int) Auth::id());
+        $fee = $amount ? self::fee($amount, $rules['processing_fee_percent']) : 0;
+        if ($schedule) {
+            $schedule['processing_fee'] = Money::toDecimal($fee);
+            $schedule['you_receive'] = Money::toDecimal($amount - $fee);
+        }
         Response::ok([
+            'products' => $products,
             'rules' => $rules,
             'eligibility' => array_map([Money::class, 'toDecimal'], $eligibility),
             'membership' => $membership + ['wait_reason' => Loans::borrowerWaitReason(Database::tenant(), (int) Auth::id())],
@@ -65,8 +74,14 @@ final class LoanController
     public function store(Request $request): never
     {
         $me = (int) Auth::id();
-        $rules = Loans::rules();
         $errors = [];
+
+        $productId = (int) $request->input('product_id', 0);
+        $product = $productId ? array_values(array_filter(Loans::products(Database::tenant()), fn ($p) => $p['id'] === $productId))[0] ?? null : null;
+        if (!$product) {
+            Response::error('Choose a type of loan.', 422, ['product_id' => 'Required']);
+        }
+        $rules = Loans::productRules(Database::tenant(), $productId);
 
         if ($wait = Loans::borrowerWaitReason(Database::tenant(), $me)) {
             Response::error($wait, 422);
@@ -81,7 +96,7 @@ final class LoanController
         } elseif ($amount > Loans::MAX_CENTS) {
             $errors['amount'] = 'That amount is too large.';
         } else {
-            $limit = Loans::eligibility($me)['limit'];
+            $limit = Loans::eligibility($me, null, $productId)['limit'];
             if ($amount > $limit) {
                 $errors['amount'] = 'You can borrow up to ' . number_format($limit / 100) . ' right now.';
             }
@@ -115,8 +130,8 @@ final class LoanController
         }
 
         $loanId = Database::transaction(function (\PDO $db) use ($me, $amount, $months, $purpose, $rules, $guarantors) {
-            $db->prepare('INSERT INTO loans (user_id, amount, months, interest_rate_monthly, interest_method, purpose) VALUES (?, ?, ?, ?, ?, ?)')
-                ->execute([$me, Money::toDecimal($amount), $months, $rules['interest_rate_monthly'], $rules['interest_method'], $purpose]);
+            $db->prepare('INSERT INTO loans (user_id, product_id, amount, months, interest_rate_monthly, interest_method, purpose) VALUES (?, ?, ?, ?, ?, ?, ?)')
+                ->execute([$me, $rules['product_id'], Money::toDecimal($amount), $months, $rules['interest_rate_monthly'], $rules['interest_method'], $purpose]);
             $id = (int) $db->lastInsertId();
             $db->prepare('UPDATE loans SET loan_no = ? WHERE id = ?')->execute(['L' . str_pad((string) $id, 5, '0', STR_PAD_LEFT), $id]);
             $insert = $db->prepare('INSERT INTO loan_guarantors (loan_id, guarantor_id, amount, requested_amount) VALUES (?, ?, ?, ?)');
@@ -281,12 +296,174 @@ final class LoanController
             Response::error('Enter the cheque number or payment reference.', 422, ['reference' => 'Required']);
         }
 
-        Database::transaction(function (\PDO $db) use ($loan, $date, $reference) {
-            $db->prepare("UPDATE loans SET status = 'active', disbursed_by = ?, disbursed_on = ?, disbursement_ref = ? WHERE id = ? AND status = 'approved'")
-                ->execute([Auth::id(), $date, $reference, $loan['id']]);
+        // The product's processing fee comes off the cheque; the loan itself is the full amount
+        $fee = self::fee(Money::fromDecimal($loan['amount']), Loans::productRules(Database::tenant(), $loan['product_id'] ? (int) $loan['product_id'] : null)['processing_fee_percent']);
+        Database::transaction(function (\PDO $db) use ($loan, $date, $reference, $fee) {
+            $db->prepare("UPDATE loans SET status = 'active', disbursed_by = ?, disbursed_on = ?, disbursement_ref = ?, processing_fee = ? WHERE id = ? AND status = 'approved'")
+                ->execute([Auth::id(), $date, $reference, Money::toDecimal($fee), $loan['id']]);
             Loans::createSchedule($db, $loan, $date);
         });
-        Audit::log('loan.disbursed', 'loan', (int) $loan['id'], ['on' => $date, 'reference' => $reference]);
+        Audit::log('loan.disbursed', 'loan', (int) $loan['id'], ['on' => $date, 'reference' => $reference, 'fee' => Money::toDecimal($fee)]);
+        Response::ok(['loan' => $this->detail((int) $loan['id'])]);
+    }
+
+    /**
+     * POST /api/loans/existing (admin) - a loan from the old records, already paid out before this
+     * system: { user_id, product_id, amount, months, interest_rate_monthly?, disbursed_on,
+     * reference?, purpose?, repaid_so_far? }. It becomes an active loan with its schedule from the
+     * real payout date; what was already repaid is recorded as one repayment, so late
+     * instalments show as late. No guarantor workflow - the old paperwork covers that.
+     */
+    public function recordExisting(Request $request): never
+    {
+        $userId = (int) $request->input('user_id');
+        if ($userId === Auth::id()) {
+            Response::error('You can\'t record a loan on your own account. Ask another admin.', 403);
+        }
+        $db = Database::tenant();
+        $u = $db->prepare('SELECT id, full_name FROM users WHERE id = ?');
+        $u->execute([$userId]);
+        $u->fetch() ?: Response::error('Choose the member.', 422, ['user_id' => 'Required']);
+
+        $productId = (int) $request->input('product_id');
+        $rules = Loans::productRules($db, $productId ?: null);
+        if (!$rules['product_id']) {
+            Response::error('Choose the type of loan.', 422, ['product_id' => 'Required']);
+        }
+        $amount = Money::parse($request->input('amount'));
+        if ($amount === null || $amount <= 0 || $amount > Loans::MAX_CENTS) {
+            Response::error('Enter the amount that was lent.', 422, ['amount' => 'Required']);
+        }
+        $months = (int) $request->input('months');
+        if ($months < 1 || $months > 120) {
+            Response::error('Enter the number of months (1 to 120).', 422, ['months' => 'Invalid']);
+        }
+        $rateInput = $request->string('interest_rate_monthly');
+        $rate = $rateInput !== '' ? Money::parse($rateInput) : Money::parse($rules['interest_rate_monthly']);
+        if ($rate === null || $rate < 0 || $rate > 10_00) {
+            Response::error('Interest between 0% and 10% a month.', 422, ['interest_rate_monthly' => 'Invalid']);
+        }
+        $disbursedOn = $this->date($request->string('disbursed_on'), 'disbursed_on');
+        $repaid = Money::parse($request->input('repaid_so_far', '0') ?: '0');
+        if ($repaid === null || $repaid < 0) {
+            Response::error('Enter how much has been repaid (0 if nothing).', 422, ['repaid_so_far' => 'Invalid']);
+        }
+
+        $loanId = Database::transaction(function (\PDO $db) use ($userId, $rules, $amount, $months, $rate, $disbursedOn, $repaid, $request) {
+            $db->prepare(
+                "INSERT INTO loans (user_id, product_id, amount, months, interest_rate_monthly, interest_method, purpose, status, decided_by, decided_at, decision_note, disbursed_by, disbursed_on, disbursement_ref)
+                 VALUES (?, ?, ?, ?, ?, 'reducing_balance', ?, 'active', ?, NOW(), 'Brought in from the old records', ?, ?, ?)"
+            )->execute([
+                $userId, $rules['product_id'], Money::toDecimal($amount), $months, Money::toDecimal($rate),
+                mb_substr($request->string('purpose'), 0, 255) ?: 'From the old records', Auth::id(), Auth::id(), $disbursedOn,
+                mb_substr($request->string('reference'), 0, 80) ?: null,
+            ]);
+            $id = (int) $db->lastInsertId();
+            $db->prepare('UPDATE loans SET loan_no = ? WHERE id = ?')->execute(['L' . str_pad((string) $id, 5, '0', STR_PAD_LEFT), $id]);
+            $loan = $db->query("SELECT * FROM loans WHERE id = $id")->fetch();
+            Loans::createSchedule($db, $loan, $disbursedOn);
+            if ($repaid > 0) {
+                $left = Loans::position($db, $id)['total_left'];
+                if ($repaid > $left) {
+                    throw new LedgerException('That is more than the whole loan with its interest (' . number_format($left / 100) . '). If it is fully repaid, there is no need to record it.');
+                }
+                // Dated at the payout: it stands for repayments made before this system, so it must
+                // not clear penalties charged later, and its interest belongs to those earlier months
+                $db->prepare("INSERT INTO loan_payments (loan_id, amount, paid_on, reference, narration, created_by) VALUES (?, ?, ?, 'Old records', ?, ?)")
+                    ->execute([$id, Money::toDecimal($repaid), $disbursedOn, 'Total repaid before this system, as at ' . date('j M Y'), Auth::id()]);
+            }
+            Loans::applyPayments($db, $id);
+            return $id;
+        });
+        Audit::log('loan.brought_in', 'loan', $loanId, ['member' => $userId, 'amount' => Money::toDecimal($amount), 'repaid' => Money::toDecimal($repaid)]);
+        Response::ok(['loan' => $this->detail($loanId)], 201);
+    }
+
+    /**
+     * POST /api/loans/{id}/settle { reference? } (admin) - the member pays the loan off today: the
+     * principal, unpaid charges, and interest only for instalments already due and the month now
+     * running. Later months' interest is taken off the schedule, then the payment closes the loan.
+     */
+    public function settle(Request $request): never
+    {
+        $loan = $this->findForAdmin((int) $request->param('id'));
+        if ($loan['status'] !== 'active') {
+            Response::error('Only an active loan can be paid off.', 422);
+        }
+        $reference = mb_substr($request->string('reference'), 0, 80) ?: null;
+        $result = Database::transaction(function (\PDO $db) use ($loan, $reference) {
+            $db->prepare('SELECT id FROM loans WHERE id = ? FOR UPDATE')->execute([$loan['id']]);
+            $quote = Loans::settlementQuote($db, (int) $loan['id']);
+            $waived = Loans::waiveFutureInterest($db, (int) $loan['id'], $quote['keep']);
+            $db->prepare('INSERT INTO loan_payments (loan_id, amount, paid_on, reference, narration, created_by) VALUES (?, ?, CURDATE(), ?, ?, ?)')
+                ->execute([$loan['id'], Money::toDecimal($quote['amount']), $reference, 'Paid off early', Auth::id()]);
+            Loans::applyPayments($db, (int) $loan['id']);
+            $db->prepare('UPDATE loans SET settled_early_on = CURDATE() WHERE id = ?')->execute([$loan['id']]);
+            return ['paid' => $quote['amount'], 'waived' => $waived];
+        });
+        Audit::log('loan.settled_early', 'loan', (int) $loan['id'], ['amount' => Money::toDecimal($result['paid']), 'interest_waived' => Money::toDecimal($result['waived'])]);
+        Response::ok(['loan' => $this->detail((int) $loan['id'])]);
+    }
+
+    /**
+     * POST /api/loans/penalties/run (admin) - charges every active loan with late instalments the
+     * penalty % of what is late. At most once per loan per calendar month, so running it twice is safe.
+     */
+    public function runPenalties(Request $request): never
+    {
+        $percent = Money::parse(Loans::penaltyPercent());
+        if (!$percent) {
+            Response::error('The late-payment penalty is set to 0%. Set it on the Rules page first.', 422);
+        }
+        $result = Database::transaction(function (\PDO $db) use ($percent) {
+            $loans = $db->query("SELECT l.id, l.loan_no, u.full_name FROM loans l JOIN users u ON u.id = l.user_id WHERE l.status = 'active'")->fetchAll();
+            $already = $db->prepare("SELECT 1 FROM loan_charges WHERE loan_id = ? AND type = 'penalty' AND waived_at IS NULL AND DATE_FORMAT(charged_on, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')");
+            $insert = $db->prepare("INSERT INTO loan_charges (loan_id, type, amount, charged_on, note, created_by) VALUES (?, 'penalty', ?, CURDATE(), ?, ?)");
+            $charged = [];
+            foreach ($loans as $l) {
+                $late = Loans::position($db, (int) $l['id'])['overdue_instalments'];
+                if ($late <= 0) {
+                    continue;
+                }
+                $already->execute([$l['id']]);
+                if ($already->fetchColumn()) {
+                    continue;
+                }
+                $penalty = (int) (ceil($late * ($percent / 10000) / LoanMath::UNIT) * LoanMath::UNIT);
+                if ($penalty <= 0) {
+                    continue;
+                }
+                $insert->execute([$l['id'], Money::toDecimal($penalty), Loans::penaltyPercent() . '% of ' . number_format($late / 100) . ' late', Auth::id()]);
+                Loans::applyPayments($db, (int) $l['id']);
+                $charged[] = ['loan_no' => $l['loan_no'], 'borrower' => $l['full_name'], 'penalty' => Money::toDecimal($penalty)];
+            }
+            return $charged;
+        });
+        Audit::log('loan.penalties_charged', null, null, ['count' => count($result)]);
+        Response::ok(['charged' => $result]);
+    }
+
+    /** POST /api/loan-charges/{id}/waive { reason } (admin) */
+    public function waiveCharge(Request $request): never
+    {
+        $db = Database::tenant();
+        $stmt = $db->prepare('SELECT * FROM loan_charges WHERE id = ?');
+        $stmt->execute([(int) $request->param('id')]);
+        $charge = $stmt->fetch() ?: Response::error('Charge not found.', 404);
+        $loan = $this->findForAdmin((int) $charge['loan_id']);
+        if ($charge['waived_at']) {
+            Response::error('This charge has already been waived.', 422);
+        }
+        $reason = mb_substr($request->string('reason'), 0, 200);
+        if ($reason === '') {
+            Response::error('Say why this charge is being waived.', 422, ['reason' => 'Required']);
+        }
+        Database::transaction(function (\PDO $db) use ($charge, $loan, $reason) {
+            $db->prepare('UPDATE loan_charges SET waived_at = NOW(), waived_by = ?, note = CONCAT(IFNULL(note, \'\'), ?) WHERE id = ?')
+                ->execute([Auth::id(), " · Waived: $reason", $charge['id']]);
+            Loans::applyPayments($db, (int) $loan['id']);
+        });
+        Audit::log('loan.charge_waived', 'loan', (int) $loan['id'], ['charge' => (int) $charge['id'], 'reason' => $reason]);
         Response::ok(['loan' => $this->detail((int) $loan['id'])]);
     }
 
@@ -439,6 +616,13 @@ final class LoanController
 
     // ----------------------------------------------------------------------
 
+    /** A percentage fee on an amount, rounded to whole currency units */
+    private static function fee(int $amount, string $percent): int
+    {
+        $hundredths = (int) Money::parse($percent ?: '0');
+        return (int) (round($amount * ($hundredths / 10000) / LoanMath::UNIT) * LoanMath::UNIT);
+    }
+
     private function find(int $id): array
     {
         $stmt = Database::tenant()->prepare('SELECT * FROM loans WHERE id = ?');
@@ -539,7 +723,10 @@ final class LoanController
     private function summary(int $id): array
     {
         $db = Database::tenant();
-        $stmt = $db->prepare('SELECT l.*, u.full_name AS borrower_name, u.account_no AS borrower_account_no FROM loans l JOIN users u ON u.id = l.user_id WHERE l.id = ?');
+        $stmt = $db->prepare(
+            'SELECT l.*, u.full_name AS borrower_name, u.account_no AS borrower_account_no, p.name AS product_name
+             FROM loans l JOIN users u ON u.id = l.user_id LEFT JOIN loan_products p ON p.id = l.product_id WHERE l.id = ?'
+        );
         $stmt->execute([$id]);
         $l = $stmt->fetch();
         $position = in_array($l['status'], ['active', 'closed'], true) ? Loans::position($db, $id) : null;
@@ -553,12 +740,15 @@ final class LoanController
             'borrower_account_no' => $l['borrower_account_no'],
             'amount' => $l['amount'],
             'months' => (int) $l['months'],
-            'interest_rate_monthly' => $l['interest_rate_monthly'],
+            'interest_rate_monthly' => rtrim(rtrim($l['interest_rate_monthly'], '0'), '.'),
             'purpose' => $l['purpose'],
             'status' => $l['status'],
             'decision_note' => $l['decision_note'],
             'disbursed_on' => $l['disbursed_on'],
             'disbursement_ref' => $l['disbursement_ref'],
+            'product_name' => $l['product_name'],
+            'processing_fee' => $l['processing_fee'],
+            'settled_early_on' => $l['settled_early_on'],
             'closed_on' => $l['closed_on'],
             'created_at' => $l['created_at'],
             'position' => $position ? array_map(fn ($v) => is_int($v) ? Money::toDecimal($v) : $v, $position) : null,
@@ -598,6 +788,25 @@ final class LoanController
         );
         $p->execute([$id]);
         $loan['payments'] = $p->fetchAll();
+
+        $c = $db->prepare('SELECT id, type, amount, paid, charged_on, note, waived_at FROM loan_charges WHERE loan_id = ? ORDER BY id DESC');
+        $c->execute([$id]);
+        $loan['charges'] = $c->fetchAll();
+
+        // What paying it all off today would cost (admins, active loans)
+        $loan['settlement'] = null;
+        if ($loan['status'] === 'active' && Roles::allows(Auth::user()['role'], [Roles::ADMIN])) {
+            $q = Loans::settlementQuote($db, $id);
+            $loan['settlement'] = ['amount' => Money::toDecimal($q['amount']), 'interest_saved' => Money::toDecimal($q['interest_saved'])];
+        }
+
+        // Before payout: the fee that will come off the cheque
+        if (in_array($loan['status'], ['pending_guarantors', 'pending_approval', 'approved'], true)) {
+            $l = $db->prepare('SELECT product_id FROM loans WHERE id = ?');
+            $l->execute([$id]);
+            $pid = $l->fetchColumn();
+            $loan['processing_fee'] = Money::toDecimal(self::fee(Money::fromDecimal($loan['amount']), Loans::productRules($db, $pid ? (int) $pid : null)['processing_fee_percent']));
+        }
 
         $loan['borrower_eligibility'] = Roles::allows(Auth::user()['role'], [Roles::ADMIN])
             ? array_map([Money::class, 'toDecimal'], Loans::eligibility((int) $loan['user_id'], $id))
