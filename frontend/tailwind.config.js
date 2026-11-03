@@ -1,8 +1,8 @@
 /**
- * SACCO's own look - deliberately not Tusome's green:
- * - brand: the SACCO's colour (deep navy by default), set at runtime from its brand_color
- * - navy: the sidebar, fixed whatever the brand colour
- * - saffron: the accent - active items, highlights, things waiting for you
+ * SACCO's own look, taken from SMACON's banner - deliberately not Tusome's green:
+ * - brand: the SACCO's colour (SMACON royal blue by default), set at runtime from its brand_color
+ * - navy: the blue scale of the sidebar and highlights, fixed whatever the brand colour
+ * - saffron: the banner's amber - active items, highlights, things waiting for you
  *
  * Light and dark mode: the greys, page background (paper), cards (surface), text (ink) and
  * borders (line) are CSS variables (src/style.css) that change under `.dark`, so every page
@@ -26,30 +26,32 @@ export default {
         surface: v('surface'),
         ink: v('ink'),
         line: v('line'),
+        // SMACON royal blue (its logo and banner), from light tints to the deep sidebar blue
         navy: {
-          50: '#eef3fa',
-          100: '#dbe5f3',
-          200: '#b7c9e6',
-          300: '#8fabd8',
-          600: '#2c5aa0',
-          700: '#21477f',
-          800: '#183564',
-          900: '#10244a',
-          950: '#0b1a33',
+          50: '#eef0fc',
+          100: '#dfe2f9',
+          200: '#c2c7f2',
+          300: '#9aa2e6',
+          600: '#3a46c4',
+          700: '#2b35af',
+          800: '#1f2788',
+          900: '#161c63',
+          950: '#0d1240',
         },
+        // The amber of SMACON's banner and app tiles: highlights and things waiting for you
         saffron: {
-          50: '#fdf7e7',
-          100: '#faebc2',
-          300: '#f0c766',
-          400: '#e8b33a',
-          500: '#d99a1b',
-          600: '#c0851a',
-          700: '#8f600c',
+          50: '#fef7e4',
+          100: '#fdebbb',
+          300: '#f7cd63',
+          400: '#f2b934',
+          500: '#eea90f',
+          600: '#c98a08',
+          700: '#8d6106',
         },
-        // Charts: validated for colour-blind separation and contrast on white
+        // Charts: validated for colour-blind separation and contrast (light; dark uses brighter blue)
         chart: {
-          primary: '#2c5aa0',
-          accent: '#c0851a',
+          primary: '#3a46c4',
+          accent: '#c98a08',
         },
       },
       boxShadow: {

@@ -213,6 +213,9 @@ export interface Sacco {
   name: string
   short_name: string | null
   logo_url: string | null
+  /** A photo for the login page, relative to the app (e.g. brand/smacon-login.jpg) */
+  login_image: string | null
+  slogan: string | null
   brand_color: string
   currency: string
 }

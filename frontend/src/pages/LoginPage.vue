@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ApiError } from '@/api'
 import { useAuth } from '@/stores/auth'
@@ -17,6 +17,10 @@ const otherSacco = ref(!auth.sacco)
 const saccoCode = ref('')
 const error = ref('')
 const busy = ref(false)
+
+/** The SACCO's own photo (e.g. its members with the banner), if it has one */
+const photo = computed(() => (auth.sacco?.login_image ? import.meta.env.BASE_URL + auth.sacco.login_image : null))
+const slogan = computed(() => auth.sacco?.slogan || 'Save together. Grow together.')
 
 async function submit() {
   error.value = ''
@@ -36,68 +40,84 @@ async function submit() {
 </script>
 
 <template>
-  <main class="grid min-h-screen lg:grid-cols-2">
-    <!-- Welcome panel -->
-    <section class="relative hidden overflow-hidden bg-navy-950 p-12 text-white lg:flex lg:flex-col">
-      <div class="absolute -right-28 -top-28 h-[28rem] w-[28rem] rounded-full border-[3px] border-saffron-400/90" aria-hidden="true" />
-      <div class="absolute -bottom-32 -left-20 h-80 w-80 rounded-full bg-navy-800" aria-hidden="true" />
-      <div class="relative flex items-center gap-3">
-        <SaccoMark :sacco="auth.sacco" />
-        <p class="text-lg font-bold">{{ auth.sacco?.short_name || auth.sacco?.name }}</p>
+  <main class="grid min-h-screen lg:grid-cols-[1.15fr_1fr]">
+    <!-- The SACCO's photo, with its name and slogan -->
+    <section class="relative hidden overflow-hidden bg-navy-950 lg:block" aria-label="Welcome">
+      <img v-if="photo" :src="photo" alt="" class="absolute inset-0 h-full w-full object-cover object-[68%_center]" />
+      <div v-else class="absolute -right-28 -top-28 h-[28rem] w-[28rem] rounded-full border-[3px] border-saffron-400/90" aria-hidden="true" />
+      <!-- Deep blue from the bottom so the words read over the photo -->
+      <div class="absolute inset-0 bg-gradient-to-t from-navy-950 from-[18%] via-navy-950/80 via-[48%] to-navy-950/0 to-[78%]" aria-hidden="true" />
+      <div class="absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-navy-950/70 to-transparent" aria-hidden="true" />
+      <div class="relative flex h-full flex-col p-10 xl:p-12">
+        <div class="flex items-center gap-3">
+          <SaccoMark :sacco="auth.sacco" />
+          <p class="text-lg font-bold text-white drop-shadow">{{ auth.sacco?.name }}</p>
+        </div>
+        <div class="mt-auto max-w-xl text-white">
+          <p class="text-sm font-semibold uppercase tracking-[0.2em] text-saffron-300">Savings &amp; credit</p>
+          <h2 class="mt-3 text-4xl font-bold leading-tight xl:text-5xl">{{ slogan }}</h2>
+          <p class="mt-4 max-w-md text-navy-100/90">
+            See your savings and shares, apply for a loan, guarantee a colleague and ask for a withdrawal, any time, from your phone or computer.
+          </p>
+          <ul class="mt-8 flex flex-wrap gap-3 text-sm">
+            <li class="rounded-full bg-white/10 px-4 py-2 backdrop-blur"><span class="font-bold text-saffron-300">24/7</span> your balances</li>
+            <li class="rounded-full bg-white/10 px-4 py-2 backdrop-blur"><span class="font-bold text-saffron-300">Online</span> loan requests</li>
+            <li class="rounded-full bg-white/10 px-4 py-2 backdrop-blur"><span class="font-bold text-saffron-300">Every</span> entry recorded</li>
+          </ul>
+        </div>
       </div>
-      <div class="relative mt-auto max-w-md">
-        <p class="text-sm font-semibold uppercase tracking-widest text-saffron-300">Savings &amp; credit</p>
-        <h2 class="mt-3 text-4xl font-bold leading-tight">Save together.<br />Grow together.</h2>
-        <p class="mt-4 text-navy-100/80">
-          See your savings and shares, apply for a loan, guarantee a colleague and ask for a withdrawal: any time, from your phone or computer.
-        </p>
-        <ul class="mt-8 grid grid-cols-3 gap-4 text-sm">
-          <li class="rounded-xl bg-white/5 p-3"><span class="block text-xl font-bold text-saffron-300">24/7</span>Your balances</li>
-          <li class="rounded-xl bg-white/5 p-3"><span class="block text-xl font-bold text-saffron-300">Online</span>Loan requests</li>
-          <li class="rounded-xl bg-white/5 p-3"><span class="block text-xl font-bold text-saffron-300">Every</span>entry recorded</li>
-        </ul>
-      </div>
-      <p class="relative mt-12 text-xs text-navy-200/60">{{ auth.sacco?.name }}</p>
     </section>
 
     <!-- Sign in -->
-    <section class="flex items-center justify-center px-4 py-10">
-      <div class="w-full max-w-sm">
-        <div class="mb-8 lg:hidden">
-          <SaccoMark :sacco="auth.sacco" size="lg" />
+    <section class="flex flex-col">
+      <!-- Phones: the photo as a band at the top -->
+      <div class="relative h-48 overflow-hidden bg-navy-950 sm:h-60 lg:hidden">
+        <img v-if="photo" :src="photo" alt="" class="absolute inset-0 h-full w-full object-cover object-[50%_35%]" />
+        <div class="absolute inset-0 bg-gradient-to-t from-navy-950/90 via-navy-950/30 to-transparent" aria-hidden="true" />
+        <div class="absolute inset-x-0 bottom-0 flex items-end gap-3 p-5">
+          <SaccoMark :sacco="auth.sacco" />
+          <div class="text-white">
+            <p class="font-bold leading-tight">{{ auth.sacco?.name }}</p>
+            <p class="text-sm text-navy-100/90">{{ slogan }}</p>
+          </div>
         </div>
-        <h1 class="text-2xl font-bold">Welcome back</h1>
-        <p class="mt-1 text-gray-600">Sign in to {{ auth.sacco?.name ?? 'your SACCO' }}.</p>
+      </div>
 
-        <form class="mt-8 space-y-4" novalidate @submit.prevent="submit">
-          <div v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
+      <div class="flex flex-1 items-start justify-center px-4 py-8 sm:py-12 lg:items-center">
+        <div class="w-full max-w-sm">
+          <h1 class="text-3xl font-bold">Welcome back</h1>
+          <p class="mt-1 text-gray-600">Sign in to {{ auth.sacco?.name ?? 'your SACCO' }}.</p>
 
-          <div v-if="otherSacco">
-            <label for="sacco" class="label">SACCO code</label>
-            <input id="sacco" v-model="saccoCode" class="input" autocomplete="organization" placeholder="e.g. smacon" />
-          </div>
+          <form class="mt-8 space-y-4" novalidate @submit.prevent="submit">
+            <div v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
 
-          <div>
-            <label for="login" class="label">Email or employee number</label>
-            <input id="login" v-model="login" class="input py-2.5" autocomplete="username" autocapitalize="none" spellcheck="false" />
-          </div>
+            <div v-if="otherSacco">
+              <label for="sacco" class="label">SACCO code</label>
+              <input id="sacco" v-model="saccoCode" class="input" autocomplete="organization" placeholder="e.g. smacon" />
+            </div>
 
-          <div>
-            <label for="password" class="label">Password</label>
-            <PasswordInput id="password" v-model="password" autocomplete="current-password" />
-          </div>
+            <div>
+              <label for="login" class="label">Email or employee number</label>
+              <input id="login" v-model="login" class="input py-2.5" autocomplete="username" autocapitalize="none" spellcheck="false" />
+            </div>
 
-          <button type="submit" class="btn-primary w-full py-2.5" :disabled="busy || !login || !password">
-            {{ busy ? 'Signing in…' : 'Sign in' }}
-          </button>
-        </form>
+            <div>
+              <label for="password" class="label">Password</label>
+              <PasswordInput id="password" v-model="password" autocomplete="current-password" />
+            </div>
 
-        <p class="mt-6 text-sm text-gray-600">Forgot your password? Ask your SACCO office to reset it.</p>
-        <p v-if="!otherSacco" class="mt-2 text-sm">
-          <button type="button" class="font-medium text-gray-600 underline hover:text-gray-900" @click="otherSacco = true">
-            Signing in to a different SACCO?
-          </button>
-        </p>
+            <button type="submit" class="btn-primary w-full py-3 text-base" :disabled="busy || !login || !password">
+              {{ busy ? 'Signing in…' : 'Sign in' }}
+            </button>
+          </form>
+
+          <p class="mt-6 text-sm text-gray-600">Forgot your password? Ask your SACCO office to reset it.</p>
+          <p v-if="!otherSacco" class="mt-2 text-sm">
+            <button type="button" class="font-medium text-gray-600 underline hover:text-gray-900" @click="otherSacco = true">
+              Signing in to a different SACCO?
+            </button>
+          </p>
+        </div>
       </div>
     </section>
   </main>

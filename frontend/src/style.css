@@ -8,8 +8,8 @@
  */
 :root,
 .force-light {
-  /* The SACCO's colour; replaced by its brand_color once it loads (deep navy) */
-  --brand: 27 58 107;
+  /* The SACCO's colour; replaced by its brand_color once it loads (SMACON royal blue) */
+  --brand: 43 53 175;
   --paper: 245 243 238;
   --surface: 255 255 255;
   --ink: 21 24 33;
@@ -112,21 +112,21 @@ h3 {
  * lighter text, so they read on dark surfaces. Written once here instead of on every badge.
  */
 .dark :is(.bg-red-50, .bg-red-50\/40, .bg-red-50\/60) { background-color: rgb(248 113 113 / 0.12); }
-.dark :is(.bg-amber-50, .bg-saffron-50, .bg-saffron-50\/40, .bg-amber-50\/40) { background-color: rgb(232 179 58 / 0.12); }
-.dark .bg-saffron-100 { background-color: rgb(232 179 58 / 0.18); }
+.dark :is(.bg-amber-50, .bg-saffron-50, .bg-saffron-50\/40, .bg-amber-50\/40) { background-color: rgb(242 185 52 / 0.12); }
+.dark .bg-saffron-100 { background-color: rgb(242 185 52 / 0.18); }
 .dark :is(.bg-green-50, .bg-emerald-50) { background-color: rgb(52 211 153 / 0.12); }
-.dark :is(.bg-navy-50, .bg-blue-50) { background-color: rgb(143 171 216 / 0.14); }
-.dark .bg-navy-100 { background-color: rgb(143 171 216 / 0.22); }
-.dark .bg-brand\/10 { background-color: rgb(143 171 216 / 0.14); }
+.dark :is(.bg-navy-50, .bg-blue-50) { background-color: rgb(154 162 230 / 0.16); }
+.dark .bg-navy-100 { background-color: rgb(154 162 230 / 0.24); }
+.dark .bg-brand\/10 { background-color: rgb(154 162 230 / 0.16); }
 .dark :is(.text-red-700, .text-red-800) { color: rgb(252 165 165); }
-.dark :is(.text-amber-700, .text-amber-800, .text-amber-900, .text-saffron-700) { color: rgb(240 199 102); }
+.dark :is(.text-amber-700, .text-amber-800, .text-amber-900, .text-saffron-700) { color: rgb(247 205 99); }
 .dark :is(.text-green-700, .text-green-800, .text-emerald-700, .text-emerald-800, .text-emerald-600) { color: rgb(110 231 183); }
-.dark :is(.text-navy-800, .text-blue-800) { color: rgb(183 201 230); }
-.dark .text-brand { color: rgb(157 184 232); }
-.dark :is(.border-saffron-300, .border-amber-200) { border-color: rgb(232 179 58 / 0.35); }
+.dark :is(.text-navy-800, .text-blue-800) { color: rgb(194 199 242); }
+.dark .text-brand { color: rgb(160 168 240); }
+.dark :is(.border-saffron-300, .border-amber-200) { border-color: rgb(242 185 52 / 0.35); }
 .dark :is(.border-red-200, .border-red-100) { border-color: rgb(248 113 113 / 0.3); }
 .dark .border-emerald-100 { border-color: rgb(52 211 153 / 0.25); }
-.dark .fill-navy-50 { fill: rgb(143 171 216 / 0.12); }
+.dark .fill-navy-50 { fill: rgb(154 162 230 / 0.12); }
 .dark .shadow-card { box-shadow: none; }
 .dark .shadow-lift { box-shadow: 0 10px 30px -12px rgb(0 0 0 / 0.6); }
 

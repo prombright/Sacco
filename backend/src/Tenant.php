@@ -71,6 +71,8 @@ final class Tenant
             'name' => $sacco['name'],
             'short_name' => $sacco['short_name'],
             'logo_url' => $sacco['logo_url'],
+            'login_image' => $sacco['login_image'] ?? null,
+            'slogan' => $sacco['slogan'] ?? null,
             'brand_color' => $sacco['brand_color'],
             'currency' => $sacco['currency'],
         ];

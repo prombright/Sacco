@@ -1,6 +1,6 @@
 # Serves the app from one folder (locally http://localhost/sacco/, or a domain's document root):
 # /api/...      -> the PHP API (backend/public/index.php)
-# /assets/...   -> the built Vue app's files in frontend/dist
+# /assets/...   -> the built Vue app's files in frontend/dist (and /brand/... its pictures)
 # anything else -> the Vue app's page (run `npm run build` in frontend/ first)
 
 RewriteEngine On
@@ -11,5 +11,5 @@ RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1)(:\d+)?$
 RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
 
 RewriteRule ^api(/.*)?$ backend/public/index.php [QSA,L]
-RewriteRule ^(assets/.+|favicon\.svg)$ frontend/dist/$1 [L]
+RewriteRule ^(assets/.+|brand/.+|favicon\.svg)$ frontend/dist/$1 [L]
 RewriteRule ^(?!frontend/dist/|backend/public/) frontend/dist/index.html [L]

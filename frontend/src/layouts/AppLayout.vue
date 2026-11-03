@@ -146,7 +146,7 @@ async function signOut() {
     <!-- Sidebar: fixed on wide screens (full or icon rail), a drawer on phones -->
     <div v-if="drawer" class="fixed inset-0 z-40 bg-navy-950/60 backdrop-blur-sm lg:hidden" @click="drawer = false" />
     <aside
-      class="fixed inset-y-0 left-0 z-50 flex flex-col bg-gradient-to-b from-navy-950 via-navy-950 to-[#08142a] text-navy-100 shadow-2xl transition-all duration-200 dark:from-[#070d1a] dark:via-[#070d1a] dark:to-[#050a14] lg:translate-x-0 lg:shadow-none"
+      class="fixed inset-y-0 left-0 z-50 flex flex-col bg-gradient-to-b from-navy-950 via-navy-950 to-[#090c2e] text-navy-100 shadow-2xl transition-all duration-200 dark:from-[#080b26] dark:via-[#080b26] dark:to-[#05071a] lg:translate-x-0 lg:shadow-none"
       :class="[drawer ? 'translate-x-0' : '-translate-x-full', wide ? 'w-[272px]' : 'w-[76px]']"
       aria-label="Menu"
     >

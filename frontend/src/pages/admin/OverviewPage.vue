@@ -16,6 +16,7 @@ import { formatMoney } from '@/money'
 import { loanStatus } from '@/loans'
 import type { LoanStatus } from '@/types'
 import MonthChart from '@/components/MonthChart.vue'
+import { useTheme } from '@/stores/theme'
 
 interface Overview {
   totals: {
@@ -37,6 +38,9 @@ interface Overview {
 }
 
 const auth = useAuth()
+const theme = useTheme()
+// Validated for colour-blind separation and contrast on each theme's surface
+const chartColors = computed(() => (theme.dark ? { blue: '#6b78ec', amber: '#b8800c' } : { blue: '#3a46c4', amber: '#c98a08' }))
 const data = ref<Overview | null>(null)
 const error = ref('')
 
@@ -189,14 +193,14 @@ const money = (v: number) => formatMoney(String(v))
             <h2 class="font-semibold">Member funds</h2>
             <p class="text-xs text-gray-500">Savings + shares at each month end</p>
           </div>
-          <MonthChart class="mt-4" :points="data.funds" kind="area" color="#2c5aa0" label="Member funds" :format="money" />
+          <MonthChart class="mt-4" :points="data.funds" kind="area" :color="chartColors.blue" label="Member funds" :format="money" />
         </div>
         <div class="card p-5 xl:col-span-2">
           <div class="flex items-baseline justify-between gap-2">
             <h2 class="font-semibold">Loan repayments</h2>
             <p class="text-xs text-gray-500">Collected each month</p>
           </div>
-          <MonthChart class="mt-4" :points="data.collections" kind="bar" color="#c0851a" label="Loan repayments" :format="money" />
+          <MonthChart class="mt-4" :points="data.collections" kind="bar" :color="chartColors.amber" label="Loan repayments" :format="money" />
         </div>
       </section>
 
