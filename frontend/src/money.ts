@@ -1,5 +1,8 @@
 import { useAuth } from '@/stores/auth'
 
+/** No-break space and narrow no-break space (U+00A0, U+202F) */
+const NO_BREAK_SPACES = new RegExp('[' + String.fromCharCode(0xa0, 0x202f) + ']', 'g')
+
 /**
  * Amounts arrive from the API as decimal strings ("1500000.00") and are only turned into numbers
  * here, for display. Never do arithmetic on money in the browser - the server does it.
@@ -14,7 +17,10 @@ export function formatMoney(amount: string | null | undefined, opts: { sign?: bo
     // Shillings have no cents in practice; show them only when there are some
     minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
     maximumFractionDigits: 2,
-  }).format(Math.abs(value))
+  })
+    .format(Math.abs(value))
+    // The browser puts a no-break space after "UGX"; the font draws it almost zero-width
+    .replace(NO_BREAK_SPACES, ' ')
   if (value < 0) return '−' + formatted
   return opts.sign && value > 0 ? '+' + formatted : formatted
 }

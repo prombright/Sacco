@@ -58,6 +58,24 @@ platform database and to every SACCO's database.
 
 To try the built app through Apache instead (http://localhost/sacco), run `npm run build:local`.
 
+## Look and feel
+
+SACCO has its own look, deliberately unlike Tusome: deep navy (`#1b3a6b`, each SACCO can set its
+own `brand_color`) with a saffron accent, warm paper background, and Plus Jakarta Sans. The design
+tokens live in `frontend/tailwind.config.js`; shared styles (`.btn-*`, `.card`, `.input`, `.eyebrow`,
+`.figure`) in `frontend/src/style.css`. Chart colours (`chart.primary`, `chart.accent`) were checked for
+colour-blind separation and contrast; keep to them.
+
+## What the office gets
+
+- **Overview** (`/office`, where admins land): what's waiting for them, member funds, loans
+  outstanding, arrears, members, a 12-month funds chart, repayments per month, this month's money in
+  and out, loans by status and the latest activity
+- **Find a member** from the top bar on every page; counts on menu items that need action
+- **Import members** from Excel with their opening savings and shares (for going live), then
+  download every new member's sign-in details
+- **Printable statements** for any period, for members themselves and for admins
+
 ## Users and sign-in
 
 - Roles: **Super Admin** (everything, including managing admins), **Admin** (runs the SACCO,

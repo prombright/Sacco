@@ -18,13 +18,17 @@ const router = createRouter({
     { path: '/change-password', name: 'change-password', component: () => import('@/pages/ChangePasswordPage.vue') },
     // Printable, so outside the app's header and menus
     { path: '/withdrawals/:id(\\d+)/slip', name: 'withdrawal-slip', component: () => import('@/pages/withdrawals/WithdrawalSlip.vue') },
+    { path: '/statement/print', name: 'statement-print', component: () => import('@/pages/StatementPrintPage.vue') },
+    { path: '/members/:id(\\d+)/statement', name: 'member-statement', component: () => import('@/pages/StatementPrintPage.vue'), meta: { admin: true } },
     {
       path: '/',
       component: () => import('@/layouts/AppLayout.vue'),
       children: [
-        { path: '', name: 'dashboard', component: () => import('@/pages/DashboardPage.vue'), meta: { title: 'Dashboard' } },
+        { path: '', name: 'dashboard', component: () => import('@/pages/DashboardPage.vue'), meta: { title: 'My dashboard' } },
+        { path: 'office', name: 'overview', component: () => import('@/pages/admin/OverviewPage.vue'), meta: { admin: true, title: 'Overview' } },
+        { path: 'members/import', name: 'member-import', component: () => import('@/pages/admin/MemberImportPage.vue'), meta: { admin: true, title: 'Import members' } },
         { path: 'statement', name: 'statement', component: () => import('@/pages/StatementPage.vue'), meta: { title: 'My statement' } },
-        { path: 'loans', name: 'loans', component: () => import('@/pages/loans/LoansPage.vue'), meta: { title: 'Loans' } },
+        { path: 'loans', name: 'loans', component: () => import('@/pages/loans/LoansPage.vue'), meta: { title: 'My loans' } },
         { path: 'loans/apply', name: 'loan-apply', component: () => import('@/pages/loans/ApplyLoanPage.vue'), meta: { title: 'Apply for a loan' } },
         { path: 'loans/:id(\\d+)', name: 'loan', component: () => import('@/pages/loans/LoanPage.vue'), meta: { title: 'Loan' } },
         { path: 'admin/loans', name: 'admin-loans', component: () => import('@/pages/admin/LoansAdminPage.vue'), meta: { admin: true, title: 'Loan applications' } },
@@ -36,7 +40,7 @@ const router = createRouter({
         { path: 'admin/dividends/:id(\\d+)', name: 'dividend-run', component: () => import('@/pages/admin/DividendRunPage.vue'), meta: { admin: true, title: 'Dividend' } },
         { path: 'admin/reports', name: 'reports', component: () => import('@/pages/admin/ReportsPage.vue'), meta: { admin: true, title: 'Reports' } },
         { path: 'admin/settings', name: 'settings', component: () => import('@/pages/admin/SettingsPage.vue'), meta: { admin: true, title: 'SACCO rules' } },
-        { path: 'users', name: 'users', component: () => import('@/pages/admin/UsersPage.vue'), meta: { admin: true, title: 'Members & users' } },
+        { path: 'users', name: 'users', component: () => import('@/pages/admin/UsersPage.vue'), meta: { admin: true, title: 'Members' } },
         { path: 'members/:id(\\d+)', name: 'member', component: () => import('@/pages/admin/MemberPage.vue'), meta: { admin: true, title: 'Member' } },
       ],
     },
@@ -55,7 +59,7 @@ router.beforeEach(async (to) => {
   }
 
   if (to.meta.public) {
-    return auth.user ? { name: 'dashboard' } : true
+    return auth.user ? { name: auth.isAdmin ? 'overview' : 'dashboard' } : true
   }
   if (!auth.user) {
     return { name: 'login', query: to.fullPath !== '/' ? { next: to.fullPath } : {} }

@@ -85,10 +85,13 @@ const statusLabel: Record<string, string> = { active: 'Active', suspended: 'Susp
   <div>
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h1 class="text-xl font-semibold">Members &amp; users</h1>
-        <p class="mt-1 text-sm text-gray-600">Everyone who can sign in to the SACCO.</p>
+        <h1 class="text-2xl font-bold">Members</h1>
+        <p class="mt-1 text-sm text-gray-600">Everyone who can sign in to the SACCO, with their balances. Click a name to open their account.</p>
       </div>
-      <button type="button" class="btn-primary" @click="editing = null">Add user</button>
+      <div class="flex flex-wrap gap-2">
+        <RouterLink :to="{ name: 'member-import' }" class="btn-secondary">Import from Excel</RouterLink>
+        <button type="button" class="btn-primary" @click="editing = null">Add member</button>
+      </div>
     </div>
 
     <div class="mt-5 flex flex-col gap-2 sm:flex-row">

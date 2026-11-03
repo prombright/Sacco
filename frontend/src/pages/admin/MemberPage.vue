@@ -70,14 +70,17 @@ loadLedger()
     <template v-if="member">
       <div class="mt-3 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 class="text-xl font-semibold">{{ member.full_name }}</h1>
+          <h1 class="text-2xl font-bold">{{ member.full_name }}</h1>
           <p class="mt-1 text-sm text-gray-600">
             Account <span class="font-mono">{{ member.account_no }}</span>
             <template v-if="member.employee_no"> · Employee {{ member.employee_no }}</template>
             <template v-if="member.status !== 'active'"> · <span class="text-amber-700">{{ member.status === 'left' ? 'Left the school' : 'Suspended' }}</span></template>
           </p>
         </div>
-        <button v-if="!isSelf" type="button" class="btn-primary" @click="recording = true">Record an entry</button>
+        <div class="flex flex-wrap gap-2">
+          <RouterLink :to="{ name: 'member-statement', params: { id: member.id } }" class="btn-secondary">Print statement</RouterLink>
+          <button v-if="!isSelf" type="button" class="btn-primary" @click="recording = true">Record an entry</button>
+        </div>
       </div>
       <p v-if="isSelf" class="mt-3 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-600">
         This is your own account. Another admin records and reverses entries on it.

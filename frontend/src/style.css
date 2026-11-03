@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 :root {
-  /* RGB triplet; replaced by the SACCO's own colour once it loads */
-  --brand: 21 128 61;
+  /* RGB triplet of the SACCO's colour; replaced by its brand_color once it loads (deep navy) */
+  --brand: 27 58 107;
 }
 
 html {
@@ -12,32 +12,56 @@ html {
 }
 
 body {
-  @apply bg-gray-50 text-gray-900 antialiased;
+  @apply bg-paper text-ink antialiased;
+  font-feature-settings: 'tnum' 0;
+}
+
+h1,
+h2,
+h3 {
+  @apply tracking-tight;
 }
 
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primary {
-    @apply btn bg-brand text-white hover:bg-brand/90 focus:outline-none focus:ring-2 focus:ring-brand/40;
+    @apply btn bg-brand text-white shadow-sm hover:bg-brand/90;
+  }
+  .btn-accent {
+    @apply btn bg-saffron-500 text-navy-950 shadow-sm hover:bg-saffron-400;
   }
   .btn-secondary {
-    @apply btn border border-gray-300 bg-white text-gray-800 hover:bg-gray-50;
+    @apply btn border border-line bg-white text-ink shadow-sm hover:border-gray-300 hover:bg-gray-50;
   }
   .btn-ghost {
     @apply btn text-gray-700 hover:bg-gray-100;
   }
   .input {
-    @apply block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20;
+    @apply block w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink placeholder:text-gray-400 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/15 disabled:bg-gray-50 disabled:text-gray-500;
   }
   .label {
     @apply mb-1 block text-sm font-medium text-gray-700;
   }
   .card {
-    @apply rounded-xl border border-gray-200 bg-white;
+    @apply rounded-2xl border border-line bg-white shadow-card;
   }
   .field-error {
-    @apply mt-1 text-sm text-red-600;
+    @apply mt-1 text-sm text-red-700;
+  }
+  /* Small uppercase label above a figure */
+  .eyebrow {
+    @apply text-xs font-semibold uppercase tracking-wider text-gray-500;
+  }
+  /* Money and counts line up in columns */
+  .figure {
+    @apply font-bold tabular-nums text-ink;
+  }
+}
+
+@media print {
+  body {
+    @apply bg-white;
   }
 }

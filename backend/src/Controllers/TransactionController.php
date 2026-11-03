@@ -73,6 +73,106 @@ final class TransactionController
         ]);
     }
 
+    /** GET /api/me/statement?from=&to= - printable statement of their own account */
+    public function myStatement(Request $request): never
+    {
+        Response::ok($this->statement(Auth::user(), $request));
+    }
+
+    /** GET /api/members/{id}/statement?from=&to= (admin) */
+    public function memberStatement(Request $request): never
+    {
+        Response::ok($this->statement($this->findUser((int) $request->param('id')), $request));
+    }
+
+    /**
+     * Each account's balance at the start of the period, every entry in it (by the date the money
+     * moved) with a running balance, and the balance at the end; plus their loans.
+     */
+    private function statement(array $user, Request $request): array
+    {
+        $from = $request->string('from') ?: date('Y-01-01');
+        $to = $request->string('to') ?: date('Y-m-d');
+        foreach ([$from, $to] as $d) {
+            $p = \DateTime::createFromFormat('!Y-m-d', $d);
+            if (!$p || $p->format('Y-m-d') !== $d) {
+                Response::error('Enter valid dates.', 422);
+            }
+        }
+        if ($from > $to) {
+            Response::error('The start date is after the end date.', 422);
+        }
+        $db = Database::tenant();
+        $id = (int) $user['id'];
+
+        $accounts = [];
+        foreach (Ledger::ACCOUNTS as $account) {
+            $open = $db->prepare('SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE user_id = ? AND account = ? AND value_date < ?');
+            $open->execute([$id, $account, $from]);
+            $balance = Money::fromDecimal($open->fetchColumn());
+            $opening = $balance;
+
+            $stmt = $db->prepare(
+                'SELECT value_date, type, amount, reference, narration FROM transactions
+                 WHERE user_id = ? AND account = ? AND value_date BETWEEN ? AND ? ORDER BY value_date, id'
+            );
+            $stmt->execute([$id, $account, $from, $to]);
+            $in = 0;
+            $out = 0;
+            $rows = [];
+            foreach ($stmt->fetchAll() as $t) {
+                $cents = Money::fromDecimal($t['amount']);
+                $balance += $cents;
+                $cents > 0 ? $in += $cents : $out -= $cents;
+                $rows[] = [
+                    'date' => $t['value_date'],
+                    'type' => $t['type'],
+                    'details' => implode(' · ', array_filter([$t['reference'], $t['narration']])),
+                    'amount' => Money::toDecimal($cents),
+                    'balance' => Money::toDecimal($balance),
+                ];
+            }
+            $accounts[$account] = [
+                'opening' => Money::toDecimal($opening),
+                'money_in' => Money::toDecimal($in),
+                'money_out' => Money::toDecimal($out),
+                'closing' => Money::toDecimal($balance),
+                'rows' => $rows,
+            ];
+        }
+
+        $loans = [];
+        $stmt = $db->prepare("SELECT id, loan_no, amount, months, disbursed_on, status FROM loans WHERE user_id = ? AND status IN ('active', 'closed') ORDER BY id");
+        $stmt->execute([$id]);
+        foreach ($stmt->fetchAll() as $l) {
+            $p = Loans::position($db, (int) $l['id']);
+            $loans[] = [
+                'loan_no' => $l['loan_no'],
+                'amount' => $l['amount'],
+                'months' => (int) $l['months'],
+                'disbursed_on' => $l['disbursed_on'],
+                'status' => $l['status'],
+                'paid' => Money::toDecimal($p['paid']),
+                'total_left' => Money::toDecimal($p['total_left']),
+                'next_due_date' => $p['next_due_date'],
+            ];
+        }
+
+        return [
+            'member' => [
+                'full_name' => $user['full_name'],
+                'account_no' => $user['account_no'],
+                'employee_no' => $user['employee_no'],
+                'email' => $user['email'],
+            ],
+            'from' => $from,
+            'to' => $to,
+            'accounts' => $accounts,
+            'loans' => $loans,
+            'printed_at' => date('Y-m-d H:i'),
+        ];
+    }
+
     /** GET /api/me/transactions?account=&page= */
     public function myTransactions(Request $request): never
     {

@@ -6,6 +6,8 @@ use Sacco\Auth\Roles;
 use Sacco\Controllers\AuthController;
 use Sacco\Controllers\DividendController;
 use Sacco\Controllers\LoanController;
+use Sacco\Controllers\MemberImportController;
+use Sacco\Controllers\OfficeController;
 use Sacco\Controllers\ReportController;
 use Sacco\Controllers\PayrollController;
 use Sacco\Controllers\WithdrawalController;
@@ -80,6 +82,18 @@ $router->get('/api/payroll/batches', [PayrollController::class, 'index'], $admin
 $router->post('/api/payroll/batches', [PayrollController::class, 'post'], $admins);
 $router->get('/api/payroll/batches/{id}', [PayrollController::class, 'show'], $admins);
 $router->post('/api/payroll/batches/{id}/reverse', [PayrollController::class, 'reverse'], $admins);
+
+// The office at a glance
+$router->get('/api/office/counts', [OfficeController::class, 'counts'], $admins);
+$router->get('/api/office/overview', [OfficeController::class, 'overview'], $admins);
+
+// Printable statements
+$router->get('/api/me/statement', [TransactionController::class, 'myStatement']);
+$router->get('/api/members/{id}/statement', [TransactionController::class, 'memberStatement'], $admins);
+
+// Bringing in many members at once from Excel
+$router->post('/api/members/import/preview', [MemberImportController::class, 'preview'], $admins);
+$router->post('/api/members/import', [MemberImportController::class, 'import'], $admins);
 
 // Dividends on share capital
 $router->post('/api/dividends/preview', [DividendController::class, 'preview'], $admins);
