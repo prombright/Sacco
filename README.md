@@ -107,6 +107,12 @@ colour-blind separation and contrast; keep to them.
 - Shares: **40,000 each**, every member must hold **at least 5** (200,000). Shares can't be reduced
   below that except when a member leaves; members below it see what's still needed, and the loan
   assessment flags it.
+- Dividend: **40% of each member's share capital** a year (Rules page), credited to shares at year end.
+- Investments: the super admin records what the SACCO invests (e.g. 50,000,000 in a unit trust at
+  12% a year), the profit it brings and any sale. The year's profit is shared among members **in
+  proportion to their average savings over the year** (month-end balances; can be set to year-end
+  savings) and added to their savings. Members see their expected dividend and profit share on
+  their dashboard all year.
 - Office accounts (admins, super admin) run the SACCO and have no savings or loans; they can approve
   loans but never guarantee one. Staff who also save have a separate member account.
 - A borrower must have **saved for 6 months**; a guarantor must have been a **member for 6 months**.

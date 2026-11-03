@@ -3,6 +3,7 @@ import { computed, ref, watch, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   ArrowLeftStartOnRectangleIcon,
+  ArrowTrendingUpIcon,
   ArrowUpTrayIcon,
   BanknotesIcon,
   Bars3Icon,
@@ -107,7 +108,8 @@ const groups = computed<NavGroup[]>(() => {
       title: 'Money',
       links: [
         { name: 'payroll', label: 'Payroll uploads', icon: ArrowUpTrayIcon, also: ['payroll-batch'] },
-        { name: 'dividends', label: 'Dividends', icon: ReceiptPercentIcon, also: ['dividend-run'] },
+        { name: 'investments', label: 'Investments', icon: ArrowTrendingUpIcon },
+        { name: 'dividends', label: 'Dividends & profit', icon: ReceiptPercentIcon, also: ['dividend-run'] },
         { name: 'cashbook', label: 'Income & expenses', icon: CalculatorIcon },
         { name: 'reports', label: 'Reports', icon: ChartBarIcon },
       ],

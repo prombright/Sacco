@@ -34,6 +34,11 @@ final class SettingsController
             'savings_min_balance' => ['Savings that must always stay in the account', $decimal(0, 1_000_000_000)],
             'share_price' => ['Price of one share', $decimal(0, 1_000_000_000)],
             'min_shares' => ['Shares every member must hold', $int(0, 10_000)],
+            'dividend_rate_percent' => ['Dividend a year, % of each member\'s share capital', $decimal(0, 100)],
+            'profit_basis' => ['Investment profit is shared by', fn ($v) => in_array($v, ['average_savings', 'year_end_savings'], true) ? $v : null,
+                ['average_savings' => 'Average savings over the year', 'year_end_savings' => 'Savings at the end of the year']],
+            'profit_credit_account' => ['Members\' profit share is added to', fn ($v) => in_array($v, ['savings', 'shares'], true) ? $v : null,
+                ['savings' => 'Savings', 'shares' => 'Shares']],
         ];
     }
 

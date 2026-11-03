@@ -54,7 +54,7 @@ final class TransactionController
         // Dividends that still stand (not reversed): all of them, and the latest
         $dividends = $db->prepare(
             "SELECT t.amount, t.reference, t.value_date FROM transactions t
-             WHERE t.user_id = ? AND t.type = 'dividend' AND NOT EXISTS (SELECT 1 FROM transactions r WHERE r.reversal_of = t.id)
+             WHERE t.user_id = ? AND t.type IN ('dividend', 'profit') AND NOT EXISTS (SELECT 1 FROM transactions r WHERE r.reversal_of = t.id)
              ORDER BY t.id DESC"
         );
         $dividends->execute([$id]);

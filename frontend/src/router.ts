@@ -41,6 +41,7 @@ const router = createRouter({
         { path: 'admin/withdrawals', name: 'admin-withdrawals', component: () => import('@/pages/admin/WithdrawalsAdminPage.vue'), meta: { admin: true, title: 'Withdrawal requests' } },
         { path: 'admin/payroll', name: 'payroll', component: () => import('@/pages/admin/PayrollPage.vue'), meta: { admin: true, title: 'Payroll uploads' } },
         { path: 'admin/payroll/:id(\\d+)', name: 'payroll-batch', component: () => import('@/pages/admin/PayrollBatchPage.vue'), meta: { admin: true, title: 'Payroll upload' } },
+        { path: 'admin/investments', name: 'investments', component: () => import('@/pages/admin/InvestmentsPage.vue'), meta: { admin: true, title: 'Investments' } },
         { path: 'admin/dividends', name: 'dividends', component: () => import('@/pages/admin/DividendsPage.vue'), meta: { admin: true, title: 'Dividends' } },
         { path: 'admin/dividends/:id(\\d+)', name: 'dividend-run', component: () => import('@/pages/admin/DividendRunPage.vue'), meta: { admin: true, title: 'Dividend' } },
         { path: 'admin/reports', name: 'reports', component: () => import('@/pages/admin/ReportsPage.vue'), meta: { admin: true, title: 'Reports' } },

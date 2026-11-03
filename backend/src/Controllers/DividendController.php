@@ -52,8 +52,8 @@ final class DividendController
             if (!$calc['member_count']) {
                 throw new LedgerException('No member had share capital on that date, so there is nothing to pay.');
             }
-            $db->prepare('INSERT INTO dividend_runs (label, rate_percent, record_date, value_date, member_count, total_shares, total_dividend, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-                ->execute([$label, $rate, $recordDate, $valueDate, $calc['member_count'], $calc['total_shares'], $calc['total_dividend'], Auth::id()]);
+            $db->prepare("INSERT INTO dividend_runs (kind, label, year, rate_percent, credit_account, record_date, value_date, member_count, total_shares, total_dividend, created_by) VALUES ('dividend', ?, ?, ?, 'shares', ?, ?, ?, ?, ?, ?)")
+                ->execute([$label, (int) substr($recordDate, 0, 4), $rate, $recordDate, $valueDate, $calc['member_count'], $calc['total_shares'], $calc['total_dividend'], Auth::id()]);
             $runId = (int) $db->lastInsertId();
             foreach ($calc['rows'] as $row) {
                 $cents = Money::fromDecimal($row['dividend']);
@@ -88,7 +88,7 @@ final class DividendController
         $stmt = Database::tenant()->prepare(
             "SELECT u.full_name, u.account_no, t.amount, t.narration
              FROM transactions t JOIN users u ON u.id = t.user_id
-             WHERE t.dividend_run_id = ? AND t.type = 'dividend' ORDER BY u.full_name"
+             WHERE t.dividend_run_id = ? AND t.type IN ('dividend', 'profit') ORDER BY u.full_name"
         );
         $stmt->execute([$id]);
         Response::ok(['run' => $run, 'rows' => $stmt->fetchAll()]);
@@ -100,7 +100,7 @@ final class DividendController
         $id = (int) $request->param('id');
         $run = $this->run($id);
         if ($run['status'] !== 'posted') {
-            Response::error('This dividend has already been reversed.', 422);
+            Response::error('This payout has already been reversed.', 422);
         }
         $reason = mb_substr($request->string('reason'), 0, 255);
         if ($reason === '') {
@@ -110,7 +110,7 @@ final class DividendController
             $db->prepare('SELECT id FROM dividend_runs WHERE id = ? FOR UPDATE')->execute([$id]);
             $stmt = $db->prepare(
                 "SELECT t.id, u.full_name FROM transactions t JOIN users u ON u.id = t.user_id
-                 WHERE t.dividend_run_id = ? AND t.type = 'dividend' AND NOT EXISTS (SELECT 1 FROM transactions r WHERE r.reversal_of = t.id)"
+                 WHERE t.dividend_run_id = ? AND t.type IN ('dividend', 'profit') AND NOT EXISTS (SELECT 1 FROM transactions r WHERE r.reversal_of = t.id)"
             );
             $stmt->execute([$id]);
             foreach ($stmt->fetchAll() as $t) {
@@ -200,6 +200,7 @@ final class DividendController
         $run['id'] = (int) $run['id'];
         $run['member_count'] = (int) $run['member_count'];
         $run['rate_percent'] = rtrim(rtrim($run['rate_percent'], '0'), '.'); // "8.500" -> "8.5"
+        $run['default_rate'] = \Sacco\Support\Earnings::dividendRate();
         return $run;
     }
 }

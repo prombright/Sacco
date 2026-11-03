@@ -6,6 +6,7 @@ use Sacco\Auth\Roles;
 use Sacco\Controllers\AuthController;
 use Sacco\Controllers\CashbookController;
 use Sacco\Controllers\DividendController;
+use Sacco\Controllers\InvestmentController;
 use Sacco\Controllers\MemberDetailsController;
 use Sacco\Controllers\MemberExitController;
 use Sacco\Controllers\NoticeController;
@@ -104,12 +105,24 @@ $router->get('/api/members/{id}/statement', [TransactionController::class, 'memb
 $router->post('/api/members/import/preview', [MemberImportController::class, 'preview'], $admins);
 $router->post('/api/members/import', [MemberImportController::class, 'import'], $admins);
 
-// Dividends on share capital
+// Dividends on share capital; payouts are made by the super admin
+$super = ['roles' => [Roles::SUPER_ADMIN]];
 $router->post('/api/dividends/preview', [DividendController::class, 'preview'], $admins);
 $router->get('/api/dividends', [DividendController::class, 'index'], $admins);
-$router->post('/api/dividends', [DividendController::class, 'post'], $admins);
+$router->post('/api/dividends', [DividendController::class, 'post'], $super);
 $router->get('/api/dividends/{id}', [DividendController::class, 'show'], $admins);
-$router->post('/api/dividends/{id}/reverse', [DividendController::class, 'reverse'], $admins);
+$router->post('/api/dividends/{id}/reverse', [DividendController::class, 'reverse'], $super);
+
+// Investments and sharing their profit (set up by the super admin; admins can see)
+$router->get('/api/investments', [InvestmentController::class, 'index'], $admins);
+$router->post('/api/investments', [InvestmentController::class, 'store'], $super);
+$router->patch('/api/investments/{id}', [InvestmentController::class, 'update'], $super);
+$router->post('/api/investments/{id}/returns', [InvestmentController::class, 'addReturn'], $super);
+$router->post('/api/investments/{id}/close', [InvestmentController::class, 'close'], $super);
+$router->post('/api/investment-returns/{id}/reverse', [InvestmentController::class, 'reverseReturn'], $super);
+$router->post('/api/profit-share/preview', [InvestmentController::class, 'previewShare'], $admins);
+$router->post('/api/profit-share', [InvestmentController::class, 'postShare'], $super);
+$router->get('/api/me/earnings', [InvestmentController::class, 'myEarnings'], $members);
 
 // Reports (shown on screen and downloaded as Excel)
 $router->get('/api/reports', [ReportController::class, 'index'], $admins);

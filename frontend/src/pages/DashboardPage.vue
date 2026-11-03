@@ -6,6 +6,7 @@ import type { Balances, Transaction } from '@/types'
 import BalanceTiles from '@/components/BalanceTiles.vue'
 import TransactionList from '@/components/TransactionList.vue'
 import NoticeBoard from '@/components/NoticeBoard.vue'
+import EarningsCard from '@/components/EarningsCard.vue'
 import { formatDate, formatMoney } from '@/money'
 
 const auth = useAuth()
@@ -86,7 +87,7 @@ onMounted(async () => {
         <p v-else class="mt-2 text-2xl font-semibold text-gray-300">—</p>
       </RouterLink>
       <div class="card p-5">
-        <p class="text-sm font-medium text-gray-600">Dividend earnings</p>
+        <p class="text-sm font-medium text-gray-600">Dividends &amp; profit received</p>
         <p class="mt-2 text-2xl font-semibold tabular-nums">{{ summary ? formatMoney(summary.dividends_total) : '…' }}</p>
         <p v-if="summary?.last_dividend" class="mt-1 text-xs text-gray-500">
           Last: {{ formatMoney(summary.last_dividend.amount) }} ({{ summary.last_dividend.reference }}), added to your shares
@@ -94,6 +95,8 @@ onMounted(async () => {
         <p v-else class="mt-1 text-xs text-gray-500">Paid on your share capital, added to your shares</p>
       </div>
     </div>
+
+    <EarningsCard class="mt-6" />
 
     <div class="mt-8 flex items-center justify-between">
       <h2 class="font-semibold">Recent activity</h2>

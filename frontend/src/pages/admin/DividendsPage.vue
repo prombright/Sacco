@@ -3,6 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { api, ApiError } from '@/api'
 import { formatDate, formatMoney } from '@/money'
+import { useAuth } from '@/stores/auth'
 import StatusBadge from '@/components/StatusBadge.vue'
 
 interface PreviewRow {
@@ -22,6 +23,7 @@ interface Preview {
   total_dividend: string
 }
 interface DividendRun {
+  kind: 'dividend' | 'profit'
   id: number
   label: string
   rate_percent: string
@@ -37,7 +39,8 @@ interface DividendRun {
 
 const router = useRouter()
 const today = new Date().toLocaleDateString('en-CA')
-const form = reactive({ label: String(new Date().getFullYear()), rate_percent: '', record_date: today, value_date: today })
+const auth = useAuth()
+const form = reactive({ label: `Dividend ${new Date().getFullYear()}`, rate_percent: '', record_date: today, value_date: today })
 const preview = ref<Preview | null>(null)
 const runs = ref<DividendRun[]>([])
 const error = ref('')
@@ -46,7 +49,16 @@ const busy = ref(false)
 async function loadRuns() {
   runs.value = (await api.get<{ runs: DividendRun[] }>('/dividends')).runs
 }
-onMounted(() => loadRuns().catch(() => {}))
+onMounted(async () => {
+  loadRuns().catch(() => {})
+  // The SACCO's yearly dividend rate (40%) from the rules
+  try {
+    const s = await api.get<{ settings: { key: string; value: string }[] }>('/settings')
+    form.rate_percent = s.settings.find((x) => x.key === 'dividend_rate_percent')?.value ?? ''
+  } catch {
+    // Left for the admin to type
+  }
+})
 
 async function calculate() {
   error.value = ''
@@ -79,8 +91,10 @@ async function post() {
 
 <template>
   <div>
-    <h1 class="text-xl font-semibold">Dividends</h1>
-    <p class="mt-1 text-sm text-gray-600">Pay a percentage on every member's share capital, credited to their shares.</p>
+    <h1 class="text-2xl font-bold">Dividends &amp; profit</h1>
+    <p class="mt-1 text-sm text-gray-600">
+      The yearly dividend on members' share capital, and every payout so far, including investment profit shared from the Investments page.
+    </p>
 
     <section class="card mt-5 p-5">
       <h2 class="font-semibold">New dividend</h2>
@@ -130,19 +144,22 @@ async function post() {
           </table>
         </div>
         <div class="mt-4 flex justify-end">
-          <button type="button" class="btn-primary" :disabled="busy || !preview.member_count || !form.label.trim()" @click="post">
+          <button v-if="auth.isSuperAdmin" type="button" class="btn-primary" :disabled="busy || !preview.member_count || !form.label.trim()" @click="post">
             {{ busy ? 'Crediting…' : `Credit ${formatMoney(preview.total_dividend)}` }}
           </button>
         </div>
       </div>
     </section>
 
-    <h2 class="mt-8 font-semibold">Past dividends</h2>
+    <h2 class="mt-8 font-semibold">Past payouts</h2>
     <ul class="card mt-3 divide-y divide-gray-100">
       <li v-for="r in runs" :key="r.id">
         <RouterLink :to="{ name: 'dividend-run', params: { id: r.id } }" class="flex flex-wrap items-center justify-between gap-3 p-4 hover:bg-gray-50">
           <div>
-            <p class="font-medium">{{ r.label }} <span class="font-normal text-gray-500">· {{ r.rate_percent }}% · {{ r.member_count }} members</span></p>
+            <p class="font-medium">
+              {{ r.label }}
+              <span class="font-normal text-gray-500">· {{ r.kind === 'profit' ? 'investment profit, by savings' : `${r.rate_percent}% of shares` }} · {{ r.member_count }} members</span>
+            </p>
             <p class="text-sm text-gray-600">Shares held on {{ formatDate(r.record_date) }} · credited {{ formatDate(r.value_date) }} by {{ r.created_by_name }}</p>
           </div>
           <div class="text-right text-sm tabular-nums">

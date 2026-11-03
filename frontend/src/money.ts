@@ -40,6 +40,8 @@ export const transactionTypeLabel: Record<string, string> = {
   withdrawal: 'Withdrawal',
   adjustment: 'Adjustment',
   dividend: 'Dividend',
+  profit: 'Profit share',
+  charge: 'Fee',
   reversal: 'Reversal',
 }
 
