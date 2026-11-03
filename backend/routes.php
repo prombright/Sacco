@@ -12,6 +12,7 @@ use Sacco\Controllers\MemberExitController;
 use Sacco\Controllers\NoticeController;
 use Sacco\Controllers\NotificationController;
 use Sacco\Controllers\ProductController;
+use Sacco\Controllers\PublicController;
 use Sacco\Controllers\LoanController;
 use Sacco\Controllers\MemberImportController;
 use Sacco\Controllers\OfficeController;
@@ -33,6 +34,7 @@ $members = ['members_only' => true];
 $router->get('/api/sacco', [AuthController::class, 'sacco'], ['auth' => false]);
 $router->get('/api/auth/me', [AuthController::class, 'me'], ['auth' => false]);
 $router->post('/api/auth/login', [AuthController::class, 'login'], ['auth' => false]);
+$router->get('/api/public/terms', [PublicController::class, 'terms'], ['auth' => false]);
 
 // Signed in, even before the temporary password is changed
 $router->post('/api/auth/logout', [AuthController::class, 'logout'], ['before_password' => true]);

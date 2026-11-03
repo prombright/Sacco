@@ -112,6 +112,7 @@ async function submit() {
           </form>
 
           <p class="mt-6 text-sm text-gray-600">Forgot your password? Ask your SACCO office to reset it.</p>
+          <RouterLink :to="{ name: 'home' }" class="mt-2 inline-block text-sm font-semibold text-brand hover:underline">About the SACCO, rates and loan calculator</RouterLink>
         </div>
       </div>
     </section>

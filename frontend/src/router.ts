@@ -16,6 +16,8 @@ declare module 'vue-router' {
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
+    // The SACCO's public homepage: anyone can read it, signed in or not
+    { path: '/welcome', name: 'home', component: () => import('@/pages/HomePage.vue'), meta: { public: true, title: 'Welcome' } },
     { path: '/login', name: 'login', component: () => import('@/pages/LoginPage.vue'), meta: { public: true } },
     { path: '/change-password', name: 'change-password', component: () => import('@/pages/ChangePasswordPage.vue') },
     // Printable, so outside the app's header and menus
@@ -64,10 +66,13 @@ router.beforeEach(async (to) => {
     }
   }
 
+  if (to.name === 'home') return true
   if (to.meta.public) {
     return auth.user ? { name: auth.isAdmin ? 'overview' : 'dashboard' } : true
   }
   if (!auth.user) {
+    // Visitors to the front door see the homepage; deeper links go to sign in and come back
+    if (to.fullPath === '/') return { name: 'home' }
     return { name: 'login', query: to.fullPath !== '/' ? { next: to.fullPath } : {} }
   }
   // A temporary password must be replaced before anything else
