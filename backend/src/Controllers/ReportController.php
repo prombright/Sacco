@@ -90,6 +90,7 @@ final class ReportController
                 'pledged' => Loans::pledged($db, $id),
                 'free' => Savings::free($db, $id),
                 'shares' => $shares,
+                'share_count' => ($price = (int) Money::parse(\Sacco\Support\Settings::get('share_price', '0'))) > 0 ? intdiv($shares, $price) : null,
                 'loan' => $loan,
             ];
         }
@@ -103,6 +104,7 @@ final class ReportController
             ['pledged', 'Pledged', 'money'],
             ['free', 'Free savings', 'money'],
             ['shares', 'Share capital', 'money'],
+            ['share_count', 'Shares', 'number'],
             ['loan', 'Loan balance', 'money'],
         ], $rows);
     }
@@ -189,7 +191,7 @@ final class ReportController
 
         $rows = [];
         $income = 0;
-        foreach ([['Loan interest received', $loan['interest']], ['Late-payment penalties received', $loan['penalties']], ['Loan processing fees', $loan['processing_fees']]] as [$item, $amount]) {
+        foreach ([['Loan interest received', $loan['interest']], ['Late-payment penalties received', $loan['penalties']], ['Loan processing fees', $loan['processing_fees']], ['Withdrawal fees', $loan['withdrawal_fees']]] as [$item, $amount]) {
             $rows[] = ['section' => 'Income', 'item' => $item, 'amount' => Money::fromDecimal($amount)];
             $income += Money::fromDecimal($amount);
         }

@@ -49,8 +49,12 @@ onMounted(async () => {
         <dt class="text-gray-600">Member</dt><dd class="font-medium">{{ w.full_name }}</dd>
         <dt class="text-gray-600">Account number</dt><dd class="font-mono">{{ w.account_no }}</dd>
         <dt v-if="w.employee_no" class="text-gray-600">Employee number</dt><dd v-if="w.employee_no">{{ w.employee_no }}</dd>
-        <dt class="text-gray-600">Amount</dt><dd class="text-lg font-semibold tabular-nums">{{ formatMoney(w.amount) }}</dd>
-        <dt class="text-gray-600">In words</dt><dd>{{ amountInWords(w.amount) }} {{ auth.sacco?.currency === 'UGX' ? 'shillings' : auth.sacco?.currency }} only</dd>
+        <dt class="text-gray-600">Withdrawal</dt><dd class="tabular-nums">{{ formatMoney(w.amount) }}</dd>
+        <template v-if="Number(w.fee) > 0">
+          <dt class="text-gray-600">Withdrawal fee</dt><dd class="tabular-nums">{{ formatMoney(w.fee) }} {{ w.fee_on_top ? '(charged to savings)' : '(deducted)' }}</dd>
+        </template>
+        <dt class="text-gray-600">Cheque amount</dt><dd class="text-lg font-semibold tabular-nums">{{ formatMoney(w.cheque_amount) }}</dd>
+        <dt class="text-gray-600">In words</dt><dd>{{ amountInWords(w.cheque_amount) }} {{ auth.sacco?.currency === 'UGX' ? 'shillings' : auth.sacco?.currency }} only</dd>
         <dt v-if="w.reason" class="text-gray-600">Reason</dt><dd v-if="w.reason">{{ w.reason }}</dd>
         <dt class="text-gray-600">Requested</dt><dd>{{ formatDate(w.created_at) }}</dd>
         <dt class="text-gray-600">Approved by</dt><dd>{{ w.decided_by_name ?? '—' }}<template v-if="w.decided_at"> · {{ formatDate(w.decided_at) }}</template></dd>

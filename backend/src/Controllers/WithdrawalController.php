@@ -37,7 +37,11 @@ final class WithdrawalController
             'savings' => Money::toDecimal(Ledger::balance($db, $me, 'savings')),
             'pledged' => Money::toDecimal(Loans::pledged($db, $me)),
             'held' => Money::toDecimal(Savings::heldForWithdrawals($db, $me)),
-            'available' => Money::toDecimal(Savings::free($db, $me)),
+            'min_balance' => Money::toDecimal(Savings::minBalance()),
+            // The most they can ask for: with the fee on top, the fee must fit as well
+            'available' => Money::toDecimal(self::maxRequest(Savings::withdrawable($db, $me))),
+            'fee_percent' => \Sacco\Support\Settings::get('withdrawal_fee_percent', '0'),
+            'fee_on_top' => Savings::feeOnTop(),
         ]);
     }
 
@@ -58,11 +62,14 @@ final class WithdrawalController
             if ($no = $open->fetchColumn()) {
                 throw new LedgerException("You already have a withdrawal request in progress ($no).");
             }
-            $free = Savings::free($db, $me);
-            if ($cents > $free) {
-                throw new LedgerException('You can withdraw up to ' . number_format($free / 100) . ' right now.');
+            $max = self::maxRequest(Savings::withdrawable($db, $me));
+            if ($cents > $max) {
+                throw new LedgerException('You can withdraw up to ' . number_format($max / 100) . ' right now'
+                    . (Savings::minBalance() ? ' (at least ' . number_format(Savings::minBalance() / 100) . ' must stay in your savings)' : '') . '.');
             }
-            $db->prepare('INSERT INTO withdrawal_requests (user_id, amount, reason) VALUES (?, ?, ?)')->execute([$me, Money::toDecimal($cents), $reason]);
+            $fee = Savings::withdrawalFee($cents);
+            $db->prepare('INSERT INTO withdrawal_requests (user_id, amount, fee, fee_on_top, reason) VALUES (?, ?, ?, ?, ?)')
+                ->execute([$me, Money::toDecimal($cents), Money::toDecimal($fee), Savings::feeOnTop() ? 1 : 0, $reason]);
             $id = (int) $db->lastInsertId();
             $db->prepare('UPDATE withdrawal_requests SET request_no = ? WHERE id = ?')->execute(['W' . str_pad((string) $id, 5, '0', STR_PAD_LEFT), $id]);
             return $id;
@@ -109,7 +116,7 @@ final class WithdrawalController
         // So the admin can see the money is still there before approving
         foreach ($rows as &$row) {
             if (in_array($row['status'], self::OPEN, true)) {
-                $row['available_now'] = Money::toDecimal(Savings::free($db, $row['user_id'], $row['id']));
+                $row['available_now'] = Money::toDecimal(Savings::withdrawable($db, $row['user_id'], $row['id']));
             }
         }
         unset($row);
@@ -129,7 +136,7 @@ final class WithdrawalController
         $this->setStatus($w['id'], 'approved', mb_substr($request->string('note'), 0, 255) ?: null);
         Audit::log('withdrawal.approved', 'withdrawal', $w['id']);
         Notify::member($w['user_id'], 'withdrawal_approved', 'Your withdrawal is approved',
-            mb_substr($request->string('message'), 0, 2000) ?: 'Your request ' . $w['request_no'] . ' to withdraw ' . Notify::money($w['amount']) . ' has been approved. Please pick up your cheque from the SACCO office.', '/withdrawals');
+            mb_substr($request->string('message'), 0, 2000) ?: 'Your request ' . $w['request_no'] . ' to withdraw ' . Notify::money($w['amount']) . ' has been approved. Please pick up your cheque for ' . Notify::money($w['cheque_amount']) . ' from the SACCO office.', '/withdrawals');
         Response::ok(['request' => $this->find($w['id'])]);
     }
 
@@ -171,25 +178,45 @@ final class WithdrawalController
         Database::transaction(function (\PDO $db) use ($w, $cheque, $paidOn) {
             $db->prepare('SELECT id FROM users WHERE id = ? FOR UPDATE')->execute([$w['user_id']]);
             $cents = Money::fromDecimal($w['amount']);
-            $free = Savings::free($db, $w['user_id'], $w['id']);
-            if ($cents > $free) {
-                throw new LedgerException('The member now has only ' . number_format($free / 100) . ' free in savings. Reject this request and ask them to make a new one.');
+            $fee = Money::fromDecimal($w['fee']);
+            $leaving = $cents + ($w['fee_on_top'] ? $fee : 0);
+            $room = Savings::withdrawable($db, $w['user_id'], $w['id']);
+            if ($leaving > $room) {
+                throw new LedgerException('The member can now withdraw only ' . number_format($room / 100) . '. Reject this request and ask them to make a new one.');
             }
-            $row = Ledger::post($db, $w['user_id'], 'savings', 'withdrawal', -$cents, [
-                'value_date' => $paidOn,
-                'reference' => 'Cheque ' . $cheque,
-                'narration' => 'Withdrawal ' . $w['request_no'],
+            $meta = ['value_date' => $paidOn, 'reference' => 'Cheque ' . $cheque];
+            // The whole amount leaves savings; the fee is either part of it (smaller cheque) or charged as well
+            $row = Ledger::post($db, $w['user_id'], 'savings', 'withdrawal', -$cents, $meta + [
+                'narration' => 'Withdrawal ' . $w['request_no'] . ($fee && !$w['fee_on_top'] ? ' (cheque ' . number_format(($cents - $fee) / 100) . ' after the ' . number_format($fee / 100) . ' fee)' : ''),
             ]);
+            if ($fee && $w['fee_on_top']) {
+                Ledger::post($db, $w['user_id'], 'savings', 'charge', -$fee, $meta + ['narration' => 'Withdrawal fee on ' . $w['request_no']]);
+            }
             $db->prepare("UPDATE withdrawal_requests SET status = 'paid', cheque_no = ?, paid_on = ?, paid_by = ?, transaction_id = ? WHERE id = ? AND status = 'approved'")
                 ->execute([$cheque, $paidOn, Auth::id(), $row['id'], $w['id']]);
         });
         Audit::log('withdrawal.paid', 'withdrawal', $w['id'], ['cheque' => $cheque]);
         Notify::member($w['user_id'], 'withdrawal_paid', 'Withdrawal paid',
-            'Cheque ' . $cheque . ' for ' . Notify::money($w['amount']) . ' has been issued; it has been taken off your savings.', '/withdrawals');
+            'Cheque ' . $cheque . ' for ' . Notify::money($w['cheque_amount']) . ' has been issued.'
+            . (Money::fromDecimal($w['fee']) ? ' The ' . Notify::money($w['fee']) . ' withdrawal fee ' . ($w['fee_on_top'] ? 'was also taken from your savings.' : 'came out of the amount.') : ''), '/withdrawals');
         Response::ok(['request' => $this->find($w['id'])]);
     }
 
     // ----------------------------------------------------------------------
+
+    /** The biggest request that fits in what can leave savings, once the fee is counted */
+    private static function maxRequest(int $withdrawable): int
+    {
+        if (!Savings::feeOnTop()) {
+            return $withdrawable;
+        }
+        // amount + fee(amount) <= withdrawable; the fee is rounded, so step down to be sure
+        $guess = (int) floor($withdrawable / (1 + (int) Money::parse(\Sacco\Support\Settings::get('withdrawal_fee_percent', '0')) / 10000) / 100) * 100;
+        while ($guess > 0 && $guess + Savings::withdrawalFee($guess) > $withdrawable) {
+            $guess -= 100;
+        }
+        return max(0, $guess);
+    }
 
     private const SELECT = 'SELECT w.*, u.full_name, u.account_no, u.employee_no,
             d.full_name AS decided_by_name, p.full_name AS paid_by_name
@@ -208,6 +235,10 @@ final class WithdrawalController
             'account_no' => $w['account_no'],
             'employee_no' => $w['employee_no'],
             'amount' => $w['amount'],
+            'fee' => $w['fee'],
+            'fee_on_top' => (bool) $w['fee_on_top'],
+            // What the cheque is for: the amount, less the fee when it comes out of it
+            'cheque_amount' => Money::toDecimal(Money::fromDecimal($w['amount']) - ($w['fee_on_top'] ? 0 : Money::fromDecimal($w['fee']))),
             'reason' => $w['reason'],
             'status' => $w['status'],
             'decided_by_name' => $w['decided_by_name'],

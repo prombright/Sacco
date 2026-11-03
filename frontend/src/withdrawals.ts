@@ -8,6 +8,11 @@ export interface Withdrawal {
   account_no: string | null
   employee_no: string | null
   amount: string
+  /** The withdrawal fee, and whether it was charged on top (else it came out of the amount) */
+  fee: string
+  fee_on_top: boolean
+  /** What the cheque is for */
+  cheque_amount: string
   reason: string | null
   status: WithdrawalStatus
   decided_by_name: string | null

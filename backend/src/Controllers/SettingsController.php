@@ -28,7 +28,12 @@ final class SettingsController
             'loan_min_member_months' => ['Months of saving before a loan', $int(0, 120)],
             'guarantor_min_member_months' => ['Months of membership to be a guarantor', $int(0, 120)],
             'loan_penalty_percent' => ['Late-payment penalty, % of what is late (0 = none)', $decimal(0, 50)],
+            'withdrawal_fee_percent' => ['Withdrawal fee, % of the amount withdrawn', $decimal(0, 50)],
+            'withdrawal_fee_mode' => ['How the withdrawal fee is taken', fn ($v) => in_array($v, ['from_amount', 'on_top'], true) ? $v : null,
+                ['from_amount' => 'Out of the amount (smaller cheque)', 'on_top' => 'On top (savings go down by amount + fee)']],
+            'savings_min_balance' => ['Savings that must always stay in the account', $decimal(0, 1_000_000_000)],
             'share_price' => ['Price of one share', $decimal(0, 1_000_000_000)],
+            'min_shares' => ['Shares every member must hold', $int(0, 10_000)],
         ];
     }
 
@@ -36,8 +41,8 @@ final class SettingsController
     public function index(Request $request): never
     {
         $out = [];
-        foreach (self::fields() as $key => [$label]) {
-            $out[] = ['key' => $key, 'label' => $label, 'value' => Settings::get($key)];
+        foreach (self::fields() as $key => $field) {
+            $out[] = ['key' => $key, 'label' => $field[0], 'value' => Settings::get($key), 'options' => $field[2] ?? null];
         }
         Response::ok(['settings' => $out]);
     }

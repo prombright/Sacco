@@ -66,6 +66,8 @@ final class TransactionController
             'balances' => Ledger::balances($id),
             'pledged' => Money::toDecimal(Loans::pledged($db, $id)),
             'share_price' => Settings::get('share_price', '0'),
+            'share_position' => Savings::sharePosition($db, $id),
+            'withdrawable' => Money::toDecimal(Savings::withdrawable($db, $id)),
             'loan_owed' => Money::toDecimal($owed),
             'next_repayment' => $next,
             'guarantee_requests' => (int) $requests->fetchColumn(),
@@ -259,9 +261,18 @@ final class TransactionController
                 // Savings pledged for someone's loan stay put until that loan is repaid
                 if ($account === 'savings' && $sign < 0) {
                     $db->prepare('SELECT id FROM users WHERE id = ? FOR UPDATE')->execute([$user['id']]);
-                    $free = Savings::free($db, (int) $user['id']);
-                    if ($cents > $free) {
-                        throw new LedgerException('Only ' . number_format($free / 100, 2) . ' of these savings is free; the rest is pledged as a loan guarantee or held for a withdrawal request.');
+                    $room = Savings::withdrawable($db, (int) $user['id']);
+                    if ($cents > $room) {
+                        throw new LedgerException('Only ' . number_format($room / 100) . ' can come off these savings: '
+                            . number_format(Savings::minBalance() / 100) . ' must always stay, and any amount pledged as a guarantee or held for a withdrawal stays too.');
+                    }
+                }
+                // Members keep the minimum shares; only leaving the SACCO pays them out
+                if ($account === 'shares' && $sign < 0 && ($min = Savings::minShareCapital()) > 0) {
+                    $after = Ledger::balance($db, (int) $user['id'], 'shares') - $cents;
+                    if ($after < $min) {
+                        throw new LedgerException('Members must keep at least ' . Settings::get('min_shares') . ' shares (' . number_format($min / 100)
+                            . ') in share capital. Shares are only paid out when someone leaves the SACCO.');
                     }
                 }
                 return Ledger::post($db, (int) $user['id'], $account, $type, $sign * $cents, [

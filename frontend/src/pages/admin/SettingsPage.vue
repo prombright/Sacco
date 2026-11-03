@@ -8,6 +8,8 @@ interface Setting {
   key: string
   label: string
   value: string
+  /** A choice from a list instead of a number */
+  options: Record<string, string> | null
 }
 
 const auth = useAuth()
@@ -65,10 +67,13 @@ async function save() {
       <div v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
       <div v-if="message" class="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800" role="status">{{ message }}</div>
 
-      <div v-for="s in settings" :key="s.key" class="grid items-center gap-2 sm:grid-cols-[1fr_12rem]">
+      <div v-for="s in settings" :key="s.key" class="grid items-center gap-2 sm:grid-cols-[1fr_20rem]">
         <label :for="s.key" class="text-sm font-medium text-gray-700">{{ s.label }}</label>
         <div>
-          <input :id="s.key" v-model="values[s.key]" class="input tabular-nums" inputmode="decimal" :disabled="!auth.isSuperAdmin" />
+          <select v-if="s.options" :id="s.key" v-model="values[s.key]" class="input" :disabled="!auth.isSuperAdmin">
+            <option v-for="(label, value) in s.options" :key="value" :value="value">{{ label }}</option>
+          </select>
+          <input v-else :id="s.key" v-model="values[s.key]" class="input tabular-nums" inputmode="decimal" :disabled="!auth.isSuperAdmin" />
           <p v-if="errors[s.key]" class="field-error">{{ errors[s.key] }}</p>
         </div>
       </div>

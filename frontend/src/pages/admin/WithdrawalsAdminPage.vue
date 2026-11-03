@@ -102,6 +102,7 @@ async function approve(r: Withdrawal) {
           </div>
           <div class="text-right">
             <p class="text-lg font-semibold tabular-nums">{{ formatMoney(r.amount) }}</p>
+            <p v-if="Number(r.fee) > 0" class="text-xs tabular-nums text-gray-500">fee {{ formatMoney(r.fee) }} · cheque {{ formatMoney(r.cheque_amount) }}</p>
             <StatusBadge :label="withdrawalStatus[r.status].label" :style-class="withdrawalStatus[r.status].style" />
           </div>
         </div>
@@ -132,7 +133,14 @@ async function approve(r: Withdrawal) {
     <Modal v-if="dialog?.kind === 'pay'" title="Record cheque" @close="dialog = null">
       <form class="space-y-4" @submit.prevent="act(`/withdrawals/${dialog.request.id}/pay`, { cheque_no: form.cheque_no, paid_on: form.paid_on })">
         <div v-if="formError" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ formError }}</div>
-        <p class="text-sm text-gray-700">Cheque to {{ dialog.request.full_name }} for <strong class="font-semibold">{{ formatMoney(dialog.request.amount) }}</strong>. This takes the amount off their savings.</p>
+        <p class="text-sm text-gray-700">Cheque to {{ dialog.request.full_name }}:</p>
+        <dl class="grid grid-cols-2 gap-y-1 rounded-xl bg-gray-50 p-3 text-sm">
+          <dt class="text-gray-600">Withdrawal</dt><dd class="text-right tabular-nums">{{ formatMoney(dialog.request.amount) }}</dd>
+          <template v-if="Number(dialog.request.fee) > 0">
+            <dt class="text-gray-600">Fee {{ dialog.request.fee_on_top ? '(charged on top)' : '(out of the amount)' }}</dt><dd class="text-right tabular-nums">{{ formatMoney(dialog.request.fee) }}</dd>
+          </template>
+          <dt class="font-semibold">Write the cheque for</dt><dd class="text-right font-semibold tabular-nums">{{ formatMoney(dialog.request.cheque_amount) }}</dd>
+        </dl>
         <div class="grid gap-4 sm:grid-cols-2">
           <div><label for="cheque" class="label">Cheque number</label><input id="cheque" v-model="form.cheque_no" class="input" maxlength="80" /></div>
           <div><label for="pdate" class="label">Cheque date</label><input id="pdate" v-model="form.paid_on" type="date" :max="today" class="input" /></div>

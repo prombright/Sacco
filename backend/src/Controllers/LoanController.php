@@ -762,6 +762,16 @@ final class LoanController
             'detail' => $late ? 'Behind on ' . implode(', ', $late) . '.' : ($count ? "$count other loan(s), all up to date." : 'No other loans.'),
         ];
 
+        if (($minCapital = Savings::minShareCapital()) > 0) {
+            $sp = Savings::sharePosition($db, $userId);
+            $checks[] = [
+                'label' => 'Holds the minimum shares',
+                'level' => Money::fromDecimal($sp['still_needed']) === 0 ? 'pass' : 'fail',
+                'detail' => "Has {$sp['shares']} of the {$sp['min_shares']} shares required"
+                    . (Money::fromDecimal($sp['still_needed']) ? '; ' . number_format(Money::fromDecimal($sp['still_needed']) / 100) . ' more in share capital is needed.' : '.'),
+            ];
+        }
+
         $fails = count(array_filter($checks, fn ($c) => $c['level'] === 'fail'));
         $warns = count(array_filter($checks, fn ($c) => $c['level'] === 'warn'));
         return [

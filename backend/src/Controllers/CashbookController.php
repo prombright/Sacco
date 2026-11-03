@@ -111,10 +111,13 @@ final class CashbookController
         $parts = $stmt->fetchAll(\PDO::FETCH_KEY_PAIR);
         $fees = $db->prepare('SELECT COALESCE(SUM(processing_fee), 0) FROM loans WHERE disbursed_on BETWEEN ? AND ?');
         $fees->execute([$from, $to]);
+        $wfees = $db->prepare("SELECT COALESCE(SUM(fee), 0) FROM withdrawal_requests WHERE status = 'paid' AND paid_on BETWEEN ? AND ?");
+        $wfees->execute([$from, $to]);
         return [
             'interest' => Money::toDecimal(Money::fromDecimal($parts['interest'] ?? null)),
             'penalties' => Money::toDecimal(Money::fromDecimal($parts['penalty'] ?? null) + Money::fromDecimal($parts['fee'] ?? null)),
             'processing_fees' => Money::toDecimal(Money::fromDecimal($fees->fetchColumn())),
+            'withdrawal_fees' => Money::toDecimal(Money::fromDecimal($wfees->fetchColumn())),
         ];
     }
 

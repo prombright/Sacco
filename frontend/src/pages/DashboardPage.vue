@@ -13,6 +13,8 @@ interface Summary {
   balances: Balances
   pledged: string
   share_price: string
+  share_position: { shares: number | null; min_shares: number; still_needed: string }
+  withdrawable: string
   loan_owed: string
   next_repayment: { date: string; amount: string } | null
   guarantee_requests: number
@@ -63,7 +65,7 @@ onMounted(async () => {
     </RouterLink>
 
     <div class="mt-6">
-      <BalanceTiles :balances="balances" :share-price="sharePrice" />
+      <BalanceTiles :balances="balances" :share-price="sharePrice" :share-position="summary?.share_position" />
       <p v-if="summary && Number(summary.pledged) > 0" class="mt-2 text-sm text-gray-600">
         {{ formatMoney(summary.pledged) }} of your savings is pledged as a loan guarantee.
       </p>

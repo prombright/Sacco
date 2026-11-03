@@ -22,7 +22,7 @@ interface Book {
   income: string
   expenses: string
   categories: { income: string[]; expense: string[] }
-  loan_income: { interest: string; penalties: string; processing_fees: string }
+  loan_income: { interest: string; penalties: string; processing_fees: string; withdrawal_fees: string }
 }
 
 /** The SACCO's own income and expenses, with what the loans earned counted automatically */
@@ -49,7 +49,7 @@ onMounted(load)
 
 const loanIncome = computed(() => {
   const l = book.value?.loan_income
-  return l ? Number(l.interest) + Number(l.penalties) + Number(l.processing_fees) : 0
+  return l ? Number(l.interest) + Number(l.penalties) + Number(l.processing_fees) + Number(l.withdrawal_fees) : 0
 })
 const totalIncome = computed(() => loanIncome.value + Number(book.value?.income ?? 0))
 const surplus = computed(() => totalIncome.value - Number(book.value?.expenses ?? 0))
@@ -119,6 +119,7 @@ const money = (v: number) => formatMoney(String(v))
             <li class="flex justify-between"><span>Loan interest</span><span class="tabular-nums">{{ formatMoney(book.loan_income.interest) }}</span></li>
             <li class="flex justify-between"><span>Penalties</span><span class="tabular-nums">{{ formatMoney(book.loan_income.penalties) }}</span></li>
             <li class="flex justify-between"><span>Processing fees</span><span class="tabular-nums">{{ formatMoney(book.loan_income.processing_fees) }}</span></li>
+            <li class="flex justify-between"><span>Withdrawal fees</span><span class="tabular-nums">{{ formatMoney(book.loan_income.withdrawal_fees) }}</span></li>
             <li class="flex justify-between"><span>Other income</span><span class="tabular-nums">{{ formatMoney(book.income) }}</span></li>
           </ul>
         </div>

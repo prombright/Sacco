@@ -102,6 +102,13 @@ colour-blind separation and contrast; keep to them.
 
 - Loan interest: **1% per month on a reducing balance**, equal monthly instalments.
 - Loan limit: **2 × savings**, minus what they already owe.
+- Savings withdrawals: a **3% fee** on the amount (out of the amount by default, so the cheque is
+  smaller; can be set to "on top"), and **at least 20,000 must always stay** in savings.
+- Shares: **40,000 each**, every member must hold **at least 5** (200,000). Shares can't be reduced
+  below that except when a member leaves; members below it see what's still needed, and the loan
+  assessment flags it.
+- Office accounts (admins, super admin) run the SACCO and have no savings or loans; they can approve
+  loans but never guarantee one. Staff who also save have a separate member account.
 - A borrower must have **saved for 6 months**; a guarantor must have been a **member for 6 months**.
   Membership counts from the member's "Member since" date, or their first savings entry if that's blank.
 - Guarantors must have the amount free in their savings (not pledged elsewhere or being withdrawn),
