@@ -29,6 +29,7 @@ import { useOffice } from '@/stores/office'
 import SaccoMark from '@/components/SaccoMark.vue'
 import MemberSearch from '@/components/MemberSearch.vue'
 import ThemeSwitch from '@/components/ThemeSwitch.vue'
+import NotificationBell from '@/components/NotificationBell.vue'
 
 interface NavLink {
   name: string
@@ -267,6 +268,7 @@ async function signOut() {
         <span class="hidden whitespace-nowrap text-sm text-gray-500 xl:inline" :class="auth.isAdmin ? 'ml-4' : 'ml-auto'">
           {{ new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }) }}
         </span>
+        <NotificationBell v-if="!auth.isAdmin" class="ml-auto xl:ml-2" />
       </div>
       <div v-if="auth.isAdmin" class="px-4 pb-3 sm:hidden">
         <MemberSearch />

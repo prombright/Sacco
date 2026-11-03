@@ -14,6 +14,7 @@ use Sacco\Support\Audit;
 use Sacco\Support\Ledger;
 use Sacco\Support\LedgerException;
 use Sacco\Support\Money;
+use Sacco\Support\Notify;
 use Sacco\Support\Savings;
 
 /**
@@ -127,6 +128,8 @@ final class WithdrawalController
         }
         $this->setStatus($w['id'], 'approved', mb_substr($request->string('note'), 0, 255) ?: null);
         Audit::log('withdrawal.approved', 'withdrawal', $w['id']);
+        Notify::member($w['user_id'], 'withdrawal_approved', 'Your withdrawal is approved',
+            mb_substr($request->string('message'), 0, 2000) ?: 'Your request ' . $w['request_no'] . ' to withdraw ' . Notify::money($w['amount']) . ' has been approved. Please pick up your cheque from the SACCO office.', '/withdrawals');
         Response::ok(['request' => $this->find($w['id'])]);
     }
 
@@ -143,6 +146,8 @@ final class WithdrawalController
         }
         $this->setStatus($w['id'], 'rejected', $note);
         Audit::log('withdrawal.rejected', 'withdrawal', $w['id'], ['note' => $note]);
+        Notify::member($w['user_id'], 'withdrawal_rejected', 'Your withdrawal was not approved',
+            'Your request ' . $w['request_no'] . ' to withdraw ' . Notify::money($w['amount']) . " was not approved: $note", '/withdrawals');
         Response::ok(['request' => $this->find($w['id'])]);
     }
 
@@ -179,6 +184,8 @@ final class WithdrawalController
                 ->execute([$cheque, $paidOn, Auth::id(), $row['id'], $w['id']]);
         });
         Audit::log('withdrawal.paid', 'withdrawal', $w['id'], ['cheque' => $cheque]);
+        Notify::member($w['user_id'], 'withdrawal_paid', 'Withdrawal paid',
+            'Cheque ' . $cheque . ' for ' . Notify::money($w['amount']) . ' has been issued; it has been taken off your savings.', '/withdrawals');
         Response::ok(['request' => $this->find($w['id'])]);
     }
 

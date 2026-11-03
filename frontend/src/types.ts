@@ -154,6 +154,11 @@ export interface Loan {
   processing_fee: string
   settled_early_on: string | null
   charges?: LoanCharge[]
+  /** Admins, before payout: does the borrower qualify under the SACCO's rules today? */
+  assessment?: {
+    verdict: 'qualifies' | 'qualifies_with_concerns' | 'does_not_qualify'
+    checks: { label: string; level: 'pass' | 'warn' | 'fail'; detail: string }[]
+  } | null
   /** What paying it all off today would cost (admins, active loans) */
   settlement?: { amount: string; interest_saved: string } | null
 }

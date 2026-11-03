@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
-import { CheckCircleIcon } from '@heroicons/vue/24/outline'
+import { CheckCircleIcon, ExclamationTriangleIcon, ShieldCheckIcon, XCircleIcon } from '@heroicons/vue/24/outline'
 import { useRoute } from 'vue-router'
 import { api, ApiError } from '@/api'
 import { useAuth } from '@/stores/auth'
@@ -35,9 +35,9 @@ load()
 
 // --- Actions: each opens a small form in a dialog --------------------------------------
 
-type Dialog = 'reject' | 'disburse' | 'payment' | 'reverse' | 'guarantor' | 'settle' | 'waive' | null
+type Dialog = 'reject' | 'disburse' | 'payment' | 'reverse' | 'guarantor' | 'settle' | 'waive' | 'approve' | null
 const dialog = ref<Dialog>(null)
-const form = reactive({ note: '', date: today, reference: '', amount: '', reason: '' })
+const form = reactive({ note: '', date: today, reference: '', amount: '', reason: '', message: '' })
 const newGuarantor = ref<(PickedMember & { amount: string }) | null>(null)
 const reversing = ref<LoanPayment | null>(null)
 const waiving = ref<LoanCharge | null>(null)
@@ -50,6 +50,11 @@ function open(d: Dialog, payment?: LoanPayment) {
   reversing.value = payment ?? null
   formError.value = ''
   if (d === 'payment' && loan.value?.position) form.amount = loan.value.position.next_due_amount
+  if (d === 'approve' && loan.value) {
+    const fee = Number(loan.value.processing_fee || 0)
+    form.message = `Your loan ${loan.value.loan_no} of ${formatMoney(loan.value.amount)} has been approved. `
+      + `Please pick up your cheque${fee ? ` for ${formatMoney(String(Number(loan.value.amount) - fee))} (after the ${formatMoney(loan.value.processing_fee)} processing fee)` : ''} from the SACCO office.`
+  }
   dialog.value = d
 }
 
@@ -144,6 +149,41 @@ function installmentState(i: Installment) {
         <button type="button" class="self-start text-xs font-semibold text-gray-500 hover:text-gray-800" @click="receipt = null">Dismiss</button>
       </div>
 
+      <!-- Does the borrower qualify? (admins, before payout) -->
+      <section v-if="canAdmin && loan.assessment" class="card mt-5 overflow-hidden">
+        <div
+          class="flex items-center gap-3 px-5 py-4"
+          :class="{
+            'bg-emerald-50': loan.assessment.verdict === 'qualifies',
+            'bg-amber-50': loan.assessment.verdict === 'qualifies_with_concerns',
+            'bg-red-50': loan.assessment.verdict === 'does_not_qualify',
+          }"
+        >
+          <ShieldCheckIcon v-if="loan.assessment.verdict === 'qualifies'" class="h-6 w-6 text-emerald-700" aria-hidden="true" />
+          <ExclamationTriangleIcon v-else-if="loan.assessment.verdict === 'qualifies_with_concerns'" class="h-6 w-6 text-amber-700" aria-hidden="true" />
+          <XCircleIcon v-else class="h-6 w-6 text-red-700" aria-hidden="true" />
+          <div>
+            <p class="font-semibold" :class="{ 'text-emerald-800': loan.assessment.verdict === 'qualifies', 'text-amber-800': loan.assessment.verdict === 'qualifies_with_concerns', 'text-red-800': loan.assessment.verdict === 'does_not_qualify' }">
+              {{ loan.assessment.verdict === 'qualifies' ? 'Qualifies' : loan.assessment.verdict === 'qualifies_with_concerns' ? 'Qualifies, but look at the warning' : 'Does not qualify yet' }}
+            </p>
+            <p class="text-xs text-gray-600">Assessment against the SACCO's rules, with today's figures</p>
+          </div>
+        </div>
+        <ul class="divide-y divide-line">
+          <li v-for="c in loan.assessment.checks" :key="c.label" class="flex gap-3 px-5 py-3 text-sm">
+            <span
+              class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
+              :class="{ 'bg-emerald-50 text-emerald-700': c.level === 'pass', 'bg-amber-50 text-amber-700': c.level === 'warn', 'bg-red-50 text-red-700': c.level === 'fail' }"
+              :aria-label="c.level"
+            >{{ c.level === 'pass' ? '✓' : c.level === 'warn' ? '!' : '✕' }}</span>
+            <div>
+              <p class="font-medium">{{ c.label }}</p>
+              <p class="text-gray-600">{{ c.detail }}</p>
+            </div>
+          </li>
+        </ul>
+      </section>
+
       <!-- Where it stands, and what can be done next -->
       <div class="card mt-5 p-5">
         <p v-if="loanStatus[loan.status].explain && (isOwner || loan.status === 'closed')" class="text-sm text-gray-700">{{ loanStatus[loan.status].explain }}</p>
@@ -165,7 +205,7 @@ function installmentState(i: Installment) {
 
         <div class="mt-4 flex flex-wrap gap-2">
           <template v-if="canAdmin">
-            <button v-if="loan.status === 'pending_approval'" type="button" class="btn-primary" :disabled="busy" @click="act(`/loans/${loan.id}/approve`, {}, `Approve ${loan.borrower_name}'s loan of ${formatMoney(loan.amount)}?`)">Approve</button>
+            <button v-if="loan.status === 'pending_approval'" type="button" class="btn-primary" :disabled="busy" @click="open('approve')">Approve…</button>
             <button v-if="loan.status === 'approved'" type="button" class="btn-primary" @click="open('disburse')">Record the payout</button>
             <button v-if="loan.status === 'active'" type="button" class="btn-primary" @click="open('payment')">Record a repayment</button>
             <button v-if="loan.status === 'active' && loan.settlement" type="button" class="btn-secondary" @click="open('settle')">Pay off early</button>
@@ -358,6 +398,28 @@ function installmentState(i: Installment) {
         <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>
           <button type="submit" class="btn-primary" :disabled="busy || !form.reason.trim()">Reverse repayment</button>
+        </div>
+      </form>
+    </Modal>
+
+    <Modal v-if="dialog === 'approve' && loan" title="Approve this loan" @close="dialog = null">
+      <form class="space-y-4" @submit.prevent="act(`/loans/${loan.id}/approve`, { message: form.message })">
+        <div v-if="formError" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ formError }}</div>
+        <p v-if="loan.assessment && loan.assessment.verdict !== 'qualifies'" class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          The assessment flagged something. Check it before approving.
+        </p>
+        <dl class="grid grid-cols-2 gap-y-1 rounded-xl bg-gray-50 p-3 text-sm">
+          <dt class="text-gray-600">Borrower</dt><dd class="text-right font-medium">{{ loan.borrower_name }}</dd>
+          <dt class="text-gray-600">Loan</dt><dd class="text-right tabular-nums">{{ formatMoney(loan.amount) }} · {{ loan.months }} months</dd>
+        </dl>
+        <div>
+          <label for="amsg" class="label">Message to {{ loan.borrower_name.split(' ')[0] }}</label>
+          <textarea id="amsg" v-model="form.message" class="input min-h-[6rem]" maxlength="2000" />
+          <p class="mt-1 text-xs text-gray-500">They see it under the bell when they sign in. Add when and where to pick up the cheque.</p>
+        </div>
+        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>
+          <button type="submit" class="btn-primary" :disabled="busy || !form.message.trim()">Approve and send message</button>
         </div>
       </form>
     </Modal>

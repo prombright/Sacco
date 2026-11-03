@@ -14,6 +14,7 @@ use Sacco\Loans\Loans;
 use Sacco\Support\Audit;
 use Sacco\Support\LedgerException;
 use Sacco\Support\Money;
+use Sacco\Support\Notify;
 use Sacco\Support\Savings;
 
 /**
@@ -142,6 +143,11 @@ final class LoanController
             return $id;
         });
         Audit::log('loan.applied', 'loan', $loanId, ['amount' => Money::toDecimal($amount), 'months' => $months]);
+        $borrower = Auth::user()['full_name'];
+        foreach ($guarantors as $g) {
+            Notify::member($g['user_id'], 'guarantee_request', "$borrower asks you to guarantee a loan",
+                "$borrower has applied for a loan of " . Notify::money(Money::toDecimal($amount)) . " and asks you to guarantee " . Notify::money(Money::toDecimal($g['amount'])) . '. Open Loans to agree or decline.', '/loans');
+        }
 
         Response::ok(['loan' => $this->detail($loanId)], 201);
     }
@@ -233,6 +239,8 @@ final class LoanController
                 ->execute([$loan['id'], $g['user_id'], Money::toDecimal($g['amount']), Money::toDecimal($g['amount'])]);
         }
         Audit::log('loan.guarantor_added', 'loan', (int) $loan['id'], ['guarantor' => $g['user_id'], 'amount' => Money::toDecimal($g['amount'])]);
+        Notify::member($g['user_id'], 'guarantee_request', Auth::user()['full_name'] . ' asks you to guarantee a loan',
+            Auth::user()['full_name'] . ' asks you to guarantee ' . Notify::money(Money::toDecimal($g['amount'])) . ' of a ' . Notify::money($loan['amount']) . ' loan. Open Loans to agree or decline.', '/loans');
 
         Response::ok(['loan' => $this->detail((int) $loan['id'])]);
     }
@@ -254,7 +262,10 @@ final class LoanController
         Response::ok(['loan' => $this->detail((int) $loan['id'])]);
     }
 
-    /** POST /api/loans/{id}/approve { note? } (admin) */
+    /**
+     * POST /api/loans/{id}/approve { note?, message? } (admin) - approves, and sends the member the
+     * message (usually: come and pick up your cheque)
+     */
     public function approve(Request $request): never
     {
         $loan = $this->findForAdmin((int) $request->param('id'));
@@ -264,6 +275,9 @@ final class LoanController
         Database::tenant()->prepare("UPDATE loans SET status = 'approved', decided_by = ?, decided_at = NOW(), decision_note = ? WHERE id = ?")
             ->execute([Auth::id(), mb_substr($request->string('note'), 0, 255) ?: null, $loan['id']]);
         Audit::log('loan.approved', 'loan', (int) $loan['id']);
+        $message = mb_substr($request->string('message'), 0, 2000)
+            ?: 'Your loan ' . $loan['loan_no'] . ' of ' . Notify::money($loan['amount']) . ' has been approved. Please pick up your cheque from the SACCO office.';
+        Notify::member((int) $loan['user_id'], 'loan_approved', 'Your loan is approved', $message, '/loans/' . $loan['id']);
         Response::ok(['loan' => $this->detail((int) $loan['id'])]);
     }
 
@@ -280,6 +294,8 @@ final class LoanController
         }
         $this->close((int) $loan['id'], 'rejected', $note);
         Audit::log('loan.rejected', 'loan', (int) $loan['id'], ['note' => $note]);
+        Notify::member((int) $loan['user_id'], 'loan_rejected', 'Your loan application was not approved',
+            'Your application ' . $loan['loan_no'] . ' for ' . Notify::money($loan['amount']) . " was not approved: $note", '/loans/' . $loan['id']);
         Response::ok(['loan' => $this->detail((int) $loan['id'])]);
     }
 
@@ -304,6 +320,9 @@ final class LoanController
             Loans::createSchedule($db, $loan, $date);
         });
         Audit::log('loan.disbursed', 'loan', (int) $loan['id'], ['on' => $date, 'reference' => $reference, 'fee' => Money::toDecimal($fee)]);
+        Notify::member((int) $loan['user_id'], 'loan_disbursed', 'Your loan has been paid out',
+            'Cheque ' . $reference . ' for ' . Notify::money(Money::toDecimal(Money::fromDecimal($loan['amount']) - $fee)) . ' has been issued for loan ' . $loan['loan_no']
+            . '. Your repayment schedule starts now; see it under Loans.', '/loans/' . $loan['id']);
         Response::ok(['loan' => $this->detail((int) $loan['id'])]);
     }
 
@@ -642,6 +661,7 @@ final class LoanController
             Loans::advance($db, (int) $guarantee['loan_id']);
         });
         Audit::log('loan.guarantee_accepted', 'loan', (int) $guarantee['loan_id'], ['amount' => Money::toDecimal($pledge), 'asked' => $guarantee['requested_amount']]);
+        $this->tellBorrower((int) $guarantee['loan_id'], Auth::user()['full_name'] . ' agreed to guarantee ' . Notify::money(Money::toDecimal($pledge)) . ' of your loan.');
         Response::ok();
     }
 
@@ -652,6 +672,7 @@ final class LoanController
         Database::tenant()->prepare("UPDATE loan_guarantors SET status = 'declined', responded_at = NOW() WHERE id = ? AND status = 'pending'")
             ->execute([$guarantee['id']]);
         Audit::log('loan.guarantee_declined', 'loan', (int) $guarantee['loan_id']);
+        $this->tellBorrower((int) $guarantee['loan_id'], Auth::user()['full_name'] . ' declined to guarantee your loan. You can ask another member from your loan page.');
         Response::ok();
     }
 
@@ -672,6 +693,82 @@ final class LoanController
     }
 
     // ----------------------------------------------------------------------
+
+    /** A guarantor's answer, to the borrower */
+    private function tellBorrower(int $loanId, string $text): void
+    {
+        $stmt = Database::tenant()->prepare('SELECT user_id, status FROM loans WHERE id = ?');
+        $stmt->execute([$loanId]);
+        $loan = $stmt->fetch();
+        if (!$loan) {
+            return;
+        }
+        if ($loan['status'] === 'pending_approval') {
+            $text .= ' All your guarantors have agreed, so it now goes to the SACCO office for approval.';
+        }
+        Notify::member((int) $loan['user_id'], 'guarantor_answer', 'A guarantor answered', $text, '/loans/' . $loanId);
+    }
+
+    /**
+     * Does the borrower qualify? Each SACCO rule checked against today's figures, so the admin can
+     * see at a glance before approving. level: pass, warn (allowed, but worth a look), fail.
+     */
+    private function assessment(\PDO $db, array $loan): array
+    {
+        $userId = (int) $loan['user_id'];
+        $rules = Loans::productRules($db, $loan['product_id'] ? (int) $loan['product_id'] : null);
+        $checks = [];
+
+        $m = Loans::membership($db, $userId);
+        $need = $rules['min_member_months'];
+        $checks[] = [
+            'label' => 'Saved long enough',
+            'level' => $m['months'] >= $need ? 'pass' : 'fail',
+            'detail' => $m['since'] ? "Saving for {$m['months']} months (since " . date('j M Y', strtotime($m['since'])) . "); the rule is $need." : 'No savings recorded yet.',
+        ];
+
+        $e = Loans::eligibility($userId, (int) $loan['id'], $loan['product_id'] ? (int) $loan['product_id'] : null);
+        $amount = Money::fromDecimal($loan['amount']);
+        $checks[] = [
+            'label' => 'Within their loan limit',
+            'level' => $amount <= $e['limit'] ? 'pass' : 'fail',
+            'detail' => "Limit " . number_format($e['limit'] / 100) . " ({$rules['savings_multiplier']} × savings of " . number_format($e['savings'] / 100)
+                . ($e['owed'] ? ', less ' . number_format($e['owed'] / 100) . ' owed on other loans' : '') . '); asking for ' . number_format($amount / 100) . '.',
+        ];
+
+        $short = Loans::guaranteeShortfall($db, $loan);
+        $checks[] = [
+            'label' => 'Guarantors cover the loan',
+            'level' => $short === null ? 'pass' : 'fail',
+            'detail' => $short === null
+                ? 'Enough guarantors have agreed, for enough of the loan.'
+                : 'Still needs ' . ($short['guarantors'] ? $short['guarantors'] . ' more guarantor(s)' : '') . ($short['guarantors'] && $short['amount'] ? ' and ' : '') . ($short['amount'] ? number_format($short['amount'] / 100) . ' more in guarantees' : '') . '.',
+        ];
+
+        $others = $db->prepare("SELECT id, loan_no FROM loans WHERE user_id = ? AND status = 'active' AND id <> ?");
+        $others->execute([$userId, $loan['id']]);
+        $late = [];
+        $count = 0;
+        foreach ($others->fetchAll() as $o) {
+            $count++;
+            $p = Loans::position($db, (int) $o['id']);
+            if ($p['overdue'] > 0) {
+                $late[] = $o['loan_no'] . ' (' . number_format($p['overdue'] / 100) . ' late)';
+            }
+        }
+        $checks[] = [
+            'label' => 'Repaying other loans on time',
+            'level' => $late ? 'warn' : 'pass',
+            'detail' => $late ? 'Behind on ' . implode(', ', $late) . '.' : ($count ? "$count other loan(s), all up to date." : 'No other loans.'),
+        ];
+
+        $fails = count(array_filter($checks, fn ($c) => $c['level'] === 'fail'));
+        $warns = count(array_filter($checks, fn ($c) => $c['level'] === 'warn'));
+        return [
+            'verdict' => $fails ? 'does_not_qualify' : ($warns ? 'qualifies_with_concerns' : 'qualifies'),
+            'checks' => $checks,
+        ];
+    }
 
     /** A percentage fee on an amount, rounded to whole currency units */
     private static function fee(int $amount, string $percent): int
@@ -876,6 +973,14 @@ final class LoanController
             $l->execute([$id]);
             $pid = $l->fetchColumn();
             $loan['processing_fee'] = Money::toDecimal(self::fee(Money::fromDecimal($loan['amount']), Loans::productRules($db, $pid ? (int) $pid : null)['processing_fee_percent']));
+        }
+
+        // For admins deciding: does the borrower qualify today?
+        $loan['assessment'] = null;
+        if (in_array($loan['status'], ['pending_guarantors', 'pending_approval', 'approved'], true) && Roles::allows(Auth::user()['role'], [Roles::ADMIN])) {
+            $l = $db->prepare('SELECT * FROM loans WHERE id = ?');
+            $l->execute([$id]);
+            $loan['assessment'] = $this->assessment($db, $l->fetch());
         }
 
         $loan['borrower_eligibility'] = Roles::allows(Auth::user()['role'], [Roles::ADMIN])

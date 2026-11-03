@@ -9,6 +9,7 @@ use Sacco\Controllers\DividendController;
 use Sacco\Controllers\MemberDetailsController;
 use Sacco\Controllers\MemberExitController;
 use Sacco\Controllers\NoticeController;
+use Sacco\Controllers\NotificationController;
 use Sacco\Controllers\ProductController;
 use Sacco\Controllers\LoanController;
 use Sacco\Controllers\MemberImportController;
@@ -141,6 +142,10 @@ $router->get('/api/notices/current', [NoticeController::class, 'current']);
 $router->get('/api/notices', [NoticeController::class, 'index'], $admins);
 $router->post('/api/notices', [NoticeController::class, 'store'], $admins);
 $router->delete('/api/notices/{id}', [NoticeController::class, 'end'], $admins);
+
+// Messages to members (the bell)
+$router->get('/api/me/notifications', [NotificationController::class, 'index']);
+$router->post('/api/me/notifications/read', [NotificationController::class, 'read']);
 
 // The SACCO's rules
 $router->get('/api/settings', [SettingsController::class, 'index'], $admins);
