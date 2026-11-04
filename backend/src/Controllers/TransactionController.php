@@ -328,6 +328,42 @@ final class TransactionController
         Response::ok(['transaction' => Ledger::present($row), 'balances' => Ledger::balances((int) $user['id'])], 201);
     }
 
+    /** GET /api/transactions?from=&to=&type=&account=&q=&page= (admin) - every member's entries */
+    public function all(Request $request): never
+    {
+        $from = $request->string('from') ?: date('Y-m-01');
+        $to = $request->string('to') ?: date('Y-m-d');
+        $where = 't.value_date BETWEEN ? AND ?';
+        $args = [$from, $to];
+        if (($type = $request->string('type')) !== '') {
+            $where .= ' AND t.type = ?';
+            $args[] = $type;
+        }
+        if (($account = $this->account($request)) !== null) {
+            $where .= ' AND t.account = ?';
+            $args[] = $account;
+        }
+        if (($q = $request->string('q')) !== '') {
+            $where .= ' AND (u.full_name LIKE ? OR u.account_no LIKE ? OR u.employee_no LIKE ? OR t.reference LIKE ? OR t.narration LIKE ?)';
+            array_push($args, ...array_fill(0, 5, "%$q%"));
+        }
+        $page = $this->page($request);
+        $per = 50;
+        $db = Database::tenant();
+        $count = $db->prepare("SELECT COUNT(*), COALESCE(SUM(CASE WHEN t.amount > 0 THEN t.amount END), 0), COALESCE(SUM(CASE WHEN t.amount < 0 THEN -t.amount END), 0)
+            FROM transactions t JOIN users u ON u.id = t.user_id WHERE $where");
+        $count->execute($args);
+        [$total, $in, $out] = $count->fetch(\PDO::FETCH_NUM);
+        $stmt = $db->prepare(
+            "SELECT t.*, u.full_name, u.account_no, c.full_name AS created_by_name, r.id AS reversed_by
+             FROM transactions t JOIN users u ON u.id = t.user_id LEFT JOIN users c ON c.id = t.created_by
+             LEFT JOIN transactions r ON r.reversal_of = t.id
+             WHERE $where ORDER BY t.value_date DESC, t.id DESC LIMIT $per OFFSET " . (($page - 1) * $per)
+        );
+        $stmt->execute($args);
+        Response::ok(['transactions' => $stmt->fetchAll(), 'total' => (int) $total, 'money_in' => $in, 'money_out' => $out, 'page' => $page, 'per_page' => $per]);
+    }
+
     /** POST /api/transactions/{id}/reverse { reason } (admin) */
     public function reverse(Request $request): never
     {
@@ -339,6 +375,9 @@ final class TransactionController
             ?? Response::error('That transaction doesn\'t exist.', 404);
         if ((int) $original['user_id'] === Auth::id()) {
             Response::error('You can\'t reverse entries on your own account. Ask another admin.', 403);
+        }
+        if ($original['type'] === 'transfer') {
+            Response::error('This is part of a transfer. Reverse the whole transfer on the Internal transfers page.', 422);
         }
 
         try {

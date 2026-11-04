@@ -74,6 +74,13 @@ final class Activity
             'platform.user_status' => 'changed an account\'s status',
             'platform.migrated' => 'updated the system',
             'sacco.created' => 'set up the SACCO',
+            'transfer.posted' => "transferred {$amount('amount')} between accounts",
+            'transfer.reversed' => 'reversed a transfer',
+            'journal.posted' => "posted a journal entry of {$amount('amount')}",
+            'journal.reversed' => 'reversed a journal entry',
+            'account.created' => 'added the account "' . ($d['name'] ?? '') . '" to the chart of accounts',
+            'account.updated' => 'changed an account in the chart of accounts',
+            'backup.downloaded' => 'downloaded a backup of the database',
             default => str_replace(['.', '_'], [' ', ' '], $r['action']),
         };
     }
@@ -123,8 +130,11 @@ final class Activity
             'investment' => '/admin/investments',
             'loan_product' => '/admin/settings',
             'withdrawal' => '/admin/withdrawals',
-            'cashbook' => '/admin/cashbook',
+            'cashbook' => '/cashbook/payments',
             'notice' => '/admin/notices',
+            'transfer' => '/admin/transfers',
+            'journal' => '/accounts/journal',
+            'gl_account' => '/accounts/chart',
             'transaction' => isset($d['member']) ? '/members/' . $d['member'] : null,
             default => match (true) {
                 $r['action'] === 'settings.changed' => '/admin/settings',

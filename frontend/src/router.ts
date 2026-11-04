@@ -11,6 +11,10 @@ declare module 'vue-router' {
     /** A member's own money: office accounts (no savings or loans of their own) go to the overview */
     member?: boolean
     title?: string
+    /** Which report or kind of entry a shared page shows */
+    report?: string
+    kind?: string
+    loanStatus?: string
     /** The developer portal: its own sign-in, separate from any SACCO's */
     dev?: boolean
   }
@@ -35,7 +39,7 @@ const router = createRouter({
         { path: 'office', name: 'overview', component: () => import('@/pages/admin/OverviewPage.vue'), meta: { admin: true, title: 'Overview' } },
         { path: 'members/import', name: 'member-import', component: () => import('@/pages/admin/MemberImportPage.vue'), meta: { admin: true, title: 'Import members' } },
         { path: 'profile', name: 'profile', component: () => import('@/pages/ProfilePage.vue'), meta: { member: true, title: 'My profile' } },
-        { path: 'admin/cashbook', name: 'cashbook', component: () => import('@/pages/admin/CashbookPage.vue'), meta: { admin: true, title: 'Income & expenses' } },
+        { path: 'admin/cashbook', name: 'cashbook', redirect: { name: 'payments' } },
         { path: 'admin/notices', name: 'notices', component: () => import('@/pages/admin/NoticesPage.vue'), meta: { admin: true, title: 'Notices' } },
         { path: 'statement', name: 'statement', component: () => import('@/pages/StatementPage.vue'), meta: { member: true, title: 'My statement' } },
         { path: 'loans', name: 'loans', component: () => import('@/pages/loans/LoansPage.vue'), meta: { member: true, title: 'My loans' } },
@@ -53,6 +57,28 @@ const router = createRouter({
         { path: 'admin/settings', name: 'settings', component: () => import('@/pages/admin/SettingsPage.vue'), meta: { admin: true, title: 'SACCO rules' } },
         { path: 'users', name: 'users', component: () => import('@/pages/admin/UsersPage.vue'), meta: { admin: true, title: 'Members' } },
         { path: 'members/:id(\\d+)', name: 'member', component: () => import('@/pages/admin/MemberPage.vue'), meta: { admin: true, title: 'Member' } },
+        // Members' money
+        { path: 'admin/deposit', name: 'deposit', component: () => import('@/pages/admin/DepositPage.vue'), meta: { admin: true, title: 'Deposit' } },
+        { path: 'admin/transfers', name: 'transfers', component: () => import('@/pages/admin/TransfersPage.vue'), meta: { admin: true, title: 'Internal transfers' } },
+        { path: 'admin/loan-disbursement', name: 'loan-disbursement', component: () => import('@/pages/admin/LoansAdminPage.vue'), meta: { admin: true, title: 'Loan disbursement', loanStatus: 'approved' } },
+        // Cash book
+        { path: 'cashbook/payments', name: 'payments', component: () => import('@/pages/accounts/CashbookEntriesPage.vue'), meta: { admin: true, title: 'Payments (expenses)', kind: 'expense' } },
+        { path: 'cashbook/receipts', name: 'receipts', component: () => import('@/pages/accounts/CashbookEntriesPage.vue'), meta: { admin: true, title: 'Receipts (income)', kind: 'income' } },
+        { path: 'accounts/journal', name: 'journal', component: () => import('@/pages/accounts/JournalPage.vue'), meta: { admin: true, title: 'Journal entries' } },
+        // Member reports
+        { path: 'reports/member-ledger', name: 'member-ledger', component: () => import('@/pages/accounts/MemberLedgerPage.vue'), meta: { admin: true, title: 'Member ledger' } },
+        { path: 'reports/members-summary', name: 'members-summary', component: () => import('@/pages/admin/ReportsPage.vue'), meta: { admin: true, title: 'Members summary', report: 'members' } },
+        { path: 'reports/loan-portfolio', name: 'loan-portfolio', component: () => import('@/pages/admin/ReportsPage.vue'), meta: { admin: true, title: 'Loan portfolio', report: 'loans' } },
+        // Financial reports
+        { path: 'accounts/trial-balance', name: 'trial-balance', component: () => import('@/pages/accounts/FinancialReportPage.vue'), meta: { admin: true, title: 'Trial balance', report: 'trial_balance' } },
+        { path: 'accounts/balance-sheet', name: 'balance-sheet', component: () => import('@/pages/accounts/FinancialReportPage.vue'), meta: { admin: true, title: 'Balance sheet', report: 'balance_sheet' } },
+        { path: 'accounts/income-statement', name: 'income-statement', component: () => import('@/pages/accounts/FinancialReportPage.vue'), meta: { admin: true, title: 'Income statement', report: 'income_statement' } },
+        { path: 'accounts/ledger', name: 'account-ledger', component: () => import('@/pages/accounts/FinancialReportPage.vue'), meta: { admin: true, title: 'Account ledger', report: 'account_ledger' } },
+        { path: 'accounts/chart', name: 'chart', component: () => import('@/pages/accounts/ChartOfAccountsPage.vue'), meta: { admin: true, title: 'Chart of accounts' } },
+        // Administration
+        { path: 'admin/loan-interest', name: 'loan-interest', component: () => import('@/pages/accounts/FinancialReportPage.vue'), meta: { admin: true, title: 'Monthly loan interest', report: 'loan_interest' } },
+        { path: 'admin/transactions', name: 'transactions', component: () => import('@/pages/admin/TransactionsPage.vue'), meta: { admin: true, title: 'Transactions & reversals' } },
+        { path: 'admin/backup', name: 'backup', component: () => import('@/pages/admin/BackupPage.vue'), meta: { admin: true, title: 'Download backup' } },
       ],
     },
     // The developer portal

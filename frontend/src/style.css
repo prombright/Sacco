@@ -135,4 +135,36 @@ h3 {
   body {
     @apply bg-white;
   }
+  /* A report printing on its own: only its page shows, in light colours, all rows */
+  body.printing-report * {
+    visibility: hidden;
+  }
+  body.printing-report .print-area,
+  body.printing-report .print-area * {
+    visibility: visible;
+  }
+  body.printing-report .print-area {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    --paper: 255 255 255;
+    --surface: 255 255 255;
+    --ink: 21 24 33;
+    --line: 214 211 209;
+    --g-50: 250 250 249;
+    --g-100: 245 245 244;
+    --g-200: 231 229 228;
+    --g-300: 214 211 209;
+    --g-400: 168 162 158;
+    --g-500: 120 113 108;
+    --g-600: 87 83 78;
+    --g-700: 68 64 60;
+    --g-800: 41 37 36;
+    --g-900: 28 25 23;
+    color: rgb(21 24 33);
+    background: white;
+  }
+  @page {
+    margin: 14mm 12mm;
+  }
 }

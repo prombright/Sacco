@@ -3,7 +3,21 @@ import { computed, ref, watch, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   ArrowLeftStartOnRectangleIcon,
+  ArrowDownLeftIcon,
+  ArrowsRightLeftIcon,
   ArrowTrendingUpIcon,
+  ArrowUpRightIcon,
+  ArrowUturnLeftIcon,
+  BookOpenIcon,
+  BriefcaseIcon,
+  BuildingLibraryIcon,
+  CheckBadgeIcon,
+  CircleStackIcon,
+  ListBulletIcon,
+  PresentationChartLineIcon,
+  ScaleIcon,
+  TableCellsIcon,
+  UserGroupIcon,
   ArrowUpTrayIcon,
   BanknotesIcon,
   Bars3Icon,
@@ -88,34 +102,66 @@ const groups = computed<NavGroup[]>(() => {
     }]
   }
   const w = office.waiting
-  return [
-    { title: '', links: [{ name: 'overview', label: 'Overview', icon: Squares2X2Icon }] },
+  const groups: NavGroup[] = [
+    { title: '', links: [{ name: 'overview', label: 'Dashboard', icon: Squares2X2Icon }] },
     {
-      title: 'People',
+      title: 'Members',
       links: [
         { name: 'users', label: 'Members', icon: UsersIcon, also: ['member', 'member-import', 'member-statement'] },
+        { name: 'deposit', label: 'Deposit', icon: BanknotesIcon },
+        { name: 'transfers', label: 'Internal transfers', icon: ArrowsRightLeftIcon },
+        { name: 'admin-withdrawals', label: 'Withdrawals', icon: InboxStackIcon, badge: w ? w.withdrawals_to_approve + w.withdrawals_to_pay : 0 },
         { name: 'notices', label: 'Notices', icon: MegaphoneIcon },
       ],
     },
     {
-      title: 'Lending',
+      title: 'Loans',
       links: [
-        { name: 'admin-loans', label: 'Loans', icon: ClipboardDocumentCheckIcon, also: ['loan'], badge: w ? w.loans_to_approve + w.loans_to_pay_out : 0 },
-        { name: 'admin-withdrawals', label: 'Withdrawals', icon: InboxStackIcon, badge: w ? w.withdrawals_to_approve + w.withdrawals_to_pay : 0 },
+        { name: 'admin-loans', label: 'Loan applications', icon: ClipboardDocumentCheckIcon, also: ['loan'], badge: w ? w.loans_to_approve : 0 },
+        { name: 'loan-disbursement', label: 'Loan disbursement', icon: CheckBadgeIcon, badge: w ? w.loans_to_pay_out : 0 },
       ],
     },
     {
-      title: 'Money',
+      title: 'Cash book',
       links: [
-        { name: 'payroll', label: 'Payroll uploads', icon: ArrowUpTrayIcon, also: ['payroll-batch'] },
-        { name: 'investments', label: 'Investments', icon: ArrowTrendingUpIcon },
-        { name: 'dividends', label: 'Dividends & profit', icon: ReceiptPercentIcon, also: ['dividend-run'] },
-        { name: 'cashbook', label: 'Income & expenses', icon: CalculatorIcon },
-        { name: 'reports', label: 'Reports', icon: ChartBarIcon },
+        { name: 'payments', label: 'Payments (expenses)', icon: ArrowUpRightIcon },
+        { name: 'receipts', label: 'Receipts (income)', icon: ArrowDownLeftIcon },
+        { name: 'journal', label: 'Journal entries', icon: BookOpenIcon },
       ],
     },
-    { title: 'Setup', links: [{ name: 'settings', label: 'SACCO rules', icon: Cog6ToothIcon }] },
+    {
+      title: 'Member reports',
+      links: [
+        { name: 'member-ledger', label: 'Member ledger', icon: DocumentTextIcon },
+        { name: 'members-summary', label: 'Members summary', icon: UserGroupIcon },
+        { name: 'loan-portfolio', label: 'Loan portfolio', icon: BriefcaseIcon },
+      ],
+    },
+    {
+      title: 'Financial reports',
+      links: [
+        { name: 'trial-balance', label: 'Trial balance', icon: ScaleIcon },
+        { name: 'balance-sheet', label: 'Balance sheet', icon: BuildingLibraryIcon },
+        { name: 'income-statement', label: 'Income statement', icon: ChartBarIcon },
+        { name: 'account-ledger', label: 'Account ledger', icon: TableCellsIcon },
+        { name: 'chart', label: 'Chart of accounts', icon: ListBulletIcon },
+      ],
+    },
+    {
+      title: 'Administration',
+      links: [
+        { name: 'payroll', label: 'Payroll deductions', icon: ArrowUpTrayIcon, also: ['payroll-batch'] },
+        { name: 'loan-interest', label: 'Monthly loan interest', icon: CalculatorIcon },
+        { name: 'transactions', label: 'Transactions & reversals', icon: ArrowUturnLeftIcon },
+        { name: 'investments', label: 'Investments', icon: ArrowTrendingUpIcon },
+        { name: 'dividends', label: 'Dividends & profit', icon: ReceiptPercentIcon, also: ['dividend-run'] },
+        { name: 'reports', label: 'Other reports', icon: PresentationChartLineIcon },
+        { name: 'backup', label: 'Download backup', icon: CircleStackIcon },
+        { name: 'settings', label: 'Setup', icon: Cog6ToothIcon },
+      ],
+    },
   ]
+  return groups
 })
 
 function isCurrent(link: NavLink) {

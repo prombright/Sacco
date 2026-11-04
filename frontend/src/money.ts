@@ -43,6 +43,7 @@ export const transactionTypeLabel: Record<string, string> = {
   profit: 'Profit share',
   charge: 'Fee',
   reversal: 'Reversal',
+  transfer: 'Transfer',
 }
 
 export const accountLabel: Record<string, string> = {

@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use Sacco\Auth\Roles;
+use Sacco\Controllers\AccountingController;
 use Sacco\Controllers\AuthController;
+use Sacco\Controllers\BackupController;
 use Sacco\Controllers\CashbookController;
 use Sacco\Controllers\DevController;
 use Sacco\Controllers\DividendController;
@@ -22,6 +24,7 @@ use Sacco\Controllers\PayrollController;
 use Sacco\Controllers\WithdrawalController;
 use Sacco\Controllers\SettingsController;
 use Sacco\Controllers\TransactionController;
+use Sacco\Controllers\TransferController;
 use Sacco\Controllers\UserController;
 use Sacco\Http\Router;
 
@@ -180,6 +183,23 @@ $router->post('/api/dev/saccos/{id}/office-accounts', [DevController::class, 'ad
 $router->post('/api/dev/saccos/{id}/users/{user}/reset-password', [DevController::class, 'resetPassword'], $dev);
 $router->post('/api/dev/saccos/{id}/users/{user}/status', [DevController::class, 'setUserStatus'], $dev);
 $router->post('/api/dev/saccos/{id}/update-system', [DevController::class, 'updateSystem'], $dev);
+
+// The books: chart of accounts, journal entries, statements
+$router->get('/api/accounting/accounts', [AccountingController::class, 'accounts'], $admins);
+$router->post('/api/accounting/accounts', [AccountingController::class, 'createAccount'], $super);
+$router->patch('/api/accounting/accounts/{id}', [AccountingController::class, 'updateAccount'], $super);
+$router->get('/api/accounting/journal', [AccountingController::class, 'journal'], $admins);
+$router->post('/api/accounting/journal', [AccountingController::class, 'createJournal'], $admins);
+$router->post('/api/accounting/journal/{id}/reverse', [AccountingController::class, 'reverseJournal'], $admins);
+$router->post('/api/accounting/rebuild', [AccountingController::class, 'rebuild'], $super);
+$router->get('/api/accounting/reports/{name}', [AccountingController::class, 'report'], $admins);
+
+// Internal transfers, every transaction, and backups
+$router->get('/api/transfers', [TransferController::class, 'index'], $admins);
+$router->post('/api/transfers', [TransferController::class, 'store'], $admins);
+$router->post('/api/transfers/{id}/reverse', [TransferController::class, 'reverse'], $admins);
+$router->get('/api/transactions', [TransactionController::class, 'all'], $admins);
+$router->get('/api/backup', [BackupController::class, 'download'], $super);
 
 // The SACCO's rules
 $router->get('/api/settings', [SettingsController::class, 'index'], $admins);

@@ -21,10 +21,9 @@ use Sacco\Support\Savings;
 final class ReportController
 {
     public const REPORTS = [
-        'members' => ['Member balances', 'Savings, shares, pledges and loans for every member, as of now.', false],
+        'members' => ['Members summary', 'Savings, shares, pledges and loans for every member, as of now.', false],
         'loans' => ['Loan portfolio', 'Every loan not yet repaid: what was lent, what is still owed, and what is late.', false],
         'arrears' => ['Loans in arrears', 'Active loans with instalments past their due date.', false],
-        'income' => ['Income statement', 'What the SACCO earned (loan interest, penalties, fees, other income) and spent, and the surplus.', true],
         'journal' => ['Transactions journal', 'Every savings, shares and loan entry in a date range.', true],
         'audit' => ['Audit log', 'Who did what in the system, in a date range.', true],
     ];

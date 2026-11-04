@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { api, ApiError } from '@/api'
 import type { Loan, LoanStatus } from '@/types'
 import { formatDate, formatMoney } from '@/money'
@@ -18,7 +19,8 @@ const tabs: { status: LoanStatus; label: string }[] = [
   { status: 'cancelled', label: 'Cancelled' },
 ]
 
-const status = ref<LoanStatus>('pending_approval')
+const route = useRoute()
+const status = ref<LoanStatus>((route.meta.loanStatus as LoanStatus) ?? 'pending_approval')
 const q = ref('')
 const loans = ref<Loan[]>([])
 const counts = ref<Record<string, number>>({})

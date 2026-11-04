@@ -43,6 +43,7 @@ final class CashbookController
             'income' => Money::toDecimal($income),
             'expenses' => Money::toDecimal($expense),
             'categories' => ['income' => self::INCOME_CATEGORIES, 'expense' => self::EXPENSE_CATEGORIES],
+            'accounts' => Database::tenant()->query("SELECT id, code, name, type FROM gl_accounts WHERE type IN ('income', 'expense') AND status = 'active' AND (system_key IS NULL OR system_key IN ('other_income', 'other_expense')) ORDER BY code")->fetchAll(),
             'loan_income' => self::loanIncome($from, $to),
         ]);
     }
@@ -54,10 +55,14 @@ final class CashbookController
         if (!in_array($kind, ['income', 'expense'], true)) {
             Response::error('Choose income or expense.', 422, ['kind' => 'Required']);
         }
-        $category = mb_substr($request->string('category'), 0, 60);
-        if ($category === '') {
-            Response::error('Choose a category.', 422, ['category' => 'Required']);
+        $db = Database::tenant();
+        $account = $db->prepare("SELECT id, name FROM gl_accounts WHERE id = ? AND type = ? AND status = 'active'");
+        $account->execute([(int) $request->input('account_id'), $kind]);
+        $account = $account->fetch();
+        if (!$account) {
+            Response::error('Choose the ' . ($kind === 'income' ? 'income' : 'expense') . ' account.', 422, ['account_id' => 'Required']);
         }
+        $category = mb_substr($account['name'], 0, 60);
         $cents = Money::parse($request->input('amount'));
         if ($cents === null || $cents <= 0) {
             Response::error('Enter an amount greater than zero.', 422, ['amount' => 'Required']);
@@ -71,9 +76,8 @@ final class CashbookController
         if ($description === '') {
             Response::error('Describe the entry, e.g. "Receipt books for the office".', 422, ['description' => 'Required']);
         }
-        $db = Database::tenant();
-        $db->prepare('INSERT INTO cashbook (kind, category, amount, entry_date, description, reference, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)')
-            ->execute([$kind, $category, Money::toDecimal($cents), $date, $description, mb_substr($request->string('reference'), 0, 80) ?: null, Auth::id()]);
+        $db->prepare('INSERT INTO cashbook (kind, category, account_id, amount, entry_date, description, reference, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+            ->execute([$kind, $category, $account['id'], Money::toDecimal($cents), $date, $description, mb_substr($request->string('reference'), 0, 80) ?: null, Auth::id()]);
         $id = (int) $db->lastInsertId();
         Audit::log('cashbook.recorded', 'cashbook', $id, ['kind' => $kind, 'amount' => Money::toDecimal($cents), 'type' => $kind]);
         Response::ok(['id' => $id], 201);
@@ -93,8 +97,8 @@ final class CashbookController
         if ($reason === '') {
             Response::error('Say why this entry is being reversed.', 422, ['reason' => 'Required']);
         }
-        $db->prepare('INSERT INTO cashbook (kind, category, amount, entry_date, description, reference, reversal_of, created_by) VALUES (?, ?, ?, CURDATE(), ?, ?, ?, ?)')
-            ->execute([$entry['kind'], $entry['category'], Money::toDecimal(-Money::fromDecimal($entry['amount'])), "Reversed: $reason", $entry['reference'], $entry['id'], Auth::id()]);
+        $db->prepare('INSERT INTO cashbook (kind, category, account_id, amount, entry_date, description, reference, reversal_of, created_by) VALUES (?, ?, ?, ?, CURDATE(), ?, ?, ?, ?)')
+            ->execute([$entry['kind'], $entry['category'], $entry['account_id'], Money::toDecimal(-Money::fromDecimal($entry['amount'])), "Reversed: $reason", $entry['reference'], $entry['id'], Auth::id()]);
         Audit::log('cashbook.reversed', 'cashbook', (int) $entry['id'], ['reason' => $reason]);
         Response::ok();
     }

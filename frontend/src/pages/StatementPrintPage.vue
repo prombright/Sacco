@@ -29,8 +29,8 @@ const auth = useAuth()
 const memberId = route.params.id ? Number(route.params.id) : null
 
 const today = new Date()
-const from = ref(`${today.getFullYear()}-01-01`)
-const to = ref(today.toLocaleDateString('en-CA'))
+const from = ref(String(route.query.from ?? `${today.getFullYear()}-01-01`))
+const to = ref(String(route.query.to ?? today.toLocaleDateString('en-CA')))
 const data = ref<Statement | null>(null)
 const error = ref('')
 
