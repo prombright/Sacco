@@ -36,6 +36,7 @@ interface Terms {
   min_shares: number
   savings_min_balance: string
   withdrawal_fee_percent: string
+  membership_fee_annual: string
 }
 
 /**
@@ -321,6 +322,7 @@ const loginTo = computed(() => (auth.user ? (auth.isAdmin ? '/office' : '/') : '
             `${main?.interest_rate_monthly ?? 1}% a month on what you still owe`,
             `Keep at least ${money(Number(terms.savings_min_balance))} in savings`,
             `${terms.withdrawal_fee_percent}% fee on savings withdrawals`,
+            ...(Number(terms.membership_fee_annual) > 0 ? [`A membership fee of ${money(Number(terms.membership_fee_annual))} a year`] : []),
           ]" :key="r" class="flex gap-3 text-sm">
             <span class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700"><CheckIcon class="h-3.5 w-3.5" aria-hidden="true" /></span>{{ r }}
           </li>

@@ -57,6 +57,14 @@ const router = createRouter({
         { path: 'admin/settings', name: 'settings', component: () => import('@/pages/admin/SettingsPage.vue'), meta: { admin: true, title: 'SACCO rules' } },
         { path: 'users', name: 'users', component: () => import('@/pages/admin/UsersPage.vue'), meta: { admin: true, title: 'Members' } },
         { path: 'members/:id(\\d+)', name: 'member', component: () => import('@/pages/admin/MemberPage.vue'), meta: { admin: true, title: 'Member' } },
+        // Each section of the office menu opens on its own dashboard
+        { path: 'office/members', name: 'section-members', component: () => import('@/pages/admin/SectionPage.vue'), meta: { admin: true, title: 'Members' } },
+        { path: 'office/savings', name: 'section-money', component: () => import('@/pages/admin/SectionPage.vue'), meta: { admin: true, title: 'Savings & shares' } },
+        { path: 'office/loans', name: 'section-loans', component: () => import('@/pages/admin/SectionPage.vue'), meta: { admin: true, title: 'Loans' } },
+        { path: 'office/cash-book', name: 'section-books', component: () => import('@/pages/admin/SectionPage.vue'), meta: { admin: true, title: 'Cash book' } },
+        { path: 'office/reports', name: 'section-reports', component: () => import('@/pages/admin/SectionPage.vue'), meta: { admin: true, title: 'Reports' } },
+        { path: 'office/settings', name: 'section-admin', component: () => import('@/pages/admin/SectionPage.vue'), meta: { admin: true, title: 'Settings' } },
+        { path: 'admin/membership-fees', name: 'membership-fees', component: () => import('@/pages/admin/MembershipFeesPage.vue'), meta: { admin: true, title: 'Membership fees' } },
         // Members' money
         { path: 'admin/deposit', name: 'deposit', component: () => import('@/pages/admin/DepositPage.vue'), meta: { admin: true, title: 'Deposit' } },
         { path: 'admin/transfers', name: 'transfers', component: () => import('@/pages/admin/TransfersPage.vue'), meta: { admin: true, title: 'Internal transfers' } },

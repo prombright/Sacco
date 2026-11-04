@@ -10,6 +10,7 @@ use Sacco\Http\Response;
 use Sacco\Loans\Loans;
 use Sacco\Support\Activity;
 use Sacco\Support\Money;
+use Sacco\Support\Settings;
 
 /**
  * The SACCO office at a glance: what's waiting for an admin (also shown as counts in the menu),
@@ -111,6 +112,63 @@ final class OfficeController
                 'link' => Activity::link($r),
                 'at' => $r['created_at'],
             ], $recent),
+        ]);
+    }
+
+    /** GET /api/office/sections - the figures on each section's dashboard */
+    public function sections(Request $request): never
+    {
+        $db = Database::tenant();
+        $one = function (string $sql, array $args = []) use ($db) {
+            $s = $db->prepare($sql);
+            $s->execute($args);
+            return $s->fetchColumn();
+        };
+        $month = date('Y-m-01');
+        $year = (int) date('Y');
+        \Sacco\Support\Books::sync($db);
+        $totals = \Sacco\Support\Books::totals($db, date('Y-m-d'));
+        $dr = $cr = 0;
+        foreach ($totals as $t) {
+            $dr += $t['d'];
+            $cr += $t['c'];
+        }
+        $yearTotals = \Sacco\Support\Books::totals($db, date('Y-m-d'), "$year-01-01");
+        $income = $expense = 0;
+        foreach (\Sacco\Support\Books::chart($db) as $a) {
+            if ($a['type'] === 'income') {
+                $income += \Sacco\Support\Books::balance($a, $yearTotals);
+            } elseif ($a['type'] === 'expense') {
+                $expense += \Sacco\Support\Books::balance($a, $yearTotals);
+            }
+        }
+        $outstanding = 0;
+        foreach ($db->query("SELECT id FROM loans WHERE status = 'active'")->fetchAll(\PDO::FETCH_COLUMN) as $id) {
+            $outstanding += Loans::position($db, (int) $id)['total_left'];
+        }
+        $money = fn ($v) => Money::toDecimal(Money::fromDecimal($v));
+        Response::ok([
+            'waiting' => self::waiting(),
+            'deposits_month' => $money($one("SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE type = 'deposit' AND value_date >= ?", [$month])),
+            'transfers_month' => (int) $one("SELECT COUNT(*) FROM transfers WHERE status = 'posted' AND value_date >= ?", [$month]),
+            'transactions_month' => (int) $one('SELECT COUNT(*) FROM transactions WHERE value_date >= ?', [$month]),
+            'fees_unpaid' => (int) $one("SELECT COUNT(*) FROM membership_fees WHERE year = ? AND status = 'unpaid'", [$year]),
+            'fees_not_charged' => (int) $one("SELECT COUNT(*) FROM users u WHERE u.role = 'member' AND u.status = 'active' AND NOT EXISTS (SELECT 1 FROM membership_fees f WHERE f.user_id = u.id AND f.year = ?)", [$year]),
+            'fee_set' => (float) Settings::get('membership_fee_annual', '0') > 0,
+            'members' => (int) $one("SELECT COUNT(*) FROM users WHERE role = 'member' AND status = 'active'"),
+            'last_payroll' => $one("SELECT period FROM payroll_batches WHERE status = 'posted' ORDER BY period DESC LIMIT 1") ?: null,
+            'active_loans' => (int) $one("SELECT COUNT(*) FROM loans WHERE status = 'active'"),
+            'loans_outstanding' => Money::toDecimal($outstanding),
+            'interest_month' => $money($one("SELECT COALESCE(SUM(interest), 0) FROM loan_installments i JOIN loans l ON l.id = i.loan_id WHERE l.status IN ('active', 'closed') AND i.due_date BETWEEN ? AND LAST_DAY(?)", [$month, $month])),
+            'payments_month' => $money($one("SELECT COALESCE(SUM(amount), 0) FROM cashbook WHERE kind = 'expense' AND entry_date >= ?", [$month])),
+            'receipts_month' => $money($one("SELECT COALESCE(SUM(amount), 0) FROM cashbook WHERE kind = 'income' AND entry_date >= ?", [$month])),
+            'journals_month' => (int) $one('SELECT COUNT(*) FROM journal_entries WHERE auto = 0 AND entry_date >= ?', [$month]),
+            'balanced' => $dr === $cr,
+            'income_year' => Money::toDecimal($income),
+            'surplus_year' => Money::toDecimal($income - $expense),
+            'accounts' => (int) $one("SELECT COUNT(*) FROM gl_accounts WHERE status = 'active'"),
+            'last_backup' => $one("SELECT MAX(created_at) FROM audit_log WHERE action = 'backup.downloaded'") ?: null,
+            'investments' => $money($one("SELECT COALESCE(SUM(amount), 0) FROM investments WHERE status = 'active'")),
         ]);
     }
 

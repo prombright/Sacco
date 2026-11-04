@@ -57,6 +57,7 @@ final class Books
                 (SELECT COALESCE(MAX(id), 0) FROM investment_returns),
                 (SELECT COALESCE(MAX(id), 0) FROM transfers),
                 (SELECT COUNT(*) FROM transfers WHERE status = 'reversed'),
+                (SELECT CONCAT(COUNT(*), '-', COALESCE(SUM(status = 'paid' AND method = 'cash'), 0), '-', COALESCE(MAX(updated_at), '')) FROM membership_fees),
                 CURDATE())"
         )->fetchColumn());
         $stmt = $db->prepare("SELECT `value` FROM settings WHERE `key` = 'books_fingerprint'");
@@ -83,6 +84,7 @@ final class Books
         self::loans($db);
         self::investments($db);
         self::cashbook($db);
+        self::membershipFees($db);
 
         $inTransaction = $db->inTransaction();
         $inTransaction || $db->beginTransaction();
@@ -175,6 +177,7 @@ final class Books
             $other = match ($type) {
                 'deposit', 'withdrawal' => 'bank',
                 'charge' => 'withdrawal_fee_income',
+                'membership_fee' => 'membership_fee_income',
                 'adjustment' => 'suspense',
                 'opening_balance' => 'opening',
                 'dividend', 'profit' => 'distributions',
@@ -385,6 +388,21 @@ final class Books
                 [self::account($db, 'bank'), $sign * $cents, null, null],
                 [$account, -$sign * $cents, null, $c['description']],
             ], $c['reference']);
+        }
+    }
+
+    /** Membership fees paid in cash (those taken from savings are posted with the savings entries) */
+    private static function membershipFees(PDO $db): void
+    {
+        $rows = $db->query(
+            "SELECT f.*, u.full_name FROM membership_fees f JOIN users u ON u.id = f.user_id WHERE f.status = 'paid' AND f.method = 'cash'"
+        )->fetchAll();
+        foreach ($rows as $f) {
+            $cents = Money::fromDecimal($f['amount']);
+            self::add($db, $f['paid_on'], "Membership fee {$f['year']}, {$f['full_name']}", 'membership_fee', (int) $f['id'], [
+                [self::account($db, 'bank'), $cents, null, null],
+                [self::account($db, 'membership_fee_income'), -$cents, (int) $f['user_id'], (string) $f['year']],
+            ], $f['reference']);
         }
     }
 

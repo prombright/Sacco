@@ -8,6 +8,7 @@ import {
   DocumentTextIcon,
   EyeIcon,
   EyeSlashIcon,
+  IdentificationIcon,
   LockClosedIcon,
   UserCircleIcon,
   UserGroupIcon,
@@ -49,6 +50,7 @@ interface Summary {
   loan_limit: string
   loan_wait_reason: string | null
   saved_this_year: string
+  membership_fee: { year: number; amount: string; status: 'unpaid' | 'paid' | 'waived'; method: string | null; paid_on: string | null } | null
   trend: { savings: { month: string; value: string }[]; shares: { month: string; value: string }[] }
 }
 
@@ -150,6 +152,16 @@ const actions = [
       <span class="font-semibold text-brand">Answer →</span>
     </RouterLink>
 
+    <div
+      v-if="data?.membership_fee && data.membership_fee.status === 'unpaid'"
+      class="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-navy-100 bg-navy-50/60 px-4 py-3 text-sm"
+    >
+      <span class="flex items-center gap-3">
+        <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-white"><IdentificationIcon class="h-5 w-5" aria-hidden="true" /></span>
+        <span>Your <strong class="font-semibold">{{ data.membership_fee.year }} membership fee</strong> of {{ formatMoney(data.membership_fee.amount) }} is due. The office can take it from your savings, or pay it at the office.</span>
+      </span>
+    </div>
+
     <template v-if="data">
       <!-- What I have, and what I can borrow -->
       <section class="mt-6 grid gap-4 lg:grid-cols-3" aria-label="Balances">
@@ -192,7 +204,7 @@ const actions = [
                 <p class="text-xl font-semibold tabular-nums">{{ show(data.balances.shares) }}</p>
                 <p v-if="data.share_position.min_shares > 0 && data.share_position.shares !== null" class="mt-0.5 flex items-center gap-1 text-xs" :class="Number(data.share_position.still_needed) > 0 ? 'text-saffron-300' : 'text-navy-100/80'">
                   <CheckCircleIcon v-if="Number(data.share_position.still_needed) <= 0" class="h-3.5 w-3.5" aria-hidden="true" />
-                  {{ data.share_position.shares }} shares<template v-if="Number(data.share_position.still_needed) > 0"> · {{ show(data.share_position.still_needed) }} more to reach {{ data.share_position.min_shares }}</template><template v-else> · minimum of {{ data.share_position.min_shares }} reached</template>
+                  {{ data.share_position.shares }} share{{ data.share_position.shares === 1 ? '' : 's' }}<template v-if="Number(data.share_position.still_needed) > 0"> · {{ show(data.share_position.still_needed) }} more to reach {{ data.share_position.min_shares }}</template><template v-else> · minimum of {{ data.share_position.min_shares }} reached</template>
                 </p>
               </div>
             </div>

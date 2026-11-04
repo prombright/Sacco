@@ -3,39 +3,15 @@ import { computed, ref, watch, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   ArrowLeftStartOnRectangleIcon,
-  ArrowDownLeftIcon,
-  ArrowsRightLeftIcon,
-  ArrowTrendingUpIcon,
-  ArrowUpRightIcon,
-  ArrowUturnLeftIcon,
-  BookOpenIcon,
-  BriefcaseIcon,
-  BuildingLibraryIcon,
-  CheckBadgeIcon,
-  CircleStackIcon,
-  ListBulletIcon,
-  PresentationChartLineIcon,
-  ScaleIcon,
-  TableCellsIcon,
-  UserGroupIcon,
-  ArrowUpTrayIcon,
   BanknotesIcon,
   Bars3Icon,
-  CalculatorIcon,
-  ChartBarIcon,
   ChevronDoubleLeftIcon,
+  ChevronDownIcon,
   ChevronUpDownIcon,
-  ClipboardDocumentCheckIcon,
-  Cog6ToothIcon,
   DocumentTextIcon,
   HomeIcon,
-  InboxStackIcon,
   KeyIcon,
-  MegaphoneIcon,
-  ReceiptPercentIcon,
-  Squares2X2Icon,
   UserCircleIcon,
-  UsersIcon,
   WalletIcon,
   XMarkIcon,
 } from '@heroicons/vue/24/outline'
@@ -45,6 +21,7 @@ import SaccoMark from '@/components/SaccoMark.vue'
 import MemberSearch from '@/components/MemberSearch.vue'
 import ThemeSwitch from '@/components/ThemeSwitch.vue'
 import NotificationBell from '@/components/NotificationBell.vue'
+import { dashboardIcon, sectionOf, sections, type Section, type SectionItem } from '@/sections'
 
 interface NavLink {
   name: string
@@ -101,68 +78,26 @@ const groups = computed<NavGroup[]>(() => {
       ],
     }]
   }
-  const w = office.waiting
-  const groups: NavGroup[] = [
-    { title: '', links: [{ name: 'overview', label: 'Dashboard', icon: Squares2X2Icon }] },
-    {
-      title: 'Members',
-      links: [
-        { name: 'users', label: 'Members', icon: UsersIcon, also: ['member', 'member-import', 'member-statement'] },
-        { name: 'deposit', label: 'Deposit', icon: BanknotesIcon },
-        { name: 'transfers', label: 'Internal transfers', icon: ArrowsRightLeftIcon },
-        { name: 'admin-withdrawals', label: 'Withdrawals', icon: InboxStackIcon, badge: w ? w.withdrawals_to_approve + w.withdrawals_to_pay : 0 },
-        { name: 'notices', label: 'Notices', icon: MegaphoneIcon },
-      ],
-    },
-    {
-      title: 'Loans',
-      links: [
-        { name: 'admin-loans', label: 'Loan applications', icon: ClipboardDocumentCheckIcon, also: ['loan'], badge: w ? w.loans_to_approve : 0 },
-        { name: 'loan-disbursement', label: 'Loan disbursement', icon: CheckBadgeIcon, badge: w ? w.loans_to_pay_out : 0 },
-      ],
-    },
-    {
-      title: 'Cash book',
-      links: [
-        { name: 'payments', label: 'Payments (expenses)', icon: ArrowUpRightIcon },
-        { name: 'receipts', label: 'Receipts (income)', icon: ArrowDownLeftIcon },
-        { name: 'journal', label: 'Journal entries', icon: BookOpenIcon },
-      ],
-    },
-    {
-      title: 'Member reports',
-      links: [
-        { name: 'member-ledger', label: 'Member ledger', icon: DocumentTextIcon },
-        { name: 'members-summary', label: 'Members summary', icon: UserGroupIcon },
-        { name: 'loan-portfolio', label: 'Loan portfolio', icon: BriefcaseIcon },
-      ],
-    },
-    {
-      title: 'Financial reports',
-      links: [
-        { name: 'trial-balance', label: 'Trial balance', icon: ScaleIcon },
-        { name: 'balance-sheet', label: 'Balance sheet', icon: BuildingLibraryIcon },
-        { name: 'income-statement', label: 'Income statement', icon: ChartBarIcon },
-        { name: 'account-ledger', label: 'Account ledger', icon: TableCellsIcon },
-        { name: 'chart', label: 'Chart of accounts', icon: ListBulletIcon },
-      ],
-    },
-    {
-      title: 'Administration',
-      links: [
-        { name: 'payroll', label: 'Payroll deductions', icon: ArrowUpTrayIcon, also: ['payroll-batch'] },
-        { name: 'loan-interest', label: 'Monthly loan interest', icon: CalculatorIcon },
-        { name: 'transactions', label: 'Transactions & reversals', icon: ArrowUturnLeftIcon },
-        { name: 'investments', label: 'Investments', icon: ArrowTrendingUpIcon },
-        { name: 'dividends', label: 'Dividends & profit', icon: ReceiptPercentIcon, also: ['dividend-run'] },
-        { name: 'reports', label: 'Other reports', icon: PresentationChartLineIcon },
-        { name: 'backup', label: 'Download backup', icon: CircleStackIcon },
-        { name: 'settings', label: 'Setup', icon: Cog6ToothIcon },
-      ],
-    },
-  ]
-  return groups
+  // Office accounts: see the sections below
+  return []
 })
+
+/**
+ * The office menu: Dashboard, then a few sections. A section opens on its own dashboard of
+ * modules; in the menu only the section you are in shows its modules, so the menu stays short.
+ */
+const currentSection = computed(() => sectionOf(String(route.name))?.key ?? null)
+const open = ref<Set<string>>(new Set())
+watch(currentSection, (k) => (open.value = new Set(k ? [k] : [])), { immediate: true })
+function toggleSection(key: string) {
+  const next = new Set(open.value)
+  next.has(key) ? next.delete(key) : next.add(key)
+  open.value = next
+}
+const visibleItems = (s: Section) => s.items.filter((i) => !i.superOnly || auth.isSuperAdmin)
+const itemBadge = (i: SectionItem) => (office.waiting && i.badge ? i.badge(office.waiting) : 0)
+const sectionBadge = (s: Section) => visibleItems(s).reduce((n, i) => n + itemBadge(i), 0)
+const isItemCurrent = (i: SectionItem) => route.name === i.name || !!i.also?.includes(String(route.name))
 
 function isCurrent(link: NavLink) {
   const name = String(route.name)
@@ -212,6 +147,61 @@ async function signOut() {
 
       <!-- Links -->
       <nav class="flex-1 overflow-y-auto overflow-x-hidden px-3 pb-4 pt-2 [scrollbar-width:thin]">
+        <!-- Office: Dashboard, then the sections -->
+        <template v-if="auth.isAdmin">
+          <RouterLink
+            :to="{ name: 'overview' }"
+            class="group relative mb-3 flex items-center gap-3 rounded-xl py-2 text-sm font-medium transition"
+            :class="[wide ? 'px-3' : 'justify-center px-0', route.name === 'overview' ? 'bg-gradient-to-r from-white/[0.14] to-white/[0.04] text-white' : 'text-navy-100/70 hover:bg-white/[0.06] hover:text-white']"
+            :aria-label="wide ? undefined : 'Dashboard'"
+          >
+            <span v-if="route.name === 'overview'" class="absolute inset-y-2 left-0 w-[3px] rounded-r-full bg-saffron-400" aria-hidden="true" />
+            <component :is="dashboardIcon" class="h-5 w-5 shrink-0" :class="route.name === 'overview' ? 'text-saffron-300' : 'text-navy-200/50 group-hover:text-navy-100'" aria-hidden="true" />
+            <span v-if="wide" class="flex-1">Dashboard</span>
+          </RouterLink>
+
+          <div v-for="s in sections" :key="s.key" class="mb-1">
+            <div class="group relative flex items-center rounded-xl transition" :class="currentSection === s.key ? 'bg-white/[0.07]' : 'hover:bg-white/[0.05]'">
+              <span v-if="currentSection === s.key" class="absolute inset-y-2 left-0 w-[3px] rounded-r-full bg-saffron-400" aria-hidden="true" />
+              <RouterLink
+                :to="{ name: s.hub }"
+                class="flex min-w-0 flex-1 items-center gap-3 py-2 text-sm font-semibold"
+                :class="[wide ? 'pl-3' : 'justify-center', currentSection === s.key ? 'text-white' : 'text-navy-100/75 hover:text-white']"
+                :aria-label="wide ? undefined : s.label"
+              >
+                <span class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br shadow-sm" :class="currentSection === s.key ? s.tone : 'from-white/10 to-white/5'">
+                  <component :is="s.icon" class="h-4 w-4" :class="currentSection === s.key ? 'text-white' : 'text-navy-100/70'" aria-hidden="true" />
+                </span>
+                <span v-if="wide" class="flex-1 truncate">{{ s.label }}</span>
+                <span v-if="sectionBadge(s) && (!wide || !open.has(s.key))" class="rounded-full bg-saffron-400 text-[11px] font-bold leading-none text-navy-950" :class="wide ? 'px-2 py-1' : 'absolute right-1 top-0.5 px-1 py-0.5'">{{ sectionBadge(s) }}</span>
+                <span v-if="!wide" class="pointer-events-none absolute left-full z-50 ml-3 whitespace-nowrap rounded-lg bg-navy-900 px-2.5 py-1.5 text-xs font-semibold text-white opacity-0 shadow-lift transition group-hover:opacity-100" aria-hidden="true">{{ s.label }}</span>
+              </RouterLink>
+              <button
+                v-if="wide"
+                type="button"
+                class="mr-1 rounded-lg p-1.5 text-navy-200/60 transition hover:bg-white/10 hover:text-white"
+                :aria-expanded="open.has(s.key)"
+                :aria-label="`${open.has(s.key) ? 'Hide' : 'Show'} ${s.label} pages`"
+                @click="toggleSection(s.key)"
+              >
+                <ChevronDownIcon class="h-4 w-4 transition-transform" :class="{ 'rotate-180': open.has(s.key) }" />
+              </button>
+            </div>
+            <div v-if="wide && open.has(s.key)" class="mb-2 ml-[1.35rem] mt-0.5 border-l border-white/10 pl-3">
+              <RouterLink
+                v-for="i in visibleItems(s)"
+                :key="i.name"
+                :to="{ name: i.name }"
+                class="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] transition"
+                :class="isItemCurrent(i) ? 'bg-white/10 font-semibold text-white' : 'text-navy-100/60 hover:bg-white/[0.05] hover:text-white'"
+              >
+                <span class="flex-1 truncate">{{ i.label }}</span>
+                <span v-if="itemBadge(i)" class="rounded-full bg-saffron-400 px-1.5 py-0.5 text-[10px] font-bold leading-none text-navy-950">{{ itemBadge(i) }}</span>
+              </RouterLink>
+            </div>
+          </div>
+        </template>
+
         <div v-for="group in groups" :key="group.title" class="mb-4">
           <p v-if="group.title && wide" class="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-navy-200/40">{{ group.title }}</p>
           <div v-else-if="group.title" class="mx-auto mb-2 h-px w-6 bg-white/10" aria-hidden="true" />

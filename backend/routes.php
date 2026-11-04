@@ -18,6 +18,7 @@ use Sacco\Controllers\ProductController;
 use Sacco\Controllers\PublicController;
 use Sacco\Controllers\LoanController;
 use Sacco\Controllers\MemberImportController;
+use Sacco\Controllers\MembershipFeeController;
 use Sacco\Controllers\OfficeController;
 use Sacco\Controllers\ReportController;
 use Sacco\Controllers\PayrollController;
@@ -200,6 +201,16 @@ $router->post('/api/transfers', [TransferController::class, 'store'], $admins);
 $router->post('/api/transfers/{id}/reverse', [TransferController::class, 'reverse'], $admins);
 $router->get('/api/transactions', [TransactionController::class, 'all'], $admins);
 $router->get('/api/backup', [BackupController::class, 'download'], $super);
+
+// The yearly membership fee
+$router->get('/api/membership-fees', [MembershipFeeController::class, 'index'], $admins);
+$router->post('/api/membership-fees/charge', [MembershipFeeController::class, 'charge'], $admins);
+$router->post('/api/membership-fees/collect', [MembershipFeeController::class, 'collect'], $admins);
+$router->post('/api/membership-fees/{id}/pay', [MembershipFeeController::class, 'pay'], $admins);
+$router->post('/api/membership-fees/{id}/waive', [MembershipFeeController::class, 'waive'], $admins);
+$router->post('/api/membership-fees/{id}/undo', [MembershipFeeController::class, 'undo'], $admins);
+$router->get('/api/me/membership-fees', [MembershipFeeController::class, 'mine'], $members);
+$router->get('/api/office/sections', [OfficeController::class, 'sections'], $admins);
 
 // The SACCO's rules
 $router->get('/api/settings', [SettingsController::class, 'index'], $admins);

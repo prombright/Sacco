@@ -47,6 +47,7 @@ final class PublicController
             'min_shares' => (int) Settings::get('min_shares', '0'),
             'savings_min_balance' => Settings::get('savings_min_balance', '0'),
             'withdrawal_fee_percent' => Settings::get('withdrawal_fee_percent', '0'),
+            'membership_fee_annual' => Settings::get('membership_fee_annual', '0'),
         ]);
     }
 }

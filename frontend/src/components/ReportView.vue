@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, nextTick, ref } from 'vue'
-import { ArrowDownTrayIcon, CheckCircleIcon, ExclamationTriangleIcon, PrinterIcon } from '@heroicons/vue/24/outline'
+import { CheckCircleIcon, DocumentArrowDownIcon, ExclamationTriangleIcon, PrinterIcon, TableCellsIcon } from '@heroicons/vue/24/outline'
 import { useAuth } from '@/stores/auth'
 import { formatDate, formatMoney } from '@/money'
-import { downloadReport, type Report, type ReportColumn, type ReportRow } from '@/reports'
+import type { Report, ReportColumn, ReportRow } from '@/reports'
+import { downloadExcel, downloadPdf } from '@/exporters'
 import SaccoMark from '@/components/SaccoMark.vue'
 
 /**
@@ -49,6 +50,19 @@ async function print() {
   window.print()
 }
 
+// Excel and PDF are made in the browser; the libraries load the first time
+const making = ref<'' | 'excel' | 'pdf'>('')
+async function exportAs(kind: 'excel' | 'pdf') {
+  if (!props.report) return
+  making.value = kind
+  try {
+    const who = { sacco: auth.sacco, user: auth.user?.full_name ?? null }
+    await (kind === 'excel' ? downloadExcel(props.report, who) : downloadPdf(props.report, who))
+  } finally {
+    making.value = ''
+  }
+}
+
 const printedAt = computed(() => new Date().toLocaleString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }))
 </script>
 
@@ -79,8 +93,17 @@ const printedAt = computed(() => new Date().toLocaleString('en-GB', { day: 'nume
       </div>
       <div class="flex flex-wrap items-end gap-2">
         <slot name="controls" />
-        <button type="button" class="btn-secondary" :disabled="!report || !report.rows.length" @click="report && downloadReport(report, auth.sacco?.name ?? 'SACCO')"><ArrowDownTrayIcon class="h-4 w-4" />Excel</button>
-        <button type="button" class="btn-secondary" :disabled="!report || !report.rows.length" @click="print"><PrinterIcon class="h-4 w-4" />Print / PDF</button>
+        <div class="flex overflow-hidden rounded-lg border border-line bg-surface shadow-sm" role="group" aria-label="Download or print">
+          <button type="button" class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-40" :disabled="!report || !report.rows.length || !!making" title="Download as Excel" @click="exportAs('excel')">
+            <TableCellsIcon class="h-4 w-4" :class="{ 'animate-pulse': making === 'excel' }" />Excel
+          </button>
+          <button type="button" class="inline-flex items-center gap-1.5 border-l border-line px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-40" :disabled="!report || !report.rows.length || !!making" title="Download as PDF" @click="exportAs('pdf')">
+            <DocumentArrowDownIcon class="h-4 w-4" :class="{ 'animate-pulse': making === 'pdf' }" />PDF
+          </button>
+          <button type="button" class="inline-flex items-center gap-1.5 border-l border-line px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-40" :disabled="!report || !report.rows.length" title="Print" @click="print">
+            <PrinterIcon class="h-4 w-4" />Print
+          </button>
+        </div>
       </div>
     </div>
 
