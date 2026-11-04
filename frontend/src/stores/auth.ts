@@ -10,6 +10,10 @@ export const useAuth = defineStore('auth', () => {
 
   const isSuperAdmin = computed(() => user.value?.role === 'super_admin')
   const isAdmin = computed(() => user.value?.role === 'admin' || isSuperAdmin.value)
+  /** Whether this office account may make changes in an area (the super admin always may) */
+  const can = (area: string) => isSuperAdmin.value || !!user.value?.permissions?.includes(area)
+  /** An admin who can look and download but not change anything */
+  const viewOnly = computed(() => user.value?.role === 'admin' && !(user.value.permissions?.length))
 
   function apply(session: Session) {
     user.value = session.user
@@ -56,5 +60,5 @@ export const useAuth = defineStore('auth', () => {
     setCsrfToken(null)
   }
 
-  return { user, sacco, loaded, isAdmin, isSuperAdmin, load, login, changePassword, logout, forget, useSacco }
+  return { user, sacco, loaded, isAdmin, isSuperAdmin, can, viewOnly, load, login, changePassword, logout, forget, useSacco }
 })

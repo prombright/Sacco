@@ -164,8 +164,8 @@ const thisYear = new Date().getFullYear()
             <template v-else>Everyone has been charged for {{ data.year }}.</template>
           </p>
           <div class="flex flex-wrap gap-2">
-            <button type="button" class="btn-primary" :disabled="busy || !data.not_charged || Number(data.fee) <= 0" @click="charge"><PlusIcon class="h-4 w-4" />Charge {{ data.year }}</button>
-            <button type="button" class="btn-secondary" :disabled="busy || !data.counts.unpaid" @click="collect"><ArrowDownLeftIcon class="h-4 w-4" />Take from savings</button>
+            <button v-can="'money'" type="button" class="btn-primary" :disabled="busy || !data.not_charged || Number(data.fee) <= 0" @click="charge"><PlusIcon class="h-4 w-4" />Charge {{ data.year }}</button>
+            <button v-can="'money'" type="button" class="btn-secondary" :disabled="busy || !data.counts.unpaid" @click="collect"><ArrowDownLeftIcon class="h-4 w-4" />Take from savings</button>
           </div>
         </div>
       </section>
@@ -181,10 +181,10 @@ const thisYear = new Date().getFullYear()
         </template>
         <template #actions="{ row }">
           <template v-if="byId(row._id)?.status === 'unpaid'">
-            <button type="button" class="rounded-lg px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50" @click="acting = { fee: byId(row._id)!, kind: 'pay' }"><BanknotesIcon class="mr-1 inline h-3.5 w-3.5" />Paid in cash</button>
-            <button type="button" class="rounded-lg px-2 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-100" @click="acting = { fee: byId(row._id)!, kind: 'waive' }">Waive</button>
+            <button v-can="'money'" type="button" class="rounded-lg px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50" @click="acting = { fee: byId(row._id)!, kind: 'pay' }"><BanknotesIcon class="mr-1 inline h-3.5 w-3.5" />Paid in cash</button>
+            <button v-can="'money'" type="button" class="rounded-lg px-2 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-100" @click="acting = { fee: byId(row._id)!, kind: 'waive' }">Waive</button>
           </template>
-          <button v-else-if="byId(row._id)?.status === 'paid'" type="button" class="rounded-lg px-2 py-1 text-xs font-semibold text-gray-500 hover:bg-gray-100" @click="acting = { fee: byId(row._id)!, kind: 'undo' }">Undo</button>
+          <button v-can="'money'" v-else-if="byId(row._id)?.status === 'paid'" type="button" class="rounded-lg px-2 py-1 text-xs font-semibold text-gray-500 hover:bg-gray-100" @click="acting = { fee: byId(row._id)!, kind: 'undo' }">Undo</button>
         </template>
         <template #empty>No fees charged for {{ year }} yet.</template>
       </ReportView>

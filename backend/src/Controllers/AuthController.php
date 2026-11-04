@@ -163,6 +163,7 @@ final class AuthController
             'phone' => $user['phone'],
             'role' => $user['role'],
             'role_label' => Roles::label($user['role']),
+            'permissions' => Roles::permissions($user),
             'status' => $user['status'],
             'source' => $user['source'],
             'must_change_password' => (bool) $user['must_change_password'],

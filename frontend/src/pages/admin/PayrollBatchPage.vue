@@ -105,7 +105,7 @@ async function reverse() {
       </div>
 
       <div v-if="batch.status === 'posted'" class="mt-6">
-        <button type="button" class="btn-secondary" @click="reversing = true">Reverse this upload</button>
+        <button v-can="'money'" type="button" class="btn-secondary" @click="reversing = true">Reverse this upload</button>
         <p class="mt-2 text-sm text-gray-600">Undoes every entry it made, for example if the wrong month's file was posted. Both stay in each member's history.</p>
       </div>
     </template>

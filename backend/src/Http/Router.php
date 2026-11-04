@@ -18,6 +18,7 @@ use Sacco\Support\LedgerException;
  * - 'roles' => [...]       only these roles (a super admin always passes, see Roles::allows)
  * - 'before_password' => true   allowed while the user still has to change their temporary password
  * - 'members_only' => true      a member's own money; office accounts (admins, super admin) are refused
+ * - 'can' => 'money'       changes in an area: super admins, and admins the super admin allowed (Roles::can)
  * - 'dev' => true          the developer portal: signed in as a developer, not a SACCO user
  *
  * Signed-in POST/PATCH/PUT/DELETE requests must carry the session's X-CSRF-Token header.
@@ -102,6 +103,9 @@ final class Router
         }
         if (isset($options['roles']) && !Roles::allows($user['role'], $options['roles'])) {
             Response::error('You do not have permission to do that.', 403);
+        }
+        if (isset($options['can']) && !Roles::can($user, $options['can'])) {
+            Response::error('Only the super admin can do this. Your account can see everything and download reports; the super admin can let admins do this on the Setup page.', 403);
         }
         // A member's own money: office accounts (admins, super admin) have none of their own
         if (!empty($options['members_only']) && $user['role'] !== Roles::MEMBER) {

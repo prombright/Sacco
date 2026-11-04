@@ -24,6 +24,8 @@ import {
   PresentationChartLineIcon,
   ReceiptPercentIcon,
   ScaleIcon,
+  ShieldCheckIcon,
+  DocumentChartBarIcon,
   Squares2X2Icon,
   TableCellsIcon,
   UserGroupIcon,
@@ -71,6 +73,8 @@ export interface SectionItem {
   /** Things waiting here (also shown in the menu) */
   badge?: (w: Waiting) => number
   superOnly?: boolean
+  /** Only for accounts allowed to change this area (the page is all about making changes) */
+  needs?: string
 }
 
 export interface Section {
@@ -98,11 +102,11 @@ export const sections: Section[] = [
     label: 'Members',
     hub: 'section-members',
     icon: UsersIcon,
-    tone: 'from-navy-500 to-navy-700',
+    tone: 'from-navy-600 to-navy-800',
     intro: 'The people of the SACCO: their records, their yearly fee, and news for them.',
     items: [
       { name: 'users', label: 'Member register', description: 'Everyone, with balances, details and next of kin', icon: UsersIcon, also: ['member', 'member-statement'], figure: (s) => `${s.members} active members` },
-      { name: 'member-import', label: 'Add members from Excel', description: 'Bring many members in at once', icon: UserPlusIcon },
+      { name: 'member-import', label: 'Add members from Excel', description: 'Bring many members in at once', icon: UserPlusIcon, needs: 'members' },
       { name: 'membership-fees', label: 'Membership fees', description: 'The yearly fee: charge, collect, waive', icon: IdentificationIcon, figure: (s) => (!s.fee_set ? 'Fee not set yet' : s.fees_not_charged ? `${s.fees_not_charged} not yet charged this year` : `${s.fees_unpaid} unpaid this year`) },
       { name: 'notices', label: 'Notices', description: 'Announcements on members\' dashboards', icon: MegaphoneIcon },
     ],
@@ -115,7 +119,7 @@ export const sections: Section[] = [
     tone: 'from-emerald-500 to-emerald-700',
     intro: 'Money coming in and going out of members\' accounts.',
     items: [
-      { name: 'deposit', label: 'Deposit', description: 'Cash or bank slips into savings or shares', icon: BanknotesIcon, figure: (s) => `${formatMoney(s.deposits_month)} in ${month}` },
+      { name: 'deposit', label: 'Deposit', description: 'Cash or bank slips into savings or shares', icon: BanknotesIcon, needs: 'money', figure: (s) => `${formatMoney(s.deposits_month)} in ${month}` },
       { name: 'payroll', label: 'Payroll deductions', description: 'Upload the month\'s payroll file', icon: ArrowUpTrayIcon, also: ['payroll-batch'], figure: (s) => (s.last_payroll ? `Last: ${new Date(s.last_payroll + '-01').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}` : 'None posted yet') },
       { name: 'transfers', label: 'Internal transfers', description: 'Savings to shares, to a colleague, or to a loan', icon: ArrowsRightLeftIcon, figure: (s) => `${s.transfers_month} in ${month}` },
       { name: 'admin-withdrawals', label: 'Withdrawals', description: 'Requests to approve and cheques to issue', icon: InboxStackIcon, badge: (w) => w.withdrawals_to_approve + w.withdrawals_to_pay },
@@ -159,6 +163,7 @@ export const sections: Section[] = [
     tone: 'from-violet-500 to-violet-700',
     intro: 'Statements for the committee, the AGM and the auditors. Each downloads as Excel or PDF, or prints.',
     items: [
+      { name: 'annual-report', label: 'Annual report', description: 'The year in one PDF for the AGM and auditors', icon: DocumentChartBarIcon, figure: (s) => `${short(s.income_year)} income this year` },
       { name: 'balance-sheet', label: 'Balance sheet', description: 'What the SACCO owns and owes', icon: BuildingLibraryIcon, figure: (s) => (s.balanced ? 'Balanced' : 'Not balanced: check') },
       { name: 'income-statement', label: 'Income statement', description: 'Income, expenses and the surplus', icon: PresentationChartLineIcon, figure: (s) => `${short(s.surplus_year)} surplus this year` },
       { name: 'trial-balance', label: 'Trial balance', description: 'Every account; debits equal credits', icon: ScaleIcon },
@@ -166,7 +171,8 @@ export const sections: Section[] = [
       { name: 'chart', label: 'Chart of accounts', description: 'The accounts in the books', icon: ListBulletIcon, figure: (s) => `${s.accounts} accounts` },
       { name: 'member-ledger', label: 'Member ledger', description: 'One member\'s statement, ready to print', icon: DocumentTextIcon },
       { name: 'members-summary', label: 'Members summary', description: 'Every member\'s savings, shares and loans', icon: UserGroupIcon },
-      { name: 'reports', label: 'More reports', description: 'Arrears, transactions journal, audit log', icon: PresentationChartLineIcon },
+      { name: 'audit-report', label: 'Audit report', description: 'Who did what, when, from where', icon: ShieldCheckIcon },
+      { name: 'reports', label: 'More reports', description: 'Arrears and the transactions journal', icon: PresentationChartLineIcon },
     ],
   },
   {

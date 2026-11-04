@@ -2,6 +2,8 @@ export type Role = 'super_admin' | 'admin' | 'member'
 export type UserStatus = 'active' | 'suspended' | 'left'
 
 export interface User {
+  /** Areas this office account may change (members, money, loans, notices) */
+  permissions?: string[]
   id: number
   full_name: string
   email: string | null

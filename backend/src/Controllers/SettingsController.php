@@ -24,6 +24,7 @@ final class SettingsController
         };
         $int = fn (int $min, int $max) => fn ($v) => filter_var($v, FILTER_VALIDATE_INT, ['options' => ['min_range' => $min, 'max_range' => $max]]) !== false ? (string) (int) $v : null;
 
+        $yesNo = fn ($v) => in_array($v, ['yes', 'no'], true) ? $v : null;
         return [
             'loan_min_member_months' => ['Months of saving before a loan', $int(0, 120)],
             'guarantor_min_member_months' => ['Months of membership to be a guarantor', $int(0, 120)],
@@ -38,6 +39,10 @@ final class SettingsController
             'dividend_rate_percent' => ['Dividend a year, % of each member\'s share capital', $decimal(0, 100)],
             'profit_basis' => ['Investment profit is shared by', fn ($v) => in_array($v, ['average_savings', 'year_end_savings'], true) ? $v : null,
                 ['average_savings' => 'Average savings over the year', 'year_end_savings' => 'Savings at the end of the year']],
+            'admins_can_members' => ['Admins may add and change members', $yesNo, ['no' => 'No, view only', 'yes' => 'Yes']],
+            'admins_can_money' => ['Admins may record and reverse money (deposits, payroll, transfers, withdrawals, fees, income, expenses, journals)', $yesNo, ['no' => 'No, view only', 'yes' => 'Yes']],
+            'admins_can_loans' => ['Admins may approve, pay out and manage loans', $yesNo, ['no' => 'No, view only', 'yes' => 'Yes']],
+            'admins_can_notices' => ['Admins may post notices', $yesNo, ['no' => 'No, view only', 'yes' => 'Yes']],
             'profit_credit_account' => ['Members\' profit share is added to', fn ($v) => in_array($v, ['savings', 'shares'], true) ? $v : null,
                 ['savings' => 'Savings', 'shares' => 'Shares']],
         ];

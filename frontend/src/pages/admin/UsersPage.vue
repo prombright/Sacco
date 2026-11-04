@@ -90,7 +90,7 @@ const statusLabel: Record<string, string> = { active: 'Active', suspended: 'Susp
       </div>
       <div class="flex flex-wrap gap-2">
         <RouterLink :to="{ name: 'member-import' }" class="btn-secondary">Import from Excel</RouterLink>
-        <button type="button" class="btn-primary" @click="editing = null">Add member</button>
+        <button v-can="'members'" type="button" class="btn-primary" @click="editing = null">Add member</button>
       </div>
     </div>
 
@@ -148,8 +148,8 @@ const statusLabel: Record<string, string> = { active: 'Active', suspended: 'Susp
             </td>
             <td class="whitespace-nowrap px-4 py-3 text-right">
               <template v-if="canManage(user)">
-                <button type="button" class="btn-ghost px-2 py-1" @click="editing = user">Edit</button>
-                <button v-if="user.id !== auth.user?.id" type="button" class="btn-ghost px-2 py-1" @click="resetPassword(user)">Reset password</button>
+                <button v-can="'members'" type="button" class="btn-ghost px-2 py-1" @click="editing = user">Edit</button>
+                <button v-can="'members'" v-if="user.id !== auth.user?.id" type="button" class="btn-ghost px-2 py-1" @click="resetPassword(user)">Reset password</button>
               </template>
             </td>
           </tr>
@@ -170,8 +170,8 @@ const statusLabel: Record<string, string> = { active: 'Active', suspended: 'Susp
             <span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium" :class="statusStyle[user.status]">{{ statusLabel[user.status] }}</span>
           </div>
           <div v-if="canManage(user)" class="mt-2 flex gap-2">
-            <button type="button" class="btn-secondary px-3 py-1.5" @click="editing = user">Edit</button>
-            <button v-if="user.id !== auth.user?.id" type="button" class="btn-secondary px-3 py-1.5" @click="resetPassword(user)">Reset password</button>
+            <button v-can="'members'" type="button" class="btn-secondary px-3 py-1.5" @click="editing = user">Edit</button>
+            <button v-can="'members'" v-if="user.id !== auth.user?.id" type="button" class="btn-secondary px-3 py-1.5" @click="resetPassword(user)">Reset password</button>
           </div>
         </li>
       </ul>

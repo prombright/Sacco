@@ -75,8 +75,8 @@ onMounted(load)
         <p class="mt-1 text-sm text-gray-600">Approve, pay out and record repayments. Your own loans are handled by another admin.</p>
       </div>
       <div class="flex flex-wrap gap-2">
-        <button type="button" class="btn-secondary" :disabled="charging" @click="chargePenalties">Charge late-payment penalties</button>
-        <button type="button" class="btn-primary" @click="bringingIn = true">Record a loan from old records</button>
+        <button v-can="'loans'" type="button" class="btn-secondary" :disabled="charging" @click="chargePenalties">Charge late-payment penalties</button>
+        <button v-can="'loans'" type="button" class="btn-primary" @click="bringingIn = true">Record a loan from old records</button>
       </div>
     </div>
     <div v-if="charged" class="mt-4 rounded-lg bg-saffron-50 px-4 py-3 text-sm text-gray-800" role="status">{{ charged }}</div>

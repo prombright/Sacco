@@ -58,7 +58,7 @@ async function end(n: Notice) {
     <h1 class="text-2xl font-bold">Notices</h1>
     <p class="mt-1 text-sm text-gray-600">Tell every member something: AGM dates, rule changes, when payroll goes in. Notices show on members' dashboards.</p>
 
-    <form class="card mt-6 space-y-4 p-5" novalidate @submit.prevent="post">
+    <form v-can="'notices'" class="card mt-6 space-y-4 p-5" novalidate @submit.prevent="post">
       <h2 class="flex items-center gap-2 font-semibold"><MegaphoneIcon class="h-5 w-5 text-saffron-600" />New notice</h2>
       <div v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
       <div><label for="ntitle" class="label">Title</label><input id="ntitle" v-model="form.title" class="input" maxlength="120" placeholder="e.g. Annual General Meeting on 20 December" /></div>
@@ -79,7 +79,7 @@ async function end(n: Notice) {
         <p class="mt-2 whitespace-pre-line text-sm text-gray-700">{{ n.body }}</p>
         <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
           <span>{{ formatDate(n.starts_on) }}<template v-if="n.ends_on"> – {{ formatDate(n.ends_on) }}</template> · by {{ n.created_by_name }}</span>
-          <button v-if="state(n).label !== 'Ended'" type="button" class="btn-ghost px-2 py-1 text-xs" @click="end(n)">Take down</button>
+          <button v-can="'notices'" v-if="state(n).label !== 'Ended'" type="button" class="btn-ghost px-2 py-1 text-xs" @click="end(n)">Take down</button>
         </div>
       </li>
       <li v-if="!notices.length" class="card px-5 py-10 text-center text-sm text-gray-500">No notices yet.</li>

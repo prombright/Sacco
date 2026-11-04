@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { ArrowRightIcon } from '@heroicons/vue/24/outline'
+import { ArrowRightIcon, EyeIcon } from '@heroicons/vue/24/outline'
 import { api } from '@/api'
 import { useAuth } from '@/stores/auth'
 import { useOffice } from '@/stores/office'
@@ -23,7 +23,7 @@ onMounted(async () => {
   }
 })
 
-const items = computed(() => section.value.items.filter((i) => !i.superOnly || auth.isSuperAdmin))
+const items = computed(() => section.value.items.filter((i) => (!i.superOnly || auth.isSuperAdmin) && (!i.needs || auth.can(i.needs))))
 const waitingHere = computed(() => (office.waiting ? items.value.reduce((n, i) => n + (i.badge?.(office.waiting!) ?? 0), 0) : 0))
 </script>
 
@@ -46,6 +46,11 @@ const waitingHere = computed(() => (office.waiting ? items.value.reduce((n, i) =
         {{ waitingHere }} thing{{ waitingHere === 1 ? '' : 's' }} waiting for you here
       </p>
     </div>
+
+    <p v-if="auth.viewOnly" class="mt-4 flex items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3 text-sm text-gray-700">
+      <EyeIcon class="h-5 w-5 shrink-0 text-brand" aria-hidden="true" />
+      Your account can see everything here and download every report. Changes are made by the super admin, and you get a message about each major one.
+    </p>
 
     <!-- Modules -->
     <div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">

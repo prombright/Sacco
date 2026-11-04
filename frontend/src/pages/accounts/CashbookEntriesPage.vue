@@ -117,7 +117,7 @@ const byId = (id: unknown) => entries.value.find((e) => e.id === id)
           <template v-else>What the SACCO spends: stationery, bank charges, meetings, allowances. Each payment goes to an expense account in the chart.</template>
         </p>
       </div>
-      <button type="button" class="btn-primary" @click="start"><PlusIcon class="h-4 w-4" />{{ isIncome ? 'Record a receipt' : 'Record a payment' }}</button>
+      <button v-can="'money'" type="button" class="btn-primary" @click="start"><PlusIcon class="h-4 w-4" />{{ isIncome ? 'Record a receipt' : 'Record a payment' }}</button>
     </div>
 
     <ReportView class="mt-5" :report="report" :busy="busy" :error="error">
@@ -126,7 +126,7 @@ const byId = (id: unknown) => entries.value.find((e) => e.id === id)
         <div><label for="c-to" class="label">To</label><input id="c-to" v-model="to" type="date" class="input" @change="load" /></div>
       </template>
       <template #actions="{ row }">
-        <button v-if="byId(row._id) && !byId(row._id)!.reversed_by && !byId(row._id)!.reversal_of" type="button" class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-100" @click="reversing = byId(row._id)!; reason = ''">
+        <button v-can="'money'" v-if="byId(row._id) && !byId(row._id)!.reversed_by && !byId(row._id)!.reversal_of" type="button" class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-100" @click="reversing = byId(row._id)!; reason = ''">
           <ArrowUturnLeftIcon class="h-3.5 w-3.5" />Reverse
         </button>
       </template>

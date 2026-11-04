@@ -94,7 +94,7 @@ function toggleSection(key: string) {
   next.has(key) ? next.delete(key) : next.add(key)
   open.value = next
 }
-const visibleItems = (s: Section) => s.items.filter((i) => !i.superOnly || auth.isSuperAdmin)
+const visibleItems = (s: Section) => s.items.filter((i) => (!i.superOnly || auth.isSuperAdmin) && (!i.needs || auth.can(i.needs)))
 const itemBadge = (i: SectionItem) => (office.waiting && i.badge ? i.badge(office.waiting) : 0)
 const sectionBadge = (s: Section) => visibleItems(s).reduce((n, i) => n + itemBadge(i), 0)
 const isItemCurrent = (i: SectionItem) => route.name === i.name || !!i.also?.includes(String(route.name))
@@ -306,6 +306,7 @@ async function signOut() {
         <span class="hidden whitespace-nowrap text-sm text-gray-500 xl:inline" :class="auth.isAdmin ? 'ml-4' : 'ml-auto'">
           {{ new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }) }}
         </span>
+        <span v-if="auth.viewOnly" class="ml-2 hidden items-center gap-1 rounded-full bg-navy-50 px-2.5 py-1 text-xs font-semibold text-navy-800 md:inline-flex" title="You can see everything and download reports; changes are made by the super admin">View only</span>
         <NotificationBell :class="auth.isAdmin ? 'ml-2' : 'ml-auto xl:ml-2'" />
       </div>
       <div v-if="auth.isAdmin" class="px-4 pb-3 sm:hidden">

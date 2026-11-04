@@ -108,9 +108,9 @@ async function approve(r: Withdrawal) {
         </div>
         <div class="mt-3 flex flex-wrap gap-2">
           <template v-if="r.user_id !== auth.user?.id">
-            <button v-if="r.status === 'pending'" type="button" class="btn-primary px-3 py-1.5" :disabled="busy" @click="approve(r)">Approve</button>
-            <button v-if="r.status === 'approved'" type="button" class="btn-primary px-3 py-1.5" @click="open('pay', r)">Record cheque</button>
-            <button v-if="r.status === 'pending' || r.status === 'approved'" type="button" class="btn-secondary px-3 py-1.5" @click="open('reject', r)">Reject</button>
+            <button v-can="'money'" v-if="r.status === 'pending'" type="button" class="btn-primary px-3 py-1.5" :disabled="busy" @click="approve(r)">Approve</button>
+            <button v-can="'money'" v-if="r.status === 'approved'" type="button" class="btn-primary px-3 py-1.5" @click="open('pay', r)">Record cheque</button>
+            <button v-can="'money'" v-if="r.status === 'pending' || r.status === 'approved'" type="button" class="btn-secondary px-3 py-1.5" @click="open('reject', r)">Reject</button>
           </template>
           <p v-else-if="r.status === 'pending' || r.status === 'approved'" class="text-sm text-gray-500">Your own request: another admin handles it.</p>
           <RouterLink v-if="r.status === 'paid' || r.status === 'approved'" :to="{ name: 'withdrawal-slip', params: { id: r.id } }" class="btn-secondary px-3 py-1.5">Slip</RouterLink>

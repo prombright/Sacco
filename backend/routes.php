@@ -32,6 +32,8 @@ use Sacco\Http\Router;
 $router = new Router();
 
 $admins = ['roles' => [Roles::ADMIN]];
+// Changes: the super admin, or admins the super admin allowed in that area
+$edit = fn (string $area) => ['roles' => [Roles::ADMIN], 'can' => $area];
 // A member's own money and profile; office accounts have none
 $members = ['members_only' => true];
 
@@ -47,9 +49,9 @@ $router->post('/api/auth/change-password', [AuthController::class, 'changePasswo
 
 // Users (admins manage members; super admins manage everyone)
 $router->get('/api/users', [UserController::class, 'index'], $admins);
-$router->post('/api/users', [UserController::class, 'store'], $admins);
-$router->patch('/api/users/{id}', [UserController::class, 'update'], $admins);
-$router->post('/api/users/{id}/reset-password', [UserController::class, 'resetPassword'], $admins);
+$router->post('/api/users', [UserController::class, 'store'], $edit('members'));
+$router->patch('/api/users/{id}', [UserController::class, 'update'], $edit('members'));
+$router->post('/api/users/{id}/reset-password', [UserController::class, 'resetPassword'], $edit('members'));
 
 // A member's own savings and shares
 $router->get('/api/me/summary', [TransactionController::class, 'mySummary'], $members);
@@ -58,8 +60,8 @@ $router->get('/api/me/transactions', [TransactionController::class, 'myTransacti
 // Admins: members' accounts and recording entries
 $router->get('/api/members/{id}', [TransactionController::class, 'member'], $admins);
 $router->get('/api/members/{id}/transactions', [TransactionController::class, 'memberTransactions'], $admins);
-$router->post('/api/members/{id}/transactions', [TransactionController::class, 'store'], $admins);
-$router->post('/api/transactions/{id}/reverse', [TransactionController::class, 'reverse'], $admins);
+$router->post('/api/members/{id}/transactions', [TransactionController::class, 'store'], $edit('money'));
+$router->post('/api/transactions/{id}/reverse', [TransactionController::class, 'reverse'], $edit('money'));
 
 // Loans - members
 $router->get('/api/loans/quote', [LoanController::class, 'quote'], $members);
@@ -75,12 +77,12 @@ $router->post('/api/guarantees/{id}/decline', [LoanController::class, 'decline']
 
 // Loans - admins
 $router->get('/api/loans', [LoanController::class, 'index'], $admins);
-$router->post('/api/loans/{id}/approve', [LoanController::class, 'approve'], $admins);
-$router->post('/api/loans/{id}/reject', [LoanController::class, 'reject'], $admins);
-$router->post('/api/loans/{id}/disburse', [LoanController::class, 'disburse'], $admins);
-$router->post('/api/loans/{id}/payments', [LoanController::class, 'recordPayment'], $admins);
+$router->post('/api/loans/{id}/approve', [LoanController::class, 'approve'], $edit('loans'));
+$router->post('/api/loans/{id}/reject', [LoanController::class, 'reject'], $edit('loans'));
+$router->post('/api/loans/{id}/disburse', [LoanController::class, 'disburse'], $edit('loans'));
+$router->post('/api/loans/{id}/payments', [LoanController::class, 'recordPayment'], $edit('loans'));
 $router->get('/api/loans/{id}/payment-preview', [LoanController::class, 'previewPayment'], $admins);
-$router->post('/api/loan-payments/{id}/reverse', [LoanController::class, 'reversePayment'], $admins);
+$router->post('/api/loan-payments/{id}/reverse', [LoanController::class, 'reversePayment'], $edit('loans'));
 
 // Savings withdrawals (paid by cheque)
 $router->get('/api/me/withdrawals', [WithdrawalController::class, 'mine'], $members);
@@ -88,17 +90,17 @@ $router->post('/api/withdrawals', [WithdrawalController::class, 'store'], $membe
 $router->get('/api/withdrawals/{id}', [WithdrawalController::class, 'show']);
 $router->post('/api/withdrawals/{id}/cancel', [WithdrawalController::class, 'cancel'], $members);
 $router->get('/api/withdrawals', [WithdrawalController::class, 'index'], $admins);
-$router->post('/api/withdrawals/{id}/approve', [WithdrawalController::class, 'approve'], $admins);
-$router->post('/api/withdrawals/{id}/reject', [WithdrawalController::class, 'reject'], $admins);
-$router->post('/api/withdrawals/{id}/pay', [WithdrawalController::class, 'pay'], $admins);
+$router->post('/api/withdrawals/{id}/approve', [WithdrawalController::class, 'approve'], $edit('money'));
+$router->post('/api/withdrawals/{id}/reject', [WithdrawalController::class, 'reject'], $edit('money'));
+$router->post('/api/withdrawals/{id}/pay', [WithdrawalController::class, 'pay'], $edit('money'));
 
 // Payroll uploads
 $router->get('/api/payroll/members', [PayrollController::class, 'members'], $admins);
 $router->post('/api/payroll/preview', [PayrollController::class, 'preview'], $admins);
 $router->get('/api/payroll/batches', [PayrollController::class, 'index'], $admins);
-$router->post('/api/payroll/batches', [PayrollController::class, 'post'], $admins);
+$router->post('/api/payroll/batches', [PayrollController::class, 'post'], $edit('money'));
 $router->get('/api/payroll/batches/{id}', [PayrollController::class, 'show'], $admins);
-$router->post('/api/payroll/batches/{id}/reverse', [PayrollController::class, 'reverse'], $admins);
+$router->post('/api/payroll/batches/{id}/reverse', [PayrollController::class, 'reverse'], $edit('money'));
 
 // The office at a glance
 $router->get('/api/office/counts', [OfficeController::class, 'counts'], $admins);
@@ -110,7 +112,7 @@ $router->get('/api/members/{id}/statement', [TransactionController::class, 'memb
 
 // Bringing in many members at once from Excel
 $router->post('/api/members/import/preview', [MemberImportController::class, 'preview'], $admins);
-$router->post('/api/members/import', [MemberImportController::class, 'import'], $admins);
+$router->post('/api/members/import', [MemberImportController::class, 'import'], $edit('members'));
 
 // Dividends on share capital; payouts are made by the super admin
 $super = ['roles' => [Roles::SUPER_ADMIN]];
@@ -139,29 +141,29 @@ $router->get('/api/reports/{name}', [ReportController::class, 'show'], $admins);
 $router->get('/api/loan-products', [ProductController::class, 'index']);
 $router->post('/api/loan-products', [ProductController::class, 'store'], ['roles' => [Roles::SUPER_ADMIN]]);
 $router->patch('/api/loan-products/{id}', [ProductController::class, 'update'], ['roles' => [Roles::SUPER_ADMIN]]);
-$router->post('/api/loans/penalties/run', [LoanController::class, 'runPenalties'], $admins);
-$router->post('/api/loans/existing', [LoanController::class, 'recordExisting'], $admins);
-$router->post('/api/loans/{id}/settle', [LoanController::class, 'settle'], $admins);
-$router->post('/api/loan-charges/{id}/waive', [LoanController::class, 'waiveCharge'], $admins);
+$router->post('/api/loans/penalties/run', [LoanController::class, 'runPenalties'], $edit('loans'));
+$router->post('/api/loans/existing', [LoanController::class, 'recordExisting'], $edit('loans'));
+$router->post('/api/loans/{id}/settle', [LoanController::class, 'settle'], $edit('loans'));
+$router->post('/api/loan-charges/{id}/waive', [LoanController::class, 'waiveCharge'], $edit('loans'));
 
 // Member details: next of kin, own profile, leaving the SACCO
 $router->get('/api/me/profile', [MemberDetailsController::class, 'myProfile'], $members);
 $router->post('/api/me/next-of-kin', [MemberDetailsController::class, 'save'], $members);
 $router->get('/api/members/{id}/next-of-kin', [MemberDetailsController::class, 'index'], $admins);
-$router->post('/api/members/{id}/next-of-kin', [MemberDetailsController::class, 'save'], $admins);
+$router->post('/api/members/{id}/next-of-kin', [MemberDetailsController::class, 'save'], $edit('members'));
 $router->get('/api/members/{id}/exit', [MemberExitController::class, 'quote'], $admins);
-$router->post('/api/members/{id}/exit', [MemberExitController::class, 'close'], $admins);
+$router->post('/api/members/{id}/exit', [MemberExitController::class, 'close'], $edit('members'));
 
 // The SACCO's own income and expenses
 $router->get('/api/cashbook', [CashbookController::class, 'index'], $admins);
-$router->post('/api/cashbook', [CashbookController::class, 'store'], $admins);
-$router->post('/api/cashbook/{id}/reverse', [CashbookController::class, 'reverse'], $admins);
+$router->post('/api/cashbook', [CashbookController::class, 'store'], $edit('money'));
+$router->post('/api/cashbook/{id}/reverse', [CashbookController::class, 'reverse'], $edit('money'));
 
 // Notices to members
 $router->get('/api/notices/current', [NoticeController::class, 'current']);
 $router->get('/api/notices', [NoticeController::class, 'index'], $admins);
-$router->post('/api/notices', [NoticeController::class, 'store'], $admins);
-$router->delete('/api/notices/{id}', [NoticeController::class, 'end'], $admins);
+$router->post('/api/notices', [NoticeController::class, 'store'], $edit('notices'));
+$router->delete('/api/notices/{id}', [NoticeController::class, 'end'], $edit('notices'));
 
 // Messages to members (the bell)
 $router->get('/api/me/notifications', [NotificationController::class, 'index']);
@@ -190,25 +192,26 @@ $router->get('/api/accounting/accounts', [AccountingController::class, 'accounts
 $router->post('/api/accounting/accounts', [AccountingController::class, 'createAccount'], $super);
 $router->patch('/api/accounting/accounts/{id}', [AccountingController::class, 'updateAccount'], $super);
 $router->get('/api/accounting/journal', [AccountingController::class, 'journal'], $admins);
-$router->post('/api/accounting/journal', [AccountingController::class, 'createJournal'], $admins);
-$router->post('/api/accounting/journal/{id}/reverse', [AccountingController::class, 'reverseJournal'], $admins);
+$router->post('/api/accounting/journal', [AccountingController::class, 'createJournal'], $edit('money'));
+$router->post('/api/accounting/journal/{id}/reverse', [AccountingController::class, 'reverseJournal'], $edit('money'));
 $router->post('/api/accounting/rebuild', [AccountingController::class, 'rebuild'], $super);
 $router->get('/api/accounting/reports/{name}', [AccountingController::class, 'report'], $admins);
+$router->get('/api/accounting/annual', [AccountingController::class, 'annual'], $admins);
 
 // Internal transfers, every transaction, and backups
 $router->get('/api/transfers', [TransferController::class, 'index'], $admins);
-$router->post('/api/transfers', [TransferController::class, 'store'], $admins);
-$router->post('/api/transfers/{id}/reverse', [TransferController::class, 'reverse'], $admins);
+$router->post('/api/transfers', [TransferController::class, 'store'], $edit('money'));
+$router->post('/api/transfers/{id}/reverse', [TransferController::class, 'reverse'], $edit('money'));
 $router->get('/api/transactions', [TransactionController::class, 'all'], $admins);
 $router->get('/api/backup', [BackupController::class, 'download'], $super);
 
 // The yearly membership fee
 $router->get('/api/membership-fees', [MembershipFeeController::class, 'index'], $admins);
-$router->post('/api/membership-fees/charge', [MembershipFeeController::class, 'charge'], $admins);
-$router->post('/api/membership-fees/collect', [MembershipFeeController::class, 'collect'], $admins);
-$router->post('/api/membership-fees/{id}/pay', [MembershipFeeController::class, 'pay'], $admins);
-$router->post('/api/membership-fees/{id}/waive', [MembershipFeeController::class, 'waive'], $admins);
-$router->post('/api/membership-fees/{id}/undo', [MembershipFeeController::class, 'undo'], $admins);
+$router->post('/api/membership-fees/charge', [MembershipFeeController::class, 'charge'], $edit('money'));
+$router->post('/api/membership-fees/collect', [MembershipFeeController::class, 'collect'], $edit('money'));
+$router->post('/api/membership-fees/{id}/pay', [MembershipFeeController::class, 'pay'], $edit('money'));
+$router->post('/api/membership-fees/{id}/waive', [MembershipFeeController::class, 'waive'], $edit('money'));
+$router->post('/api/membership-fees/{id}/undo', [MembershipFeeController::class, 'undo'], $edit('money'));
 $router->get('/api/me/membership-fees', [MembershipFeeController::class, 'mine'], $members);
 $router->get('/api/office/sections', [OfficeController::class, 'sections'], $admins);
 

@@ -58,7 +58,7 @@ async function run() {
 <template>
   <div>
     <template v-if="route.meta.report">
-      <p class="eyebrow">Member reports</p>
+      <p class="eyebrow">Reports</p>
       <h1 class="mt-1 text-2xl font-bold">{{ route.meta.title }}</h1>
       <p class="mt-1 text-gray-600">{{ selected?.description }}</p>
     </template>

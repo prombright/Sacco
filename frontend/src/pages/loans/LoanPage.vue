@@ -205,11 +205,11 @@ function installmentState(i: Installment) {
 
         <div class="mt-4 flex flex-wrap gap-2">
           <template v-if="canAdmin">
-            <button v-if="loan.status === 'pending_approval'" type="button" class="btn-primary" :disabled="busy" @click="open('approve')">Approve…</button>
-            <button v-if="loan.status === 'approved'" type="button" class="btn-primary" @click="open('disburse')">Record the payout</button>
-            <button v-if="loan.status === 'active'" type="button" class="btn-primary" @click="open('payment')">Record a repayment</button>
-            <button v-if="loan.status === 'active' && loan.settlement" type="button" class="btn-secondary" @click="open('settle')">Pay off early</button>
-            <button v-if="['pending_guarantors', 'pending_approval', 'approved'].includes(loan.status)" type="button" class="btn-secondary" @click="open('reject')">Reject</button>
+            <button v-can="'loans'" v-if="loan.status === 'pending_approval'" type="button" class="btn-primary" :disabled="busy" @click="open('approve')">Approve…</button>
+            <button v-can="'loans'" v-if="loan.status === 'approved'" type="button" class="btn-primary" @click="open('disburse')">Record the payout</button>
+            <button v-can="'loans'" v-if="loan.status === 'active'" type="button" class="btn-primary" @click="open('payment')">Record a repayment</button>
+            <button v-can="'loans'" v-if="loan.status === 'active' && loan.settlement" type="button" class="btn-secondary" @click="open('settle')">Pay off early</button>
+            <button v-can="'loans'" v-if="['pending_guarantors', 'pending_approval', 'approved'].includes(loan.status)" type="button" class="btn-secondary" @click="open('reject')">Reject</button>
           </template>
           <template v-if="isOwner">
             <button v-if="loan.status === 'pending_guarantors'" type="button" class="btn-primary" @click="open('guarantor')">Ask another guarantor</button>
@@ -284,7 +284,7 @@ function installmentState(i: Installment) {
               <span v-if="!c.waived_at" class="text-xs font-semibold" :class="Number(c.paid) >= Number(c.amount) ? 'text-emerald-700' : 'text-amber-700'">
                 {{ Number(c.paid) >= Number(c.amount) ? 'Paid' : `${formatMoney(String(Number(c.amount) - Number(c.paid)))} to pay` }}
               </span>
-              <button v-if="canAdmin && !c.waived_at && Number(c.paid) < Number(c.amount)" type="button" class="btn-ghost px-2 py-1" @click="waiving = c; open('waive')">Waive</button>
+              <button v-can="'loans'" v-if="canAdmin && !c.waived_at && Number(c.paid) < Number(c.amount)" type="button" class="btn-ghost px-2 py-1" @click="waiving = c; open('waive')">Waive</button>
             </div>
           </li>
         </ul>
@@ -306,7 +306,7 @@ function installmentState(i: Installment) {
               </p>
               <p class="text-gray-600">{{ formatDate(p.paid_on) }}<template v-if="p.reference"> · {{ p.reference }}</template><template v-if="p.narration"> · {{ p.narration }}</template><template v-if="p.created_by_name"> · by {{ p.created_by_name }}</template></p>
             </div>
-            <button v-if="canAdmin && !p.reversal_of && !p.reversed_by" type="button" class="btn-ghost px-2 py-1" @click="open('reverse', p)">Reverse</button>
+            <button v-can="'loans'" v-if="canAdmin && !p.reversal_of && !p.reversed_by" type="button" class="btn-ghost px-2 py-1" @click="open('reverse', p)">Reverse</button>
           </li>
         </ul>
       </section>

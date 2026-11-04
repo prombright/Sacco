@@ -15,6 +15,16 @@ const app = createApp(App)
 app.use(createPinia())
 app.use(router)
 
+/**
+ * v-can="'money'": hides a change button from office accounts not allowed in that area (the
+ * server refuses them anyway). Members acting on their own account always see their buttons.
+ */
+const toggleCan = (el: HTMLElement, area: string) => {
+  const auth = useAuth()
+  el.style.display = !auth.user || auth.user.role === 'member' || auth.can(area) ? '' : 'none'
+}
+app.directive<HTMLElement, string>('can', { mounted: (el, b) => toggleCan(el, b.value), updated: (el, b) => toggleCan(el, b.value) })
+
 // Light, dark or follow the device (already applied before the page drew; this keeps it in step)
 useTheme()
 

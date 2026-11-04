@@ -138,7 +138,7 @@ async function reverse() {
         <h1 class="mt-1 text-2xl font-bold">Journal entries</h1>
         <p class="mt-1 max-w-3xl text-gray-600">Deposits, loans, repayments, withdrawals, payroll and dividends post here by themselves. Add your own entries for anything else, such as bank charges or corrections. Debits must equal credits.</p>
       </div>
-      <button type="button" class="btn-primary" @click="startAdding"><PlusIcon class="h-4 w-4" />New journal entry</button>
+      <button v-can="'money'" type="button" class="btn-primary" @click="startAdding"><PlusIcon class="h-4 w-4" />New journal entry</button>
     </div>
 
     <ReportView class="mt-5" :report="report" :busy="busy" :error="error">
@@ -159,7 +159,7 @@ async function reverse() {
         <template v-if="row._kind === 'subtotal' && entryOf(row)">
           <span v-if="entryOf(row)!.auto" class="rounded bg-gray-100 px-1.5 py-0.5 text-[11px] font-semibold text-gray-600">System</span>
           <span v-else-if="entryOf(row)!.reversed_by || entryOf(row)!.reversal_of" class="rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800">{{ entryOf(row)!.reversal_of ? 'Reversal' : 'Reversed' }}</span>
-          <button v-else type="button" class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-100" @click="reversing = entryOf(row)!; reason = ''">
+          <button v-can="'money'" v-else type="button" class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-100" @click="reversing = entryOf(row)!; reason = ''">
             <ArrowUturnLeftIcon class="h-3.5 w-3.5" />Reverse
           </button>
         </template>

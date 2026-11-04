@@ -82,6 +82,8 @@ const router = createRouter({
         { path: 'accounts/balance-sheet', name: 'balance-sheet', component: () => import('@/pages/accounts/FinancialReportPage.vue'), meta: { admin: true, title: 'Balance sheet', report: 'balance_sheet' } },
         { path: 'accounts/income-statement', name: 'income-statement', component: () => import('@/pages/accounts/FinancialReportPage.vue'), meta: { admin: true, title: 'Income statement', report: 'income_statement' } },
         { path: 'accounts/ledger', name: 'account-ledger', component: () => import('@/pages/accounts/FinancialReportPage.vue'), meta: { admin: true, title: 'Account ledger', report: 'account_ledger' } },
+        { path: 'reports/annual', name: 'annual-report', component: () => import('@/pages/accounts/AnnualReportPage.vue'), meta: { admin: true, title: 'Annual report' } },
+        { path: 'reports/audit', name: 'audit-report', component: () => import('@/pages/admin/ReportsPage.vue'), meta: { admin: true, title: 'Audit report', report: 'audit' } },
         { path: 'accounts/chart', name: 'chart', component: () => import('@/pages/accounts/ChartOfAccountsPage.vue'), meta: { admin: true, title: 'Chart of accounts' } },
         // Administration
         { path: 'admin/loan-interest', name: 'loan-interest', component: () => import('@/pages/accounts/FinancialReportPage.vue'), meta: { admin: true, title: 'Monthly loan interest', report: 'loan_interest' } },

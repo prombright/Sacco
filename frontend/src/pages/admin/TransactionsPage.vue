@@ -115,7 +115,7 @@ async function reverse() {
         <div><label for="x-to" class="label">To</label><input id="x-to" v-model="to" type="date" class="input" @change="page = 1; load()" /></div>
       </template>
       <template #actions="{ row }">
-        <button v-if="canReverse(byId(row._id))" type="button" class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-100" @click="reversing = byId(row._id)!; reason = ''; reverseError = ''">
+        <button v-can="'money'" v-if="canReverse(byId(row._id))" type="button" class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-100" @click="reversing = byId(row._id)!; reason = ''; reverseError = ''">
           <ArrowUturnLeftIcon class="h-3.5 w-3.5" />Reverse
         </button>
       </template>

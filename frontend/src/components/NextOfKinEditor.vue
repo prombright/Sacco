@@ -55,7 +55,7 @@ function cancel() {
         <h2 class="font-semibold">Next of kin</h2>
         <p class="mt-1 text-sm text-gray-600">Who receives the savings and shares if the member dies.</p>
       </div>
-      <button v-if="!editing" type="button" class="btn-secondary px-3 py-1.5" @click="editing = true; rows.length || add()">{{ people.length ? 'Change' : 'Add' }}</button>
+      <button v-can="'members'" v-if="!editing" type="button" class="btn-secondary px-3 py-1.5" @click="editing = true; rows.length || add()">{{ people.length ? 'Change' : 'Add' }}</button>
     </div>
 
     <template v-if="!editing">

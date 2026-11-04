@@ -142,7 +142,7 @@ const byId = (id: unknown) => list.value?.transfers.find((t) => t.id === id)
     <h1 class="mt-1 text-2xl font-bold">Internal transfers</h1>
     <p class="mt-1 max-w-3xl text-gray-600">Move money between accounts without cash. The same rules as a withdrawal apply: the minimum savings stay, pledged savings stay, and members keep their minimum shares.</p>
 
-    <section class="card mt-5 p-5">
+    <section v-can="'money'" class="card mt-5 p-5">
       <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-4" role="radiogroup" aria-label="Kind of transfer">
         <button
           v-for="k in kinds"
@@ -217,7 +217,7 @@ const byId = (id: unknown) => list.value?.transfers.find((t) => t.id === id)
     <ReportView class="mt-6" :report="report">
       <template #actions="{ row }">
         <span v-if="byId(row._id)?.status === 'reversed'" class="rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800">Reversed</span>
-        <button v-else type="button" class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-100" @click="reversing = byId(row._id)!; reason = ''; reverseError = ''">
+        <button v-can="'money'" v-else type="button" class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-100" @click="reversing = byId(row._id)!; reason = ''; reverseError = ''">
           <ArrowUturnLeftIcon class="h-3.5 w-3.5" />Reverse
         </button>
       </template>

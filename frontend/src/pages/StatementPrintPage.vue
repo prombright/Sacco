@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { PrinterIcon } from '@heroicons/vue/24/outline'
+import { DocumentArrowDownIcon, PrinterIcon, TableCellsIcon } from '@heroicons/vue/24/outline'
+import type { Report } from '@/reports'
+import { downloadPdfBook, downloadWorkbook } from '@/exporters'
 import { api, ApiError } from '@/api'
 import { useAuth } from '@/stores/auth'
 import { formatDate, formatMoney, transactionTypeLabel } from '@/money'
@@ -51,6 +53,61 @@ const sections = computed(() =>
 function printIt() {
   window.print()
 }
+
+/** The statement as documents: savings, shares and loans, each a section of one PDF or workbook */
+const making = ref(false)
+function asReports(): Report[] {
+  const d = data.value!
+  const who = `${d.member.full_name} · ${d.member.account_no}`
+  const period = `${formatDate(d.from)} to ${formatDate(d.to)}`
+  const account = (title: string, a: AccountStatement): Report => ({
+    title: `${title}: ${who}`,
+    subtitle: `${period} · money in ${formatMoney(a.money_in)} · money out ${formatMoney(a.money_out)}`,
+    columns: [
+      { key: 'date', label: 'Date', type: 'date' },
+      { key: 'entry', label: 'Entry', type: 'text' },
+      { key: 'details', label: 'Details', type: 'text' },
+      { key: 'amount', label: 'Amount', type: 'money' },
+      { key: 'balance', label: 'Balance', type: 'money' },
+    ],
+    rows: [
+      { date: d.from, entry: '', details: 'Opening balance', amount: null, balance: a.opening, _kind: 'subtotal' },
+      ...a.rows.map((r) => ({ date: r.date, entry: transactionTypeLabel[r.type] ?? r.type, details: r.details, amount: r.amount, balance: r.balance })),
+      { date: d.to, entry: '', details: 'Closing balance', amount: null, balance: a.closing, _kind: 'total' },
+    ],
+    totals: null,
+  })
+  return [
+    account('Savings', d.accounts.savings),
+    account('Share capital', d.accounts.shares),
+    {
+      title: `Loans: ${who}`,
+      subtitle: `As at ${formatDate(d.to)}`,
+      columns: [
+        { key: 'loan_no', label: 'Loan', type: 'text' },
+        { key: 'disbursed_on', label: 'Paid out', type: 'date' },
+        { key: 'months', label: 'Months', type: 'number' },
+        { key: 'status', label: 'Status', type: 'text' },
+        { key: 'amount', label: 'Amount', type: 'money' },
+        { key: 'paid', label: 'Repaid', type: 'money' },
+        { key: 'total_left', label: 'Still owed', type: 'money' },
+      ],
+      rows: d.loans,
+      totals: null,
+    },
+  ]
+}
+async function download(kind: 'pdf' | 'excel') {
+  if (!data.value) return
+  making.value = true
+  const who = { sacco: auth.sacco, user: auth.user?.full_name ?? null }
+  const title = `statement ${data.value.member.account_no} ${data.value.from} ${data.value.to}`
+  try {
+    await (kind === 'pdf' ? downloadPdfBook(asReports(), who, title) : downloadWorkbook(asReports(), who, title))
+  } finally {
+    making.value = false
+  }
+}
 </script>
 
 <template>
@@ -60,7 +117,11 @@ function printIt() {
       <div><label for="from" class="label">From</label><input id="from" v-model="from" type="date" class="input" /></div>
       <div><label for="to" class="label">To</label><input id="to" v-model="to" type="date" class="input" /></div>
       <button type="button" class="btn-secondary" @click="load">Show</button>
-      <button type="button" class="btn-primary ml-auto" :disabled="!data" @click="printIt"><PrinterIcon class="h-4 w-4" />Print or save as PDF</button>
+      <div class="ml-auto flex flex-wrap gap-2">
+        <button type="button" class="btn-primary" :disabled="!data || making" @click="download('pdf')"><DocumentArrowDownIcon class="h-4 w-4" />Download PDF</button>
+        <button type="button" class="btn-secondary" :disabled="!data || making" @click="download('excel')"><TableCellsIcon class="h-4 w-4" />Excel</button>
+        <button type="button" class="btn-secondary" :disabled="!data" @click="printIt"><PrinterIcon class="h-4 w-4" />Print</button>
+      </div>
     </div>
 
     <div v-if="error" class="mx-auto max-w-4xl rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{{ error }}</div>

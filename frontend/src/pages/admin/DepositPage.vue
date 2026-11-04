@@ -69,7 +69,7 @@ const report = computed<Report>(() => ({
     <h1 class="mt-1 text-2xl font-bold">Deposit</h1>
     <p class="mt-1 text-gray-600">Money a member pays in outside the payroll, in cash or by bank slip. It goes to the bank account in the books.</p>
 
-    <form class="card mt-5 grid gap-4 p-5 lg:grid-cols-2" @submit.prevent="save">
+    <form v-can="'money'" class="card mt-5 grid gap-4 p-5 lg:grid-cols-2" @submit.prevent="save">
       <div class="space-y-2 lg:col-span-2">
         <p class="label">Member</p>
         <div v-if="member" class="flex items-center justify-between rounded-xl border border-line p-3">

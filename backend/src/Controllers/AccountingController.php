@@ -266,6 +266,134 @@ final class AccountingController
         Response::ok(['entries' => $count]);
     }
 
+    // --- The annual report --------------------------------------------------------------------
+
+    /**
+     * GET /api/accounting/annual?year= - the year for the AGM and the auditors: key figures, the
+     * income statement, the balance sheet at the year end, loans issued, and payouts to members.
+     */
+    public function annual(Request $request): never
+    {
+        $year = (int) ($request->query('year') ?: date('Y'));
+        if ($year < 2000 || $year > (int) date('Y')) {
+            Response::error('Choose a year.', 422);
+        }
+        $db = Database::tenant();
+        Books::sync($db);
+        $from = "$year-01-01";
+        $to = min("$year-12-31", date('Y-m-d'));
+        $one = function (string $sql, array $args) use ($db) {
+            $s = $db->prepare($sql);
+            $s->execute($args);
+            return $s->fetchColumn();
+        };
+        $cents = fn ($v) => Money::fromDecimal($v);
+        $notReversed = 'AND NOT EXISTS (SELECT 1 FROM transactions r WHERE r.reversal_of = t.id)';
+
+        // The books at the start and end of the year
+        $end = Books::totals($db, $to);
+        $start = Books::totals($db, date('Y-m-d', strtotime("$from -1 day")));
+        $bal = function (string $key, array $totals) use ($db) {
+            $a = $db->prepare('SELECT * FROM gl_accounts WHERE system_key = ?');
+            $a->execute([$key]);
+            return Books::balance($a->fetch(), $totals);
+        };
+        $is = $this->income_statement($db, $from, $to);
+        $income = $expense = $interest = 0;
+        $yt = Books::totals($db, $to, $from);
+        foreach (Books::chart($db) as $a) {
+            if ($a['type'] === 'income') {
+                $income += Books::balance($a, $yt);
+                if ($a['system_key'] === 'interest_income') {
+                    $interest = Books::balance($a, $yt);
+                }
+            } elseif ($a['type'] === 'expense') {
+                $expense += Books::balance($a, $yt);
+            }
+        }
+
+        $joined = (int) $one("SELECT COUNT(*) FROM users WHERE role = 'member' AND COALESCE(joined_on, DATE(created_at)) BETWEEN ? AND ?", [$from, $to]);
+        $left = (int) $one('SELECT COUNT(*) FROM member_exits WHERE exit_date BETWEEN ? AND ?', [$from, $to]);
+        $membersEnd = (int) $one("SELECT COUNT(*) FROM users u WHERE u.role = 'member' AND COALESCE(u.joined_on, DATE(u.created_at)) <= ?
+            AND NOT EXISTS (SELECT 1 FROM member_exits x WHERE x.user_id = u.id AND x.exit_date <= ?)", [$to, $to]);
+        $loanCount = (int) $one("SELECT COUNT(*) FROM loans WHERE source = 'applied' AND disbursed_on BETWEEN ? AND ?", [$from, $to]);
+        $loanAmount = $cents($one("SELECT COALESCE(SUM(amount), 0) FROM loans WHERE source = 'applied' AND disbursed_on BETWEEN ? AND ?", [$from, $to]));
+        $repaid = $cents($one("SELECT COALESCE(SUM(p.amount), 0) FROM loan_payments p JOIN loans l ON l.id = p.loan_id
+            WHERE p.paid_on BETWEEN ? AND ? AND NOT (l.source = 'old_records' AND p.reference = 'Old records')", [$from, $to]));
+        $deposits = $cents($one("SELECT COALESCE(SUM(t.amount), 0) FROM transactions t WHERE t.type = 'deposit' AND t.value_date BETWEEN ? AND ? $notReversed", [$from, $to]));
+        $withdrawn = -$cents($one("SELECT COALESCE(SUM(t.amount), 0) FROM transactions t WHERE t.type = 'withdrawal' AND t.value_date BETWEEN ? AND ? $notReversed", [$from, $to]));
+        $dividends = $cents($one("SELECT COALESCE(SUM(total_dividend), 0) FROM dividend_runs WHERE kind = 'dividend' AND status = 'posted' AND value_date BETWEEN ? AND ?", [$from, $to]));
+        $profit = $cents($one("SELECT COALESCE(SUM(total_dividend), 0) FROM dividend_runs WHERE kind = 'profit' AND status = 'posted' AND value_date BETWEEN ? AND ?", [$from, $to]));
+        $fees = $cents($one("SELECT COALESCE(SUM(amount), 0) FROM membership_fees WHERE year = ? AND status = 'paid'", [$year]));
+
+        $row = fn ($item, $amount = null, $number = null, $kind = null) => array_filter(['item' => $item, 'amount' => $amount === null ? null : Money::toDecimal($amount), 'number' => $number, '_kind' => $kind], fn ($v) => $v !== null);
+        $key = [
+            $row('Members', null, null, 'heading'),
+            $row('Members at the end of the year', null, $membersEnd),
+            $row('Joined during the year', null, $joined),
+            $row('Left during the year', null, $left),
+            $row('Members\' money', null, null, 'heading'),
+            $row('Savings at the start of the year', $bal('member_savings', $start)),
+            $row('Savings at the end of the year', $bal('member_savings', $end)),
+            $row('Share capital at the end of the year', $bal('share_capital', $end)),
+            $row('Deposits during the year (payroll and cash)', $deposits),
+            $row('Withdrawals during the year', $withdrawn),
+            $row('Loans', null, null, 'heading'),
+            $row('Loans issued during the year', $loanAmount, $loanCount),
+            $row('Repaid during the year', $repaid),
+            $row('Owed by members at the end of the year (principal)', $bal('loans', $end)),
+            $row('Results', null, null, 'heading'),
+            $row('Loan interest earned', $interest),
+            $row('Total income', $income),
+            $row('Total expenses', $expense),
+            $row($income - $expense >= 0 ? 'Surplus for the year' : 'Deficit for the year', $income - $expense, null, 'subtotal'),
+            $row('Paid to members', null, null, 'heading'),
+            $row('Dividends on shares', $dividends),
+            $row('Investment profit shared', $profit),
+            $row('Membership fees collected', $fees),
+        ];
+
+        $loans = $db->prepare(
+            "SELECT l.loan_no, u.full_name, u.account_no, l.disbursed_on, p.name AS product, l.months, l.amount, l.status
+             FROM loans l JOIN users u ON u.id = l.user_id LEFT JOIN loan_products p ON p.id = l.product_id
+             WHERE l.source = 'applied' AND l.disbursed_on BETWEEN ? AND ? ORDER BY l.disbursed_on"
+        );
+        $loans->execute([$from, $to]);
+        $loanRows = $loans->fetchAll();
+        $runs = $db->prepare("SELECT label, kind, value_date, member_count, total_dividend FROM dividend_runs WHERE status = 'posted' AND value_date BETWEEN ? AND ? ORDER BY value_date");
+        $runs->execute([$from, $to]);
+        $runRows = array_map(fn ($r) => ['label' => $r['label'], 'kind' => $r['kind'] === 'profit' ? 'Investment profit' : 'Dividend', 'value_date' => $r['value_date'], 'members' => (int) $r['member_count'], 'amount' => $r['total_dividend']], $runs->fetchAll());
+
+        $period = date('j F Y', strtotime($from)) . ' to ' . date('j F Y', strtotime($to));
+        $bs = $this->balance_sheet($db, $to);
+        Response::ok([
+            'year' => $year,
+            'period' => $period,
+            'highlights' => [
+                'members' => $membersEnd,
+                'savings' => Money::toDecimal($bal('member_savings', $end)),
+                'shares' => Money::toDecimal($bal('share_capital', $end)),
+                'loans_issued' => Money::toDecimal($loanAmount),
+                'income' => Money::toDecimal($income),
+                'surplus' => Money::toDecimal($income - $expense),
+                'balanced' => $bs['balanced'],
+            ],
+            'reports' => [
+                ['title' => "Key figures $year", 'subtitle' => $period, 'columns' => [['key' => 'item', 'label' => 'Item', 'type' => 'text'], ['key' => 'number', 'label' => 'Number', 'type' => 'number'], ['key' => 'amount', 'label' => 'Amount', 'type' => 'money']], 'rows' => $key, 'totals' => null],
+                $is + ['title' => "Income statement $year"],
+                $bs + ['title' => 'Balance sheet at ' . date('j F Y', strtotime($to))],
+                ['title' => "Loans issued in $year", 'subtitle' => count($loanRows) . (count($loanRows) === 1 ? ' loan' : ' loans') . ', paid out ' . $period, 'columns' => [
+                    ['key' => 'loan_no', 'label' => 'Loan', 'type' => 'text'], ['key' => 'full_name', 'label' => 'Member', 'type' => 'text'], ['key' => 'account_no', 'label' => 'Account no.', 'type' => 'text'],
+                    ['key' => 'disbursed_on', 'label' => 'Paid out', 'type' => 'date'], ['key' => 'product', 'label' => 'Type', 'type' => 'text'], ['key' => 'months', 'label' => 'Months', 'type' => 'number'], ['key' => 'amount', 'label' => 'Amount', 'type' => 'money'],
+                ], 'rows' => $loanRows, 'totals' => ['amount' => Money::toDecimal($loanAmount)]],
+                ['title' => "Dividends and profit shared in $year", 'subtitle' => $period, 'columns' => [
+                    ['key' => 'label', 'label' => 'Payout', 'type' => 'text'], ['key' => 'kind', 'label' => 'Kind', 'type' => 'text'], ['key' => 'value_date', 'label' => 'Credited', 'type' => 'date'],
+                    ['key' => 'members', 'label' => 'Members', 'type' => 'number'], ['key' => 'amount', 'label' => 'Amount', 'type' => 'money'],
+                ], 'rows' => $runRows, 'totals' => ['amount' => Money::toDecimal($dividends + $profit)]],
+            ],
+        ]);
+    }
+
     // --- Statements ----------------------------------------------------------------------------
 
     /** GET /api/accounting/reports/{name}?as_of= | from=&to= | month= | account_id= */

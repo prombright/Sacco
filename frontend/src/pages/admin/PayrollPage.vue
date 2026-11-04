@@ -230,7 +230,7 @@ function reset() {
 
         <div class="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
           <p v-if="report.error_count" class="text-sm text-red-700 sm:mr-auto">Fix the rows marked ✕ in the file and upload it again. Nothing has been saved.</p>
-          <button type="button" class="btn-primary" :disabled="busy || report.error_count > 0 || report.posted_rows === 0" @click="post">
+          <button v-can="'money'" type="button" class="btn-primary" :disabled="busy || report.error_count > 0 || report.posted_rows === 0" @click="post">
             {{ busy ? 'Posting…' : `Post ${report.posted_rows} members` }}
           </button>
         </div>
