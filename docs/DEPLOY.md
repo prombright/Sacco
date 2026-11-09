@@ -70,6 +70,17 @@ cPanel → Cron Jobs → add, once a day at 02:00:
 Backups go to `~/sacco/backend/storage/backups/`, 30 days are kept. Download one now and then
 to keep a copy away from the server. To restore: `gunzip -c file.sql.gz | mysql -u USER -p DBNAME`.
 
+Loan reminders and credit standings run by themselves once a day (on the first look at the bell).
+To send them at a set time instead, add a second cron job, e.g. 07:00:
+
+```
+0 7 * * * /usr/local/bin/php /home/smacon/sacco/backend/bin/daily.php >/dev/null 2>&1
+```
+
+Members can upload photos up to 5 MB: in cPanel -> MultiPHP INI Editor, set `upload_max_filesize`
+and `post_max_size` to at least 6M. After the first deploy with migration 017, run
+`php backend/bin/rebuild-loans.php` once so past repayments count towards credit standings.
+
 ## 5. Updating later
 
 ```
