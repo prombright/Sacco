@@ -101,7 +101,7 @@ final class Router
             Response::error('Please sign in.', 401);
         }
         if ($request->method !== 'GET' && !hash_equals(Auth::csrfToken(), $request->header('X-CSRF-Token'))) {
-            Response::error('Your session has expired. Please refresh the page.', 419);
+            Response::error('Your session has expired. Please refresh the page.', 403, ['code' => 'session_expired']);
         }
         if ($user['must_change_password'] && empty($options['before_password'])) {
             Response::error('Please change your temporary password first.', 403, ['code' => 'must_change_password']);
@@ -125,7 +125,7 @@ final class Router
             Response::error('Please sign in to the developer portal.', 401);
         }
         if ($request->method !== 'GET' && !hash_equals(Auth::csrfToken(), $request->header('X-CSRF-Token'))) {
-            Response::error('Your session has expired. Please refresh the page.', 419);
+            Response::error('Your session has expired. Please refresh the page.', 403, ['code' => 'session_expired']);
         }
         if ($developer['must_change_password'] && empty($options['before_password'])) {
             Response::error('Please change your temporary password first.', 403, ['code' => 'must_change_password']);

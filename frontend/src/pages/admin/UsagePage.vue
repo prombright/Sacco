@@ -5,12 +5,16 @@ import {
   ComputerDesktopIcon,
   DevicePhoneMobileIcon,
   DeviceTabletIcon,
+  DocumentArrowDownIcon,
   ExclamationTriangleIcon,
+  TableCellsIcon,
 } from '@heroicons/vue/24/outline'
 import { api, ApiError } from '@/api'
 import { useAuth } from '@/stores/auth'
 import { useTheme } from '@/stores/theme'
 import { formatDate } from '@/money'
+import type { Report } from '@/reports'
+import { downloadPdfBook, downloadWorkbook } from '@/exporters'
 import CountUp from '@/components/CountUp.vue'
 import TwoStepCard from '@/components/TwoStepCard.vue'
 
@@ -74,6 +78,95 @@ function ago(at: string | null) {
 }
 const device = (ua: string | null) => (/iPad|Tablet/i.test(ua ?? '') ? 'Tablet' : /Mobile|Android|iPhone/i.test(ua ?? '') ? 'Phone' : 'Computer')
 const why: Record<string, string> = { wrong_password: 'Wrong password', unknown_login: 'No such account', locked: 'Account locked', inactive: 'Account not active', wrong_two_step_code: 'Wrong two-step code' }
+// --- The security report: everything on this page, for the committee and the auditors ---
+const making = ref<'' | 'pdf' | 'excel'>('')
+function reports(): Report[] {
+  const d = data.value!
+  const period = `The last ${d.days} days, to ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`
+  const text = (key: string, label: string) => ({ key, label, type: 'text' as const })
+  const num = (key: string, label: string) => ({ key, label, type: 'number' as const })
+  return [
+    {
+      title: 'Security check',
+      subtitle: `${score.value} of ${d.checks.length} checks pass`,
+      columns: [text('result', 'Result'), text('check', 'Check'), text('note', 'Details')],
+      rows: d.checks.map((c) => ({ result: c.ok ? 'Pass' : 'Needs attention', check: c.label, note: c.note })),
+      totals: null,
+    },
+    {
+      title: 'Sign-in summary',
+      subtitle: period,
+      columns: [text('item', 'Item'), num('value', 'Number')],
+      rows: [
+        { item: 'Active members', value: d.totals.members },
+        { item: 'Members who signed in', value: d.totals.active_members },
+        { item: 'Members who have never signed in', value: d.totals.never_signed_in },
+        { item: 'Successful sign-ins', value: d.totals.sign_ins },
+        { item: 'Failed sign-ins', value: d.totals.failed },
+        { item: 'Accounts locked now', value: d.totals.locked },
+        { item: 'Actions recorded in the audit log', value: d.totals.actions },
+        ...Object.entries(d.devices).map(([k, v]) => ({ item: `Sign-ins from a ${k.toLowerCase()}`, value: v })),
+      ],
+      totals: null,
+    },
+    {
+      title: 'Office accounts',
+      subtitle: 'Super admins and admins',
+      columns: [text('full_name', 'Name'), text('email', 'Email'), text('role', 'Role'), text('status', 'Status'), text('two_step', 'Two-step sign-in'), text('last', 'Last signed in')],
+      rows: d.office.map((u) => ({ ...u, two_step: u.two_step ? 'On' : 'Off', last: ago(u.last_login_at) })),
+      totals: null,
+    },
+    {
+      title: 'Failed sign-ins',
+      subtitle: period,
+      columns: [text('login', 'Login tried'), text('why', 'Reason'), text('ip', 'Internet address'), num('n', 'Times'), text('last', 'Last try')],
+      rows: d.failures.map((f) => ({ login: f.login, why: why[f.reason ?? ''] ?? f.reason, ip: f.ip, n: f.n, last: f.last_at })),
+      totals: null,
+    },
+    {
+      title: 'Sign-ins each day',
+      subtitle: period,
+      columns: [{ key: 'date', label: 'Date', type: 'date' }, num('ok', 'Signed in'), num('failed', 'Failed')],
+      rows: [...d.daily].reverse(),
+      totals: { ok: String(d.totals.sign_ins), failed: String(d.daily.reduce((s, x) => s + x.failed, 0)) },
+    },
+    {
+      title: 'Busiest areas',
+      subtitle: period,
+      columns: [text('area', 'Area'), num('count', 'Actions')],
+      rows: d.areas,
+      totals: null,
+    },
+  ]
+}
+async function exportReport(kind: 'pdf' | 'excel') {
+  if (!data.value) return
+  making.value = kind
+  const who = { sacco: auth.sacco, user: auth.user?.full_name ?? null }
+  const title = `${auth.sacco?.short_name ?? 'SACCO'} security report`
+  try {
+    if (kind === 'pdf') {
+      await downloadPdfBook(reports(), who, title, {
+        title: 'Security report',
+        subtitle: `The last ${data.value.days} days`,
+        note: 'Who uses the system and how well it is protected',
+        highlights: [
+          ['Checks passed', `${score.value} of ${data.value.checks.length}`],
+          ['Members signing in', `${adoption.value}%`],
+          ['Successful sign-ins', String(data.value.totals.sign_ins)],
+          ['Failed sign-ins', String(data.value.totals.failed)],
+          ['Accounts locked', String(data.value.totals.locked)],
+          ['Office accounts with two-step', `${data.value.office.filter((u) => u.two_step).length} of ${data.value.office.length}`],
+        ],
+      })
+    } else {
+      await downloadWorkbook(reports(), who, title)
+    }
+  } finally {
+    making.value = ''
+  }
+}
+
 async function unlock(u: { id: number }) {
   await api.post(`/users/${u.id}/unlock`)
   await load()
@@ -88,8 +181,12 @@ async function unlock(u: { id: number }) {
           <p class="text-xs font-semibold uppercase tracking-wider text-saffron-300">Settings</p>
           <h1 class="mt-1 text-3xl font-bold">Usage &amp; security</h1>
           <p class="mt-1 max-w-xl text-navy-100/80">Who is using the system, when and on what, and how well it is protected.</p>
-          <div class="mt-4 flex rounded-lg bg-white/10 p-0.5 text-sm font-semibold backdrop-blur sm:w-max" role="radiogroup" aria-label="Period">
+          <div class="mt-4 flex flex-wrap items-center gap-2">
+            <div class="flex rounded-lg bg-white/10 p-0.5 text-sm font-semibold backdrop-blur sm:w-max" role="radiogroup" aria-label="Period">
             <button v-for="d in ([7, 30, 90] as const)" :key="d" type="button" role="radio" :aria-checked="days === d" class="flex-1 whitespace-nowrap rounded-md px-3 py-1.5" :class="days === d ? 'bg-white text-navy-900' : 'text-white/80 hover:text-white'" @click="days = d">{{ d }} days</button>
+          </div>
+            <button type="button" class="btn-accent" :disabled="!data || !!making" @click="exportReport('pdf')"><DocumentArrowDownIcon class="h-4 w-4" :class="{ 'animate-pulse': making === 'pdf' }" />Security report (PDF)</button>
+            <button type="button" class="btn border border-white/25 bg-white/10 text-white hover:bg-white/20" :disabled="!data || !!making" @click="exportReport('excel')"><TableCellsIcon class="h-4 w-4" :class="{ 'animate-pulse': making === 'excel' }" />Excel</button>
           </div>
         </div>
         <div v-if="data" class="flex items-center gap-4">

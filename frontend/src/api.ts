@@ -61,8 +61,8 @@ async function request<T>(method: string, url: string, body?: unknown, params?: 
     const status = err.response?.status ?? 0
     const payload = err.response?.data
     // The developer portal deals with its own sign-in
-    if (!isDev(url) && (status === 401 || status === 419 || payload?.errors?.code === 'must_change_password')) {
-      onAuthProblem(status, payload?.errors?.code)
+    if (!isDev(url) && (status === 401 || payload?.errors?.code === 'session_expired' || payload?.errors?.code === 'must_change_password')) {
+      onAuthProblem(payload?.errors?.code === 'session_expired' ? 419 : status, payload?.errors?.code)
     }
     throw new ApiError(
       payload?.message ?? (status === 0 ? 'Can\'t reach the server. Check your connection.' : 'Something went wrong.'),
