@@ -4,12 +4,15 @@ import {
   ArrowRightIcon,
   ArrowUpTrayIcon,
   BanknotesIcon,
+  CheckBadgeIcon,
   CheckCircleIcon,
   DocumentTextIcon,
   EyeIcon,
   EyeSlashIcon,
   IdentificationIcon,
   LockClosedIcon,
+  SparklesIcon,
+  TrophyIcon,
   UserCircleIcon,
   UserGroupIcon,
 } from '@heroicons/vue/24/outline'
@@ -22,6 +25,8 @@ import NoticeBoard from '@/components/NoticeBoard.vue'
 import EarningsCard from '@/components/EarningsCard.vue'
 import MonthChart from '@/components/MonthChart.vue'
 import CountUp from '@/components/CountUp.vue'
+import HeroParticles from '@/components/HeroParticles.vue'
+import Sparkline from '@/components/Sparkline.vue'
 import { formatDate, formatMoney } from '@/money'
 
 interface ActiveLoan {
@@ -116,6 +121,31 @@ const progress = (l: ActiveLoan) => {
 }
 const ring = 2 * Math.PI * 34
 
+// A little fun with the numbers: a level for what's saved, and badges along the way
+const LEVELS = [
+  { name: 'Seedling', from: 0, tone: 'from-emerald-400 to-emerald-700' },
+  { name: 'Bronze saver', from: 500_000, tone: 'from-amber-500 to-amber-800' },
+  { name: 'Silver saver', from: 2_000_000, tone: 'from-slate-400 to-slate-600' },
+  { name: 'Gold saver', from: 5_000_000, tone: 'from-saffron-400 to-saffron-600' },
+  { name: 'Platinum saver', from: 10_000_000, tone: 'from-sky-400 to-sky-700' },
+  { name: 'Diamond saver', from: 25_000_000, tone: 'from-violet-400 to-violet-700' },
+]
+const levelIndex = computed(() => LEVELS.reduce((best, l, i) => (total.value >= l.from ? i : best), 0))
+const level = computed(() => LEVELS[levelIndex.value])
+const nextLevel = computed(() => LEVELS[levelIndex.value + 1] ?? null)
+const levelProgress = computed(() => (nextLevel.value ? Math.min(100, ((total.value - level.value.from) / (nextLevel.value.from - level.value.from)) * 100) : 100))
+const badges = computed(() => {
+  const d = data.value!
+  return [
+    { label: 'First savings', icon: BanknotesIcon, earned: savings.value > 0 },
+    { label: 'Full shareholder', icon: CheckBadgeIcon, earned: d.share_position.min_shares > 0 && Number(d.share_position.still_needed) <= 0 },
+    { label: 'Dividend earner', icon: SparklesIcon, earned: Number(d.dividends_total) > 0 },
+    { label: 'Colleague\'s guarantor', icon: UserGroupIcon, earned: Number(d.pledged) > 0 },
+    { label: 'Loan on track', icon: CheckCircleIcon, earned: d.loans.length > 0 && d.loans.every((l) => Number(l.overdue) <= 0) },
+    { label: 'Fee paid', icon: IdentificationIcon, earned: d.membership_fee?.status === 'paid' },
+  ]
+})
+
 const actions = [
   { label: 'Apply for a loan', to: { name: 'loan-apply' }, icon: BanknotesIcon },
   { label: 'Withdraw savings', to: { name: 'withdrawals' }, icon: ArrowUpTrayIcon },
@@ -166,9 +196,8 @@ const actions = [
     <template v-if="data">
       <!-- What I have, and what I can borrow -->
       <section class="mt-6 grid gap-4 lg:grid-cols-3" aria-label="Balances">
-        <div class="reveal relative min-w-0 overflow-hidden rounded-3xl bg-gradient-to-br from-navy-800 via-navy-900 to-navy-950 p-6 text-white shadow-lift lg:col-span-2">
-          <div class="absolute -right-20 -top-24 h-64 w-64 rounded-full border-2 border-saffron-400/70" aria-hidden="true" />
-          <div class="absolute -bottom-28 right-24 h-56 w-56 rounded-full bg-saffron-400/10" aria-hidden="true" />
+        <div class="hero-panel reveal relative min-w-0 overflow-hidden rounded-3xl p-6 text-white shadow-lift lg:col-span-2">
+          <HeroParticles />
           <div class="relative flex items-start justify-between gap-4">
             <div>
               <p class="text-sm text-navy-100/80">My money in the SACCO</p>
@@ -196,6 +225,7 @@ const actions = [
               <div>
                 <p class="text-sm text-navy-100/80">Savings</p>
                 <p class="text-xl font-semibold"><CountUp :value="data.balances.savings" :format="show" :delay="200" /></p>
+                <Sparkline class="mt-1.5" :values="data.trend.savings.map((p) => Number(p.value))" color="#c2c7f2" label="Savings" :width="120" :height="26" />
               </div>
             </div>
             <div class="flex items-start gap-2.5">
@@ -203,6 +233,7 @@ const actions = [
               <div>
                 <p class="text-sm text-navy-100/80">Share capital</p>
                 <p class="text-xl font-semibold"><CountUp :value="data.balances.shares" :format="show" :delay="350" /></p>
+                <Sparkline class="mt-1.5" :values="data.trend.shares.map((p) => Number(p.value))" color="#f2b934" label="Share capital" :width="120" :height="26" />
                 <p v-if="data.share_position.min_shares > 0 && data.share_position.shares !== null" class="mt-0.5 flex items-center gap-1 text-xs" :class="Number(data.share_position.still_needed) > 0 ? 'text-saffron-300' : 'text-navy-100/80'">
                   <CheckCircleIcon v-if="Number(data.share_position.still_needed) <= 0" class="h-3.5 w-3.5" aria-hidden="true" />
                   {{ data.share_position.shares }} share{{ data.share_position.shares === 1 ? '' : 's' }}<template v-if="Number(data.share_position.still_needed) > 0"> · {{ show(data.share_position.still_needed) }} more to reach {{ data.share_position.min_shares }}</template><template v-else> · minimum of {{ data.share_position.min_shares }} reached</template>
@@ -251,6 +282,27 @@ const actions = [
             <p class="mt-3 text-sm text-gray-500">Keep saving: the more you save, the more you'll be able to borrow.</p>
             <RouterLink :to="{ name: 'loans' }" class="btn-secondary mt-auto w-full !mt-6">See my loans</RouterLink>
           </template>
+        </div>
+      </section>
+
+      <!-- Saver level and achievements -->
+      <section class="reveal mt-4 rounded-2xl border border-line bg-surface p-5 shadow-card" style="--i: 2">
+        <div class="flex flex-wrap items-center gap-5">
+          <span class="medal inline-flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-lift" :class="level.tone"><TrophyIcon class="relative z-10 h-8 w-8" aria-hidden="true" /></span>
+          <div class="min-w-[14rem] flex-1">
+            <p class="eyebrow">My saver level</p>
+            <p class="text-xl font-bold">{{ level.name }}</p>
+            <template v-if="nextLevel">
+              <div class="mt-2 h-2 overflow-hidden rounded-full bg-gray-100"><div class="fill-bar h-full rounded-full bg-gradient-to-r" :class="level.tone" :style="{ width: levelProgress + '%' }" /></div>
+              <p class="mt-1 text-xs text-gray-500">{{ hidden ? 'Keep saving' : `${formatMoney(String(nextLevel.from - total))} more` }} to reach {{ nextLevel.name }}</p>
+            </template>
+            <p v-else class="mt-1 text-xs text-gray-500">The top level. Well done!</p>
+          </div>
+          <ul class="flex flex-wrap gap-2" aria-label="Achievements">
+            <li v-for="(b, n) in badges" :key="b.label" class="badge-pop inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold" :style="{ '--i': n }" :class="b.earned ? 'bg-saffron-100 text-saffron-700' : 'bg-gray-100 text-gray-400'" :title="b.earned ? 'Earned' : 'Not yet'">
+              <component :is="b.icon" class="h-4 w-4" aria-hidden="true" />{{ b.label }}
+            </li>
+          </ul>
         </div>
       </section>
 

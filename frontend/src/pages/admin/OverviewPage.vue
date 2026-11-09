@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import {
   ArrowDownLeftIcon,
   ArrowUpRightIcon,
@@ -19,6 +19,9 @@ import { loanStatus } from '@/loans'
 import type { LoanStatus } from '@/types'
 import MonthChart from '@/components/MonthChart.vue'
 import CountUp from '@/components/CountUp.vue'
+import DonutChart from '@/components/DonutChart.vue'
+import HeroParticles from '@/components/HeroParticles.vue'
+import Sparkline from '@/components/Sparkline.vue'
 import { useTheme } from '@/stores/theme'
 
 interface Overview {
@@ -99,6 +102,35 @@ const totalOut = computed(() => moneyOut.value.reduce((s, r) => s + Number(r.val
 const statusOrder: LoanStatus[] = ['pending_guarantors', 'pending_approval', 'approved', 'active', 'closed']
 const loanCount = computed(() => statusOrder.reduce((s, k) => s + (data.value?.loans_by_status[k]?.count ?? 0), 0))
 const hoverStatus = ref<LoanStatus | null>(null)
+// Four open stages, in an order that keeps neighbouring colours distinguishable; validated per theme
+const pieColors = computed<Partial<Record<LoanStatus, string>>>(() => theme.dark
+  ? { active: '#1fa883', pending_guarantors: '#b8800c', pending_approval: '#c8549f', approved: '#6b78ec' }
+  : { active: '#0e8f6e', pending_guarantors: '#c98a08', pending_approval: '#b4408f', approved: '#3a46c4' })
+const slices = computed(() => (['active', 'pending_guarantors', 'pending_approval', 'approved'] as LoanStatus[]).map((k) => ({
+  key: k,
+  label: loanStatus[k].label,
+  value: data.value?.loans_by_status[k]?.count ?? 0,
+  color: pieColors.value[k]!,
+})))
+const openLoans = computed(() => slices.value.reduce((n, s) => n + s.value, 0))
+
+// The hero
+const clock = ref('')
+const tick = () => (clock.value = new Date().toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' }))
+tick()
+const clockTimer = setInterval(tick, 1000)
+onBeforeUnmount(() => clearInterval(clockTimer))
+const fundsChange = computed(() => {
+  const f = data.value?.funds
+  if (!f || f.length < 2 || !Number(f[f.length - 2].value)) return null
+  return Math.round(((Number(f[f.length - 1].value) - Number(f[f.length - 2].value)) / Number(f[f.length - 2].value)) * 100)
+})
+const ringLen = 2 * Math.PI * 42
+const onTime = computed(() => {
+  const t = data.value?.totals
+  if (!t || !Number(t.loans_outstanding)) return 100
+  return Math.max(0, Math.round((1 - Number(t.arrears) / Number(t.loans_outstanding)) * 100))
+})
 
 // The charts: the last 6 or 12 months
 const range = ref<6 | 12>(12)
@@ -138,24 +170,36 @@ const money = (v: number) => formatMoney(String(v))
 
 <template>
   <div>
-    <div class="flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <p class="eyebrow">SACCO office</p>
-        <h1 class="mt-1 text-2xl font-bold sm:text-3xl">{{ greeting }}, {{ auth.user?.full_name.split(' ')[0] }}</h1>
-        <p class="mt-1 text-gray-600">
-          <template v-if="data">
-            <template v-if="urgent">{{ urgent }} kind{{ urgent === 1 ? '' : 's' }} of thing{{ urgent === 1 ? ' is' : 's are' }} waiting for you.</template>
-            <template v-else>Everything is up to date.</template>
-          </template>
-        </p>
-        <p v-if="auth.isSuperAdmin" class="mt-2 inline-flex items-center gap-1.5 rounded-full bg-saffron-50 px-3 py-1 text-xs font-medium text-saffron-700">
-          <ShieldCheckIcon class="h-4 w-4" aria-hidden="true" />Every change you make is sent to the other office accounts
-        </p>
-      </div>
-      <div class="flex flex-wrap gap-2">
-        <RouterLink v-can="'notices'" :to="{ name: 'notices' }" class="btn-secondary"><MegaphoneIcon class="h-4 w-4" />Post a notice</RouterLink>
-        <RouterLink v-can="'members'" :to="{ name: 'member-import' }" class="btn-secondary"><UserPlusIcon class="h-4 w-4" />Import members</RouterLink>
-        <RouterLink v-can="'money'" :to="{ name: 'payroll' }" class="btn-primary"><ArrowUpTrayIcon class="h-4 w-4" />Post this month's payroll</RouterLink>
+    <div class="hero-panel relative overflow-hidden rounded-3xl p-6 text-white shadow-lift sm:p-8">
+      <HeroParticles />
+      <div class="relative grid gap-6 lg:grid-cols-[1.25fr_1fr] lg:items-center">
+        <div class="min-w-0">
+          <p class="text-xs font-semibold uppercase tracking-wider text-saffron-300">SACCO office · <span class="tabular-nums">{{ clock }}</span></p>
+          <h1 class="mt-1 text-3xl font-bold sm:text-4xl">{{ greeting }}, {{ auth.user?.full_name.split(' ')[0] }}</h1>
+          <p class="mt-2 text-navy-100/85">
+            <template v-if="data">
+              <template v-if="urgent">{{ urgent }} kind{{ urgent === 1 ? '' : 's' }} of thing{{ urgent === 1 ? ' is' : 's are' }} waiting for you.</template>
+              <template v-else>Everything is up to date.</template>
+            </template>
+          </p>
+          <p v-if="auth.isSuperAdmin" class="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-navy-100 backdrop-blur">
+            <ShieldCheckIcon class="h-4 w-4 text-saffron-300" aria-hidden="true" />Every change you make is sent to the other office accounts
+          </p>
+          <div class="mt-5 flex flex-wrap gap-2">
+            <RouterLink v-can="'money'" :to="{ name: 'payroll' }" class="btn-accent"><ArrowUpTrayIcon class="h-4 w-4" />Post this month's payroll</RouterLink>
+            <RouterLink v-can="'members'" :to="{ name: 'member-import' }" class="btn border border-white/25 bg-white/10 text-white backdrop-blur hover:bg-white/20"><UserPlusIcon class="h-4 w-4" />Import members</RouterLink>
+            <RouterLink v-can="'notices'" :to="{ name: 'notices' }" class="btn border border-white/25 bg-white/10 text-white backdrop-blur hover:bg-white/20"><MegaphoneIcon class="h-4 w-4" />Post a notice</RouterLink>
+          </div>
+        </div>
+        <div v-if="data" class="rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur">
+          <div class="flex items-start justify-between gap-3">
+            <p class="text-xs font-semibold uppercase tracking-wider text-navy-100/80">Member funds</p>
+            <span v-if="fundsChange !== null" class="rounded-full px-2 py-0.5 text-xs font-semibold" :class="fundsChange >= 0 ? 'bg-emerald-400/20 text-emerald-200' : 'bg-red-400/25 text-red-100'">{{ fundsChange >= 0 ? '+' : '' }}{{ fundsChange }}% this month</span>
+          </div>
+          <p class="mt-1 text-3xl font-bold sm:text-4xl"><CountUp :value="funds" :duration="1500" /></p>
+          <Sparkline class="mt-3 w-full" :values="data.funds.map((p) => Number(p.value))" color="#f2b934" label="Member funds" :width="320" :height="48" />
+          <p class="mt-2 text-xs text-navy-100/80">Savings {{ formatMoney(data.totals.savings) }} · Shares {{ formatMoney(data.totals.shares) }}</p>
+        </div>
       </div>
     </div>
 
@@ -191,13 +235,21 @@ const money = (v: number) => formatMoney(String(v))
 
       <!-- Headline figures -->
       <section class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Headline figures">
-        <div class="reveal relative overflow-hidden rounded-2xl bg-navy-900 p-5 text-white shadow-lift">
-          <div class="absolute -right-14 -top-16 h-32 w-32 rounded-full border-2 border-saffron-400/90" aria-hidden="true" />
-          <p class="text-xs font-semibold uppercase tracking-wider text-navy-200">Member funds</p>
-          <p class="mt-2 text-2xl font-bold"><CountUp :value="funds" :duration="1500" /></p>
-          <p class="mt-1 text-xs text-navy-200">Savings {{ formatMoney(data.totals.savings) }} · Shares {{ formatMoney(data.totals.shares) }}</p>
+        <div class="reveal card flex items-center gap-4 p-5" data-tilt>
+          <span class="relative inline-flex h-20 w-20 shrink-0 items-center justify-center">
+            <svg viewBox="0 0 100 100" class="h-20 w-20 -rotate-90" aria-hidden="true">
+              <circle cx="50" cy="50" r="42" fill="none" stroke-width="10" class="stroke-gray-100" />
+              <circle cx="50" cy="50" r="42" fill="none" stroke-width="10" stroke-linecap="round" class="ring-fill stroke-emerald-600" :style="{ '--ring': ringLen }" :stroke-dasharray="ringLen" :stroke-dashoffset="ringLen * (1 - onTime / 100)" />
+            </svg>
+            <span class="absolute text-base font-bold"><CountUp :value="onTime" :format="(n: number) => `${n}%`" /></span>
+          </span>
+          <div>
+            <p class="eyebrow">Loans on time</p>
+            <p class="mt-1 text-sm text-gray-600">How much of what is owed isn't late</p>
+          </div>
         </div>
         <div class="reveal card p-5" style="--i: 1">
+          <div class="float-right"><Sparkline :values="data.collections.map((p) => Number(p.value))" :color="chartColors.amber" label="Repayments collected" :width="84" :height="34" /></div>
           <p class="eyebrow">Loans outstanding</p>
           <p class="figure mt-2 text-2xl"><CountUp :value="data.totals.loans_outstanding" :delay="150" /></p>
           <p class="mt-1 text-xs text-gray-500">{{ data.totals.active_loans }} active loan{{ data.totals.active_loans === 1 ? '' : 's' }}</p>
@@ -276,17 +328,7 @@ const money = (v: number) => formatMoney(String(v))
             <h2 class="font-semibold">Loans</h2>
             <RouterLink :to="{ name: 'admin-loans' }" class="text-sm font-semibold text-brand hover:underline">All loans</RouterLink>
           </div>
-          <div v-if="loanCount" class="mt-4 flex h-3 gap-0.5 overflow-hidden rounded-full" role="img" :aria-label="`${loanCount} loans by status`">
-            <div
-              v-for="s in statusOrder.filter((k) => data!.loans_by_status[k]?.count)"
-              :key="s"
-              class="h-full transition-opacity"
-              :class="[loanStatus[s].dot, hoverStatus && hoverStatus !== s ? 'opacity-30' : '']"
-              :style="{ width: (data!.loans_by_status[s]!.count / loanCount) * 100 + '%' }"
-              @pointerenter="hoverStatus = s"
-              @pointerleave="hoverStatus = null"
-            />
-          </div>
+          <DonutChart v-if="loanCount" class="mt-4" :slices="slices" :active="hoverStatus" :center="String(openLoans)" caption="open loans" @hover="(k) => (hoverStatus = k as LoanStatus | null)" />
           <ul class="mt-3 divide-y divide-line text-sm">
             <li
               v-for="s in statusOrder"
@@ -297,7 +339,7 @@ const money = (v: number) => formatMoney(String(v))
               @pointerleave="hoverStatus = null"
             >
               <span class="flex items-center gap-2">
-                <span class="inline-block h-2 w-2 rounded-full" :class="loanStatus[s].dot" aria-hidden="true" />
+                <span class="inline-block h-2.5 w-2.5 rounded-sm" :style="{ background: pieColors[s] ?? '#a8a29e' }" aria-hidden="true" />
                 {{ loanStatus[s].label }}
               </span>
               <span class="text-right">
@@ -325,7 +367,7 @@ const money = (v: number) => formatMoney(String(v))
               @click="filter = f.key"
             >{{ f.label }}</button>
           </div>
-          <ol class="mt-3 max-h-80 space-y-1 overflow-y-auto pr-1 text-sm [scrollbar-width:thin]">
+          <ol class="mt-3 max-h-80 space-y-1 overflow-y-auto overflow-x-hidden pl-2 pr-1 text-sm [scrollbar-width:thin]">
             <li v-for="(r, i) in activity" :key="i">
               <component :is="r.link ? 'RouterLink' : 'div'" :to="r.link ?? undefined" class="-mx-2 flex gap-3 rounded-lg px-2 py-1.5" :class="{ 'hover:bg-gray-50': r.link }">
                 <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full" :class="r.actor_role === 'super_admin' ? 'bg-saffron-500' : 'bg-navy-200'" aria-hidden="true" />

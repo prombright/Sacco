@@ -90,6 +90,7 @@ const router = createRouter({
         { path: 'accounts/bank-reconciliation/:id(\\d+)', name: 'bank-rec-detail', component: () => import('@/pages/accounts/BankRecPage.vue'), meta: { admin: true, title: 'Bank reconciliation' } },
         { path: 'receipts', name: 'receipts-mine', component: () => import('@/pages/ReceiptsPage.vue'), meta: { member: true, title: 'My receipts' } },
         { path: 'members/:id(\\d+)/receipts', name: 'member-receipts', component: () => import('@/pages/ReceiptsPage.vue'), meta: { admin: true, title: 'Receipts' } },
+        { path: 'admin/usage', name: 'usage', component: () => import('@/pages/admin/UsagePage.vue'), meta: { admin: true, title: 'Usage & security' } },
         // Administration
         { path: 'admin/loan-interest', name: 'loan-interest', component: () => import('@/pages/accounts/FinancialReportPage.vue'), meta: { admin: true, title: 'Monthly loan interest', report: 'loan_interest' } },
         { path: 'admin/transactions', name: 'transactions', component: () => import('@/pages/admin/TransactionsPage.vue'), meta: { admin: true, title: 'Transactions & reversals' } },

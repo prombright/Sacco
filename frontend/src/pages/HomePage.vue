@@ -129,7 +129,7 @@ const loginTo = computed(() => (auth.user ? (auth.isAdmin ? '/office' : '/') : '
 </script>
 
 <template>
-  <div class="min-h-screen bg-paper">
+  <div class="min-h-screen bg-paper" data-motion>
     <!-- Top bar -->
     <header class="absolute inset-x-0 top-0 z-30">
       <nav class="mx-auto flex max-w-7xl items-center gap-4 px-4 py-4 sm:px-6 lg:px-8" aria-label="Home">
@@ -276,7 +276,7 @@ const loginTo = computed(() => (auth.user ? (auth.isAdmin ? '/office' : '/') : '
             </div>
           </div>
         </div>
-        <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-navy-800 to-navy-950 p-6 text-white shadow-lift lg:col-span-2">
+        <div class="relative overflow-hidden rounded-2xl bg-brand p-6 text-white shadow-lift lg:col-span-2">
           <div class="absolute -right-16 -top-16 h-44 w-44 rounded-full border-2 border-saffron-400/80" aria-hidden="true" />
           <p class="text-sm text-navy-100/80">You'd pay about</p>
           <p class="mt-1 text-5xl font-bold tabular-nums">{{ plan ? money(plan.payment) : '—' }}</p>
@@ -346,7 +346,7 @@ const loginTo = computed(() => (auth.user ? (auth.isAdmin ? '/office' : '/') : '
 
     <!-- Call to action -->
     <section class="px-4 pb-16 sm:px-6 lg:px-8">
-      <div class="relative mx-auto max-w-7xl overflow-hidden rounded-3xl bg-gradient-to-r from-navy-700 to-navy-950 px-8 py-14 text-center text-white shadow-lift">
+      <div class="relative mx-auto max-w-7xl overflow-hidden rounded-3xl bg-brand px-8 py-14 text-center text-white shadow-lift">
         <div class="absolute -left-20 -top-20 h-64 w-64 rounded-full border-2 border-saffron-400/50" aria-hidden="true" />
         <div class="absolute -bottom-24 -right-16 h-72 w-72 rounded-full bg-saffron-400/10" aria-hidden="true" />
         <h2 class="relative text-3xl font-bold sm:text-4xl">{{ terms?.sacco.slogan ?? 'Save together. Grow together.' }}</h2>

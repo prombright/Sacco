@@ -353,7 +353,7 @@ final class DevController
         $temporary = Passwords::temporary();
         $user = Tenant::actAs($s, function (\PDO $db) use ($userId, $temporary) {
             $u = $this->user($db, $userId);
-            $db->prepare('UPDATE users SET password_hash = ?, must_change_password = 1, password_changed_at = NOW(), failed_attempts = 0, locked_until = NULL WHERE id = ?')
+            $db->prepare('UPDATE users SET password_hash = ?, must_change_password = 1, password_changed_at = NOW(), totp_secret = NULL, totp_enabled_at = NULL, totp_last_step = NULL, totp_recovery = NULL, failed_attempts = 0, locked_until = NULL WHERE id = ?')
                 ->execute([Passwords::hash($temporary), $userId]);
             return $u;
         });

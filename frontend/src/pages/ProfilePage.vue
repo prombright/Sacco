@@ -4,6 +4,7 @@ import { api, ApiError } from '@/api'
 import type { NextOfKin, User } from '@/types'
 import MemberDetails from '@/components/MemberDetails.vue'
 import NextOfKinEditor from '@/components/NextOfKinEditor.vue'
+import TwoStepCard from '@/components/TwoStepCard.vue'
 
 /** A member's own details and next of kin */
 const user = ref<User | null>(null)
@@ -30,5 +31,6 @@ onMounted(async () => {
       <MemberDetails :user="user" />
       <NextOfKinEditor :people="kin" save-url="/me/next-of-kin" @saved="kin = $event" />
     </div>
+    <TwoStepCard class="mt-6" />
   </div>
 </template>

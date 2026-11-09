@@ -5,6 +5,7 @@ import { ArrowLeftIcon, CheckCircleIcon, ExclamationTriangleIcon, InformationCir
 import { api, ApiError } from '@/api'
 import { useAuth } from '@/stores/auth'
 import { ask } from '@/confirm'
+import { confetti } from '@/motion'
 import { formatDate, formatMoney } from '@/money'
 import type { Report } from '@/reports'
 import ReportView from '@/components/ReportView.vue'
@@ -112,6 +113,7 @@ const allShownTicked = computed(() => items.value.length > 0 && items.value.ever
 
 const complete = () => run(async () => {
   data.value = await api.post<Detail>(`/bank-recs/${id.value}/complete`)
+  confetti()
 })
 const reopen = () => run(async () => {
   if (!await ask('Reopen this reconciliation so its ticks can be changed?')) return

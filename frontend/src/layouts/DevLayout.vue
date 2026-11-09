@@ -67,7 +67,11 @@ async function change() {
     </header>
 
     <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-      <RouterView />
+      <RouterView v-slot="{ Component, route: page }">
+        <Transition name="page" mode="out-in">
+          <component :is="Component" :key="page.path" />
+        </Transition>
+      </RouterView>
     </main>
 
     <Modal v-if="changing" title="Change my password" @close="changing = false">

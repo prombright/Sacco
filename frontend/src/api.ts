@@ -1,4 +1,5 @@
 import axios, { AxiosError } from 'axios'
+import { netDone, netStart } from '@/motion'
 
 /**
  * The API client. Every reply is { success, data } or { success: false, message, errors };
@@ -46,7 +47,12 @@ export function handleAuthProblems(handler: typeof onAuthProblem) {
   onAuthProblem = handler
 }
 
+// Background checks (the bell, the menu counts) don't move the progress bar
+const isBackground = (url: string) => /^\/(me\/notifications|office\/counts)/.test(url)
+
 async function request<T>(method: string, url: string, body?: unknown, params?: Record<string, unknown>): Promise<T> {
+  const tracked = !isBackground(url)
+  if (tracked) netStart()
   try {
     const res = await http.request({ method, url, data: body, params })
     return res.data.data as T
@@ -63,6 +69,8 @@ async function request<T>(method: string, url: string, body?: unknown, params?: 
       status,
       payload?.errors ?? {},
     )
+  } finally {
+    if (tracked) netDone()
   }
 }
 

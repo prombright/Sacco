@@ -28,6 +28,8 @@ use Sacco\Controllers\WithdrawalController;
 use Sacco\Controllers\SettingsController;
 use Sacco\Controllers\TransactionController;
 use Sacco\Controllers\TransferController;
+use Sacco\Controllers\TwoStepController;
+use Sacco\Controllers\UsageController;
 use Sacco\Controllers\UserController;
 use Sacco\Http\Router;
 
@@ -44,6 +46,8 @@ $router->get('/api/sacco', [AuthController::class, 'sacco'], ['auth' => false]);
 $router->get('/api/auth/me', [AuthController::class, 'me'], ['auth' => false]);
 $router->post('/api/auth/login', [AuthController::class, 'login'], ['auth' => false]);
 $router->get('/api/public/terms', [PublicController::class, 'terms'], ['auth' => false]);
+
+$router->post('/api/auth/two-step', [AuthController::class, 'twoStep'], ['auth' => false]);
 
 // Signed in, even before the temporary password is changed
 $router->post('/api/auth/logout', [AuthController::class, 'logout'], ['before_password' => true]);
@@ -231,6 +235,14 @@ $router->delete('/api/bank-recs/{id}', [BankRecController::class, 'destroy'], $e
 $router->get('/api/me/receipts', [ReceiptController::class, 'mine'], $members);
 $router->get('/api/members/{id}/receipts', [ReceiptController::class, 'member'], $admins);
 $router->get('/api/receipts/{no}', [ReceiptController::class, 'show']);
+
+// Usage, and two-step sign-in for your own account
+$router->get('/api/office/usage', [UsageController::class, 'index'], $admins);
+$router->post('/api/users/{id}/unlock', [UsageController::class, 'unlock'], $edit('members'));
+$router->get('/api/me/two-step', [TwoStepController::class, 'status']);
+$router->post('/api/me/two-step/start', [TwoStepController::class, 'start']);
+$router->post('/api/me/two-step/confirm', [TwoStepController::class, 'confirm']);
+$router->post('/api/me/two-step/disable', [TwoStepController::class, 'disable']);
 
 // The SACCO's rules
 $router->get('/api/settings', [SettingsController::class, 'index'], $admins);

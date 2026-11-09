@@ -7,6 +7,7 @@ import type { Balances, PickedMember } from '@/types'
 import type { Report } from '@/reports'
 import { useAuth } from '@/stores/auth'
 import { downloadReceiptNo } from '@/receipts'
+import { coins } from '@/motion'
 import MemberPicker from '@/components/MemberPicker.vue'
 import ReportView from '@/components/ReportView.vue'
 
@@ -32,6 +33,7 @@ async function save() {
   busy.value = true
   try {
     const res = await api.post<{ balances: Balances; transaction: { id: number } }>(`/members/${member.value!.id}/transactions`, { ...form, type: 'deposit' })
+    coins()
     lastReceipt.value = 'RCT-T' + String(res.transaction.id).padStart(6, '0')
     done.value = `${formatMoney(form.amount)} added to ${member.value!.full_name}'s ${form.account}. They have been told.`
     balances.value = res.balances

@@ -7,6 +7,7 @@ import type { Report } from '@/reports'
 import { downloadPdfBook, downloadWorkbook } from '@/exporters'
 import ReportView from '@/components/ReportView.vue'
 import CountUp from '@/components/CountUp.vue'
+import HeroParticles from '@/components/HeroParticles.vue'
 
 interface Annual {
   year: number
@@ -80,8 +81,8 @@ async function download(kind: 'pdf' | 'excel') {
 
 <template>
   <div>
-    <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-navy-800 to-navy-950 p-6 text-white shadow-lift sm:p-8">
-      <div class="absolute -right-16 -top-20 h-60 w-60 rounded-full border-2 border-saffron-400/60" aria-hidden="true" />
+    <div class="hero-panel relative overflow-hidden rounded-3xl p-6 text-white shadow-lift sm:p-8">
+      <HeroParticles />
       <div class="relative flex flex-wrap items-end justify-between gap-4">
         <div>
           <p class="text-xs font-semibold uppercase tracking-wider text-saffron-300">Reports</p>

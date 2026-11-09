@@ -22,15 +22,41 @@ const busy = ref(false)
 const photo = computed(() => (auth.sacco?.login_image ? import.meta.env.BASE_URL + auth.sacco.login_image : null))
 const slogan = computed(() => auth.sacco?.slogan || 'Save together. Grow together.')
 
+const needCode = ref(false)
+const code = ref('')
+
+// Admins start at the office overview, members at their own dashboard (or the page they asked for)
+async function goIn() {
+  const home = auth.isAdmin ? '/office' : '/'
+  const next = typeof route.query.next === 'string' && route.query.next.startsWith('/') && !route.query.next.startsWith('//') ? route.query.next : home
+  await router.replace(next)
+}
+
+async function submitCode() {
+  error.value = ''
+  busy.value = true
+  try {
+    await auth.twoStep(code.value.trim())
+    await goIn()
+  } catch (e) {
+    const err = e as ApiError
+    error.value = err.message
+    code.value = ''
+    if (err.errors?.restart) {
+      needCode.value = false
+      password.value = ''
+    }
+  } finally {
+    busy.value = false
+  }
+}
+
 async function submit() {
   error.value = ''
   busy.value = true
   try {
-    await auth.login(login.value.trim(), password.value, otherSacco.value ? saccoCode.value.trim() : undefined)
-    // Admins start at the office overview, members at their own dashboard
-    const home = auth.isAdmin ? '/office' : '/'
-    const next = typeof route.query.next === 'string' && route.query.next.startsWith('/') ? route.query.next : home
-    await router.replace(next)
+    needCode.value = await auth.login(login.value.trim(), password.value, otherSacco.value ? saccoCode.value.trim() : undefined)
+    if (!needCode.value) await goIn()
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Something went wrong. Please try again.'
   } finally {
@@ -88,7 +114,18 @@ async function submit() {
           <h1 class="text-3xl font-bold">Welcome back</h1>
           <p class="mt-1 text-gray-600">Sign in to {{ auth.sacco?.name ?? 'your SACCO' }}.</p>
 
-          <form class="mt-8 space-y-4" novalidate @submit.prevent="submit">
+          <form v-if="needCode" class="mt-8 space-y-4" novalidate @submit.prevent="submitCode">
+            <div v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
+            <div>
+              <label for="code" class="label">Code from your authenticator app</label>
+              <input id="code" v-model="code" class="input py-3 text-center font-mono text-xl tracking-[0.25em]" autocomplete="one-time-code" autofocus placeholder="000000" />
+              <p class="mt-1.5 text-xs text-gray-500">Lost your phone? Enter one of your recovery codes instead.</p>
+            </div>
+            <button type="submit" class="btn-primary w-full py-3 text-base" :disabled="busy || !code">{{ busy ? 'Checking…' : 'Continue' }}</button>
+            <button type="button" class="w-full text-sm font-semibold text-gray-600 hover:text-ink" @click="needCode = false; code = ''; error = ''">Back</button>
+          </form>
+
+          <form v-else class="mt-8 space-y-4" novalidate @submit.prevent="submit">
             <div v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
 
             <div v-if="otherSacco">

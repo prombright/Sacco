@@ -18,12 +18,14 @@
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.9",
     "pinia": "^2.3.0",
+    "qrcode": "^1.5.4",
     "vue": "^3.5.13",
     "vue-router": "^4.5.0",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@types/node": "^20.17.10",
+    "@types/qrcode": "^1.5.5",
     "@vitejs/plugin-vue": "^5.2.1",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.49",

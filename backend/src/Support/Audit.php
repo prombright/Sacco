@@ -17,7 +17,7 @@ use Sacco\Database;
 final class Audit
 {
     /** Routine work the office doesn't need a message for (it's all in the activity log) */
-    private const QUIET = ['password.changed', 'transaction.recorded', 'loan.payment_recorded', 'membership_fee.paid', 'next_of_kin.saved', 'withdrawal.requested', 'loan.applied'];
+    private const QUIET = ['password.changed', 'transaction.recorded', 'loan.payment_recorded', 'membership_fee.paid', 'next_of_kin.saved', 'withdrawal.requested', 'loan.applied', 'two_step.enabled', 'two_step.disabled', 'user.unlocked'];
 
     public static function log(string $action, ?string $subjectType = null, ?int $subjectId = null, array $details = [], ?int $actorId = null): void
     {

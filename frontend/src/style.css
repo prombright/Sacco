@@ -221,6 +221,58 @@ th {
   animation: grow-y 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
   animation-delay: calc(var(--i, 0) * 45ms);
 }
+.route-bar {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 90;
+  height: 3px;
+  background: linear-gradient(90deg, #eea90f, #f7cd63 60%, #fff);
+  box-shadow: 0 0 10px rgb(238 169 15 / 0.7);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.2s ease-out, opacity 0.25s ease-out;
+  pointer-events: none;
+}
+.page-leave-active {
+  transition: opacity 0.13s ease-in, transform 0.13s ease-in;
+}
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.995);
+}
+
+/* The big panels at the top of the dashboards: the SACCO's own blue, plain */
+.hero-panel {
+  isolation: isolate;
+  background-color: rgb(var(--brand));
+}
+.donut-slice {
+  animation: fade-in 0.55s ease-out both;
+  animation-delay: calc(var(--i, 0) * 130ms + 200ms);
+}
+/* A slow glint across a medal */
+.medal {
+  position: relative;
+  overflow: hidden;
+}
+.medal::after {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  background: linear-gradient(115deg, transparent 40%, rgb(255 255 255 / 0.65) 50%, transparent 60%);
+  animation: glint 3.6s ease-in-out infinite;
+}
+@keyframes glint {
+  0%, 55% { transform: translateX(-90%); }
+  100% { transform: translateX(90%); }
+}
+@keyframes badge-pop {
+  from { transform: scale(0.4); opacity: 0; }
+}
+.badge-pop {
+  animation: badge-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation-delay: calc(var(--i, 0) * 90ms + 500ms);
+}
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation: none !important;

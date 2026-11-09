@@ -6,6 +6,7 @@ import { api } from '@/api'
 import { useAuth } from '@/stores/auth'
 import { useOffice } from '@/stores/office'
 import { sections, type SectionStats } from '@/sections'
+import HeroParticles from '@/components/HeroParticles.vue'
 
 /** A section's own dashboard: its modules as cards, each with a live figure and what's waiting */
 const route = useRoute()
@@ -30,9 +31,8 @@ const waitingHere = computed(() => (office.waiting ? items.value.reduce((n, i) =
 <template>
   <div>
     <!-- Heading -->
-    <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-navy-800 to-navy-950 p-6 text-white shadow-lift sm:p-8">
-      <div class="absolute -right-16 -top-20 h-56 w-56 rounded-full border-2 border-saffron-400/60" aria-hidden="true" />
-      <div class="absolute -bottom-24 right-32 h-44 w-44 rounded-full bg-white/5" aria-hidden="true" />
+    <div class="hero-panel relative overflow-hidden rounded-3xl p-6 text-white shadow-lift sm:p-8">
+      <HeroParticles />
       <div class="relative flex items-center gap-4">
         <span class="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br shadow-lg" :class="section.tone">
           <component :is="section.icon" class="h-7 w-7 text-white" aria-hidden="true" />

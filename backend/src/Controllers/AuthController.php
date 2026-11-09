@@ -8,6 +8,7 @@ use Sacco\Auth\Auth;
 use Sacco\Auth\Passwords;
 use Sacco\Auth\Roles;
 use Sacco\Auth\Throttle;
+use Sacco\Auth\Totp;
 use Sacco\Database;
 use Sacco\Http\Request;
 use Sacco\Http\Response;
@@ -18,6 +19,7 @@ final class AuthController
 {
     private const MAX_FAILED_ATTEMPTS = 5;
     private const LOCK_MINUTES = 15;
+    private const TWO_STEP_SECONDS = 300;
 
     /** GET /api/sacco?code= - the SACCO's name and branding for the login page */
     public function sacco(Request $request): never
@@ -98,11 +100,74 @@ final class AuthController
             Response::error('Your account is not active. Please contact your SACCO office.', 403);
         }
 
-        $db->prepare('UPDATE users SET failed_attempts = 0, locked_until = NULL, last_login_at = NOW() WHERE id = ?')
-            ->execute([$user['id']]);
-        Auth::login($user, $sacco['code']);
-        self::logAttempt($login, $user, true, null);
+        // The password was right; with two-step sign-in on, the code comes next
+        if ($user['totp_enabled_at']) {
+            session_regenerate_id(true);
+            $_SESSION['two_step'] = ['user' => (int) $user['id'], 'login' => $login, 'at' => time(), 'tries' => 0];
+            Response::ok(['two_step' => true]);
+        }
 
+        $this->finishSignIn($request, $user, $login, $sacco['code']);
+    }
+
+    /** POST /api/auth/two-step { code } - the app's six digits, or a recovery code */
+    public function twoStep(Request $request): never
+    {
+        $pending = $_SESSION['two_step'] ?? null;
+        if (!is_array($pending) || time() - $pending['at'] > self::TWO_STEP_SECONDS || !isset($_SESSION['sacco'])) {
+            unset($_SESSION['two_step']);
+            Response::error('That took too long. Please sign in again.', 422, ['restart' => 'yes']);
+        }
+        Throttle::check();
+        $db = Database::tenant();
+        $stmt = $db->prepare('SELECT * FROM users WHERE id = ?');
+        $stmt->execute([$pending['user']]);
+        $user = $stmt->fetch();
+        if (!$user || $user['status'] !== 'active' || !$user['totp_secret']) {
+            unset($_SESSION['two_step']);
+            Response::error('Please sign in again.', 422, ['restart' => 'yes']);
+        }
+
+        $code = strtoupper(preg_replace('/\s+/', '', $request->string('code')));
+        $step = Totp::verify($user['totp_secret'], $code, $user['totp_last_step'] !== null ? (int) $user['totp_last_step'] : null);
+        if ($step !== null) {
+            $db->prepare('UPDATE users SET totp_last_step = ? WHERE id = ?')->execute([$step, $user['id']]);
+        } elseif (!$this->useRecoveryCode($db, $user, $code)) {
+            Throttle::fail();
+            self::logAttempt($pending['login'], $user, false, 'wrong_two_step_code');
+            $_SESSION['two_step']['tries'] = $pending['tries'] + 1;
+            if ($_SESSION['two_step']['tries'] >= 5) {
+                unset($_SESSION['two_step']);
+                Response::error('Too many wrong codes. Please sign in again.', 422, ['restart' => 'yes']);
+            }
+            Response::error('That code isn\'t right. Enter the newest code from your app, or a recovery code.', 422, ['code' => 'Wrong']);
+        }
+        unset($_SESSION['two_step']);
+        $this->finishSignIn($request, $user, $pending['login'], (string) $_SESSION['sacco']);
+    }
+
+    private function useRecoveryCode(\PDO $db, array $user, string $code): bool
+    {
+        if (!preg_match('/^[0-9A-F]{4}-[0-9A-F]{4}$/', $code)) {
+            return false;
+        }
+        $hashes = json_decode((string) $user['totp_recovery'], true) ?: [];
+        foreach ($hashes as $i => $hash) {
+            if (password_verify($code, $hash)) {
+                unset($hashes[$i]);
+                $db->prepare('UPDATE users SET totp_recovery = ? WHERE id = ?')->execute([json_encode(array_values($hashes)), $user['id']]);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private function finishSignIn(Request $request, array $user, string $login, string $saccoCode): never
+    {
+        Database::tenant()->prepare('UPDATE users SET failed_attempts = 0, locked_until = NULL, last_login_at = NOW() WHERE id = ?')
+            ->execute([$user['id']]);
+        Auth::login($user, $saccoCode);
+        self::logAttempt($login, $user, true, null);
         $this->me($request);
     }
 
@@ -170,6 +235,7 @@ final class AuthController
             'status' => $user['status'],
             'source' => $user['source'],
             'must_change_password' => (bool) $user['must_change_password'],
+            'two_step' => (bool) ($user['totp_enabled_at'] ?? false),
             'last_login_at' => $user['last_login_at'],
             'created_at' => $user['created_at'],
         ];

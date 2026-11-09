@@ -37,8 +37,16 @@ export const useAuth = defineStore('auth', () => {
     apply(await api.get<Session>('/auth/me'))
   }
 
+  /** Returns true when a two-step code is needed next */
   async function login(login: string, password: string, saccoCode?: string) {
-    apply(await api.post<Session>('/auth/login', { login, password, sacco: saccoCode || undefined }))
+    const res = await api.post<Session & { two_step?: boolean }>('/auth/login', { login, password, sacco: saccoCode || undefined })
+    if (res.two_step) return true
+    apply(res)
+    return false
+  }
+
+  async function twoStep(code: string) {
+    apply(await api.post<Session>('/auth/two-step', { code }))
   }
 
   async function changePassword(current_password: string, new_password: string) {
@@ -60,5 +68,5 @@ export const useAuth = defineStore('auth', () => {
     setCsrfToken(null)
   }
 
-  return { user, sacco, loaded, isAdmin, isSuperAdmin, can, viewOnly, load, login, changePassword, logout, forget, useSacco }
+  return { user, sacco, loaded, isAdmin, isSuperAdmin, can, viewOnly, load, login, twoStep, changePassword, logout, forget, useSacco }
 })
