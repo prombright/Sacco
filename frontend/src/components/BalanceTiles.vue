@@ -35,7 +35,7 @@ const shareCount = computed(() => {
           {{ sharePosition.shares }} of {{ sharePosition.min_shares }} shares<template v-if="Number(sharePosition.still_needed) > 0"> · {{ formatMoney(sharePosition.still_needed) }} more to reach the minimum</template><template v-else> · minimum reached</template>
         </p>
       </template>
-      <p v-else-if="shareCount !== null" class="mt-1 text-sm text-gray-500">{{ shareCount.toLocaleString() }} shares</p>
+      <p v-else-if="shareCount !== null" class="mt-1 text-sm text-gray-500">{{ shareCount.toLocaleString() }} share{{ shareCount === 1 ? '' : 's' }}</p>
     </div>
   </div>
 </template>

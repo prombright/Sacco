@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CreditBadge from '@/components/CreditBadge.vue'
 import { downloadLoanLetter } from '@/documents'
 import MoneyAccountSelect from '@/components/MoneyAccountSelect.vue'
 import { ask } from '@/confirm'
@@ -9,7 +10,7 @@ import { api, ApiError } from '@/api'
 import { useAuth } from '@/stores/auth'
 import type { Installment, Loan, LoanCharge, LoanPayment, PaymentReceipt, PickedMember, LoanGuarantor } from '@/types'
 import { formatDate, formatMoney } from '@/money'
-import { guarantorStatus, loanStatus } from '@/loans'
+import { guarantorStatus, loanStatus, creditSummary } from '@/loans'
 import StatusBadge from '@/components/StatusBadge.vue'
 import Modal from '@/components/Modal.vue'
 import MemberPicker from '@/components/MemberPicker.vue'
@@ -179,6 +180,11 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
             </p>
             <p class="text-xs text-gray-600">Assessment against the SACCO's rules, with today's figures</p>
           </div>
+        </div>
+        <div v-if="loan.borrower_credit" class="flex flex-wrap items-center gap-2 border-b border-line px-5 py-3 text-sm">
+          <span class="font-medium">Repayment record</span>
+          <CreditBadge :credit="loan.borrower_credit" />
+          <span class="text-gray-600">{{ creditSummary(loan.borrower_credit) }}<template v-if="loan.borrower_credit.grade === 'poor'"> As a slow payer they can borrow {{ loan.borrower_credit.limit_percent }}% of the usual limit.</template></span>
         </div>
         <ul class="divide-y divide-line">
           <li v-for="c in loan.assessment.checks" :key="c.label" class="flex gap-3 px-5 py-3 text-sm">

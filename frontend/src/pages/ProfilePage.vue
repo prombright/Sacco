@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { DevicePhoneMobileIcon, DocumentCheckIcon, IdentificationIcon } from '@heroicons/vue/24/outline'
+import { CameraIcon, DevicePhoneMobileIcon, DocumentCheckIcon, IdentificationIcon } from '@heroicons/vue/24/outline'
+import UserAvatar from '@/components/UserAvatar.vue'
+import { removePhoto, uploadPhoto } from '@/photos'
 import { useAuth } from '@/stores/auth'
 import { t } from '@/i18n'
 import { canInstall, install, installed, isIos } from '@/pwa'
@@ -40,6 +42,37 @@ async function certificate() {
   }
 }
 
+// The profile photo
+const photoBusy = ref(false)
+const photoError = ref('')
+function photoSaved(u: User) {
+  if (user.value) user.value.photo_url = u.photo_url
+  if (auth.user) auth.user.photo_url = u.photo_url
+}
+async function pickPhoto(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  photoError.value = ''
+  photoBusy.value = true
+  try {
+    photoSaved(await uploadPhoto(file))
+  } catch (err) {
+    photoError.value = (err as { response?: { data?: { message?: string } } }).response?.data?.message ?? 'The photo couldn\'t be saved. Please try again.'
+  } finally {
+    photoBusy.value = false
+  }
+}
+async function dropPhoto() {
+  photoBusy.value = true
+  try {
+    photoSaved(await removePhoto())
+  } finally {
+    photoBusy.value = false
+  }
+}
+
 onMounted(async () => {
   try {
     const res = await api.get<{ user: User; next_of_kin: NextOfKin[] }>('/me/profile')
@@ -63,6 +96,19 @@ onMounted(async () => {
     <p class="mt-1 text-sm text-gray-600">Your details as the SACCO has them. If something is wrong, tell the SACCO office.</p>
     <div v-if="error" class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
     <div v-if="user" class="mt-6 grid gap-6 lg:grid-cols-2">
+      <section class="card mb-6 flex flex-wrap items-center gap-4 p-5">
+        <UserAvatar :name="user.full_name" :photo-url="user.photo_url" size="h-20 w-20 text-2xl" />
+        <div class="min-w-[12rem] flex-1">
+          <h2 class="font-semibold">{{ user.full_name }}</h2>
+          <p class="text-sm text-gray-600">Your photo shows in the app, to the SACCO office, and on your member card.</p>
+          <p v-if="photoError" class="mt-1 text-sm text-red-700" role="alert">{{ photoError }}</p>
+        </div>
+        <label class="btn-secondary cursor-pointer" :class="{ 'pointer-events-none opacity-60': photoBusy }">
+          <CameraIcon class="h-4 w-4" aria-hidden="true" />{{ photoBusy ? 'Saving…' : user.photo_url ? t('Change photo') : t('Add a photo') }}
+          <input type="file" accept="image/jpeg,image/png,image/webp" class="sr-only" :disabled="photoBusy" @change="pickPhoto" />
+        </label>
+        <button v-if="user.photo_url" type="button" class="btn-ghost" :disabled="photoBusy" @click="dropPhoto">{{ t('Remove photo') }}</button>
+      </section>
       <MemberDetails :user="user" />
       <NextOfKinEditor :people="kin" save-url="/me/next-of-kin" @saved="kin = $event" />
     </div>

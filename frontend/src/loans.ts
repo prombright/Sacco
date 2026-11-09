@@ -1,3 +1,4 @@
+import type { CreditStanding } from '@/types'
 import type { LoanStatus } from '@/types'
 
 export const loanStatus: Record<LoanStatus, { label: string; style: string; dot: string; explain: string }> = {
@@ -31,4 +32,13 @@ export const guarantorStatus: Record<string, { label: string; style: string }> =
   declined: { label: 'Declined', style: 'bg-red-50 text-red-700' },
   withdrawn: { label: 'No longer asked', style: 'bg-gray-100 text-gray-600' },
   released: { label: 'Released', style: 'bg-gray-100 text-gray-600' },
+}
+
+/** "9 of the last 12 instalments paid on time, the longest delay 40 days" */
+export function creditSummary(c: CreditStanding): string {
+  if (c.grade === 'new') return 'No instalments have fallen due yet.'
+  let text = `${c.on_time} of the last ${c.due} instalment${c.due === 1 ? '' : 's'} paid on time`
+  if (c.late) text += `, the longest delay ${c.worst_days} days`
+  if (c.overdue_now) text += `; ${c.overdue_now} unpaid now`
+  return text + '.'
 }

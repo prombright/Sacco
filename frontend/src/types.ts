@@ -17,6 +17,8 @@ export interface User {
   department: string | null
   position: string | null
   address: string | null
+  /** Their profile photo (a path inside the app), or null */
+  photo_url?: string | null
   phone: string | null
   role: Role
   role_label: string
@@ -153,6 +155,7 @@ export interface Loan {
   projected?: Installment[]
   payments?: LoanPayment[]
   borrower_eligibility?: { savings: string; owed: string; limit: string } | null
+  borrower_credit?: CreditStanding
   product_name: string | null
   /** Taken off the cheque at payout (an estimate until then) */
   processing_fee: string
@@ -244,4 +247,19 @@ export interface PickedMember {
   id: number
   full_name: string
   account_no: string | null
+}
+
+/** How well a member repays, from their last 12 instalments that fell due */
+export interface CreditStanding {
+  grade: 'new' | 'good' | 'fair' | 'poor'
+  label: string
+  score: number | null
+  due: number
+  on_time: number
+  late: number
+  overdue_now: number
+  worst_days: number
+  /** 100, or less for a slow payer */
+  limit_percent: number
+  advice: string
 }

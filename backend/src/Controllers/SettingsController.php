@@ -29,6 +29,8 @@ final class SettingsController
             'loan_min_member_months' => ['Months of saving before a loan', $int(0, 120)],
             'guarantor_min_member_months' => ['Months of membership to be a guarantor', $int(0, 120)],
             'loan_penalty_percent' => ['Late-payment penalty, % of what is late (0 = none)', $decimal(0, 50)],
+            'slow_payer_limit_percent' => ['A slow payer can borrow this % of their usual limit (100 = no cut)', $int(0, 100)],
+            'loan_reminder_days' => ['Remind members this many days before an instalment is due', $int(1, 14)],
             'withdrawal_fee_percent' => ['Withdrawal fee, % of the amount withdrawn', $decimal(0, 50)],
             'withdrawal_fee_mode' => ['How the withdrawal fee is taken', fn ($v) => in_array($v, ['from_amount', 'on_top'], true) ? $v : null,
                 ['from_amount' => 'Out of the amount (smaller cheque)', 'on_top' => 'On top (savings go down by amount + fee)']],

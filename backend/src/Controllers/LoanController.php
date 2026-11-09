@@ -10,9 +10,11 @@ use Sacco\Auth\Roles;
 use Sacco\Database;
 use Sacco\Http\Request;
 use Sacco\Http\Response;
+use Sacco\Loans\Credit;
 use Sacco\Loans\LoanMath;
 use Sacco\Loans\Loans;
 use Sacco\Support\Audit;
+use Sacco\Support\Ledger;
 use Sacco\Support\LedgerException;
 use Sacco\Support\Money;
 use Sacco\Support\Notify;
@@ -725,15 +727,23 @@ final class LoanController
         $me = (int) Auth::id();
         $stmt = $db->prepare(
             "SELECT g.id, g.amount, g.requested_amount, g.status, g.created_at, g.responded_at, l.id AS loan_id, l.loan_no, l.amount AS loan_amount,
-                    l.months, l.purpose, l.status AS loan_status, u.full_name AS borrower_name
+                    l.months, l.purpose, l.status AS loan_status, l.closed_on, u.full_name AS borrower_name
              FROM loan_guarantors g JOIN loans l ON l.id = g.loan_id JOIN users u ON u.id = l.user_id
              WHERE g.guarantor_id = ? AND g.status <> 'withdrawn'
              ORDER BY g.status = 'pending' DESC, g.id DESC"
         );
         $stmt->execute([$me]);
+        $pledges = Loans::pledges($db, $me);
+        $guarantees = array_map(function ($g) use ($pledges) {
+            $p = $pledges[(int) $g['id']] ?? null;
+            $g['held'] = Money::toDecimal($p['held'] ?? 0);
+            $g['repaid_percent'] = $g['loan_status'] === 'closed' ? 100 : ($p['repaid_percent'] ?? 0);
+            return $g;
+        }, $stmt->fetchAll());
         Response::ok([
-            'guarantees' => $stmt->fetchAll(),
-            'pledged' => Money::toDecimal(Loans::pledged($db, $me)),
+            'guarantees' => $guarantees,
+            'savings' => Money::toDecimal(Ledger::balance($db, $me, 'savings')),
+            'pledged' => Money::toDecimal(array_sum(array_column($pledges, 'held'))),
             'free_savings' => Money::toDecimal(Savings::free($db, $me)),
             'wait_reason' => Loans::guarantorWaitReason($db, $me, '', true),
         ]);
@@ -1058,6 +1068,7 @@ final class LoanController
             'created_at' => $l['created_at'],
             'position' => $position ? array_map(fn ($v) => is_int($v) ? Money::toDecimal($v) : $v, $position) : null,
             'guarantee_shortfall' => $shortfall ? ['guarantors' => $shortfall['guarantors'], 'amount' => Money::toDecimal($shortfall['amount'])] : null,
+            'borrower_credit' => Credit::standing($db, (int) $l['user_id']),
         ];
     }
 

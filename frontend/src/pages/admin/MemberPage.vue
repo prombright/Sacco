@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import UserAvatar from '@/components/UserAvatar.vue'
+import CreditBadge from '@/components/CreditBadge.vue'
+import { creditSummary } from '@/loans'
+import type { CreditStanding } from '@/types'
 import { downloadMemberCard, downloadShareCertificate } from '@/documents'
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
@@ -24,6 +28,8 @@ const id = Number(route.params.id)
 const member = ref<User | null>(null)
 const balances = ref<Balances | null>(null)
 const sharePrice = ref('0')
+const credit = ref<CreditStanding | null>(null)
+const pledged = ref('0')
 const account = ref<Account>('savings')
 const page = ref(1)
 const ledger = ref<Page<Transaction> | null>(null)
@@ -70,7 +76,9 @@ const isSelf = id === auth.user?.id
 
 async function loadMember() {
   try {
-    const res = await api.get<{ user: User; balances: Balances; share_price: string }>(`/members/${id}`)
+    const res = await api.get<{ user: User; balances: Balances; share_price: string; credit: CreditStanding; pledged: string }>(`/members/${id}`)
+    credit.value = res.credit
+    pledged.value = res.pledged
     member.value = res.user
     balances.value = res.balances
     sharePrice.value = res.share_price
@@ -116,13 +124,21 @@ function certificate() {
 
     <template v-if="member">
       <div class="mt-3 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 class="text-2xl font-bold">{{ member.full_name }}</h1>
-          <p class="mt-1 text-sm text-gray-600">
-            Account <span class="font-mono">{{ member.account_no }}</span>
-            <template v-if="member.employee_no"> · Employee {{ member.employee_no }}</template>
-            <template v-if="member.status !== 'active'"> · <span class="text-amber-700">{{ member.status === 'left' ? 'Left the school' : 'Suspended' }}</span></template>
-          </p>
+        <div class="flex items-start gap-3">
+          <UserAvatar :name="member.full_name" :photo-url="member.photo_url" size="h-14 w-14 text-lg" />
+          <div>
+            <h1 class="text-2xl font-bold">{{ member.full_name }}</h1>
+            <p class="mt-1 text-sm text-gray-600">
+              Account <span class="font-mono">{{ member.account_no }}</span>
+              <template v-if="member.employee_no"> · Employee {{ member.employee_no }}</template>
+              <template v-if="member.status !== 'active'"> · <span class="text-amber-700">{{ member.status === 'left' ? 'Left the school' : 'Suspended' }}</span></template>
+            </p>
+            <p v-if="isMember && credit" class="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-gray-600">
+              <CreditBadge :credit="credit" />
+              <span>{{ creditSummary(credit) }}<template v-if="credit.grade === 'poor'"> Can borrow {{ credit.limit_percent }}% of the usual limit.</template></span>
+              <span v-if="Number(pledged) > 0">· {{ formatMoney(pledged) }} held for guarantees</span>
+            </p>
+          </div>
         </div>
         <div class="flex flex-wrap gap-2">
           <button v-can="'members'" type="button" class="btn-secondary" @click="editingDetails = true">Edit details</button>

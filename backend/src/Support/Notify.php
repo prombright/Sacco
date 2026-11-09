@@ -18,11 +18,24 @@ use Sacco\Database;
  */
 final class Notify
 {
+    /** True while the system itself sends messages (the daily run), so none is signed by a person */
+    public static bool $system = false;
+
     public static function member(int $userId, string $kind, string $title, string $body, ?string $link = null): void
     {
         Database::tenant()->prepare(
             'INSERT INTO notifications (user_id, title, body, link, kind, created_by) VALUES (?, ?, ?, ?, ?, ?)'
-        )->execute([$userId, mb_substr($title, 0, 160), $body, $link, $kind, Auth::id()]);
+        )->execute([$userId, mb_substr($title, 0, 160), $body, $link, $kind, self::$system ? null : Auth::id()]);
+    }
+
+    /** Every active super admin: things they act on, such as slow payers and repayments falling due */
+    public static function superAdmins(string $kind, string $title, string $body, ?string $link = null): void
+    {
+        $ids = Database::tenant()->prepare("SELECT id FROM users WHERE status = 'active' AND role = ?");
+        $ids->execute([Roles::SUPER_ADMIN]);
+        foreach ($ids->fetchAll(\PDO::FETCH_COLUMN) as $id) {
+            self::member((int) $id, $kind, $title, $body, $link);
+        }
     }
 
     /** Every active admin and super admin, except whoever made the change */

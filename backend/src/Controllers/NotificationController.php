@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Sacco\Controllers;
 
+use Sacco\Loans\Reminders;
 use Sacco\Auth\Auth;
 use Sacco\Database;
 use Sacco\Http\Request;
@@ -15,6 +16,12 @@ final class NotificationController
     /** GET /api/me/notifications */
     public function index(Request $request): never
     {
+        // The day's reminders go out on the first look at the bell each day
+        try {
+            Reminders::runIfDue();
+        } catch (\Throwable $e) {
+            error_log('Daily reminders failed: ' . $e->getMessage());
+        }
         $db = Database::tenant();
         $stmt = $db->prepare('SELECT id, title, body, link, kind, read_at, created_at FROM notifications WHERE user_id = ? ORDER BY id DESC LIMIT 50');
         $stmt->execute([Auth::id()]);

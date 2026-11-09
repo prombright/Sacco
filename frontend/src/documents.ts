@@ -1,4 +1,5 @@
 import type { jsPDF as JsPDF } from 'jspdf'
+import { photoSrc } from '@/photos'
 import type { Who } from '@/exporters'
 import { amountInWords } from '@/receipts'
 
@@ -11,6 +12,7 @@ import { amountInWords } from '@/receipts'
 type RGB = [number, number, number]
 const SAFFRON: RGB = [238, 169, 15]
 const INK: RGB = [21, 24, 33]
+const LINE: RGB = [221, 217, 208]
 const MUTED: RGB = [120, 113, 108]
 
 export const brandRgb = (who: Who): RGB => {
@@ -125,6 +127,26 @@ export interface CardMember {
   employee_no?: string | null
   joined_on?: string | null
   department?: string | null
+  photo_url?: string | null
+}
+
+/** A member's photo as a data URL, or null */
+async function loadPhoto(url: string | null | undefined): Promise<string | null> {
+  const src = photoSrc(url)
+  if (!src) return null
+  try {
+    const res = await fetch(src, { credentials: 'same-origin' })
+    if (!res.ok) return null
+    const blob = await res.blob()
+    return await new Promise<string>((resolve, reject) => {
+      const r = new FileReader()
+      r.onload = () => resolve(String(r.result))
+      r.onerror = reject
+      r.readAsDataURL(blob)
+    })
+  } catch {
+    return null
+  }
 }
 
 /** A card the size of a bank card (front and back), to print and cut, or keep on the phone */
@@ -150,19 +172,28 @@ export async function downloadMemberCard(m: CardMember, who: Who) {
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(6)
   doc.text('MEMBER CARD', 17, 12.5)
+  // With a photo, the details move right to make room for it
+  const photo = await loadPhoto(m.photo_url)
+  const X = photo ? 24 : 5
+  if (photo) {
+    doc.setDrawColor(...LINE)
+    doc.setLineWidth(0.2)
+    doc.addImage(photo, 'JPEG', 5, 21.5, 16, 16)
+    doc.rect(5, 21.5, 16, 16)
+  }
   doc.setTextColor(...INK)
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(11)
-  doc.text(doc.splitTextToSize(m.full_name, 52), 5, 26)
+  doc.setFontSize(photo ? 9.5 : 11)
+  doc.text(doc.splitTextToSize(m.full_name, photo ? 33 : 52), X, 26)
   const field = (label: string, value: string, y: number) => {
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(5.5)
     doc.setTextColor(...MUTED)
-    doc.text(label.toUpperCase(), 5, y)
+    doc.text(label.toUpperCase(), X, y)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(8)
     doc.setTextColor(...INK)
-    doc.text(value, 5, y + 3.6)
+    doc.text(value, X, y + 3.6)
   }
   field('Account no.', m.account_no ?? '-', 34)
   field('Member since', m.joined_on ? new Date(m.joined_on + 'T00:00:00').toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }) : '-', 43)
@@ -170,11 +201,11 @@ export async function downloadMemberCard(m: CardMember, who: Who) {
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(5.5)
     doc.setTextColor(...MUTED)
-    doc.text('EMPLOYEE NO.', 32, 43)
+    doc.text('EMPLOYEE NO.', photo ? 43 : 32, 43)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(8)
     doc.setTextColor(...INK)
-    doc.text(m.employee_no, 32, 46.6)
+    doc.text(m.employee_no, photo ? 43 : 32, 46.6)
   }
   doc.addImage(qr, 'PNG', W - 27, 23, 23, 23)
   doc.setFillColor(...brand)

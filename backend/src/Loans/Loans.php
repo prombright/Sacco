@@ -162,7 +162,7 @@ final class Loans
      * What a member can borrow now: multiplier x savings, minus what they owe or have applied for
      * (leaving out $exceptLoanId, when judging that loan itself).
      *
-     * @return array{savings: int, owed: int, limit: int} cents
+     * @return array{savings: int, owed: int, limit: int, limit_percent: int} cents (limit_percent: 100, or less for a slow payer)
      */
     public static function eligibility(int $userId, ?int $exceptLoanId = null, ?int $productId = null): array
     {
@@ -170,8 +170,10 @@ final class Loans
         $savings = Ledger::balance($db, $userId, 'savings');
         $owed = self::owedOnOpenLoans($db, $userId, $exceptLoanId);
         $multiplier = (int) Money::parse(self::productRules($db, $productId)['savings_multiplier']); // "2" -> 200
-        $limit = max(0, intdiv($savings * $multiplier, 100) - $owed);
-        return ['savings' => $savings, 'owed' => $owed, 'limit' => $limit];
+        // A slow payer may borrow only part of the usual limit (see Credit)
+        $percent = Credit::limitPercent($db, $userId);
+        $limit = max(0, intdiv(intdiv($savings * $multiplier, 100) * $percent, 100) - $owed);
+        return ['savings' => $savings, 'owed' => $owed, 'limit' => $limit, 'limit_percent' => $percent];
     }
 
     /** Why a member can't apply for this type of loan now, or null */
@@ -232,26 +234,57 @@ final class Loans
      */
     public static function pledged(PDO $db, int $userId): int
     {
+        return array_sum(array_map(fn ($p) => $p['held'], self::pledges($db, $userId)));
+    }
+
+    /**
+     * Each guarantee the member stands behind now, keyed by guarantee id: what they pledged, what
+     * is still held (cents) and how much of the loan's principal is repaid (percent).
+     *
+     * @return array<int, array{pledge: int, held: int, repaid_percent: int}>
+     */
+    public static function pledges(PDO $db, int $userId): array
+    {
         $stmt = $db->prepare(
-            "SELECT g.amount AS pledge, l.status, l.amount AS loan_amount,
+            "SELECT g.id, g.amount AS pledge, l.status, l.amount AS loan_amount,
                     (SELECT COALESCE(SUM(i.principal - i.principal_paid), 0) FROM loan_installments i WHERE i.loan_id = l.id) AS principal_left
              FROM loan_guarantors g JOIN loans l ON l.id = g.loan_id
              WHERE g.guarantor_id = ? AND g.status = 'accepted' AND l.status IN ('" . implode("','", self::OPEN) . "')"
         );
         $stmt->execute([$userId]);
-        $total = 0;
+        $out = [];
         foreach ($stmt->fetchAll() as $row) {
-            $pledge = Money::fromDecimal($row['pledge']);
+            $pledge = $held = Money::fromDecimal($row['pledge']);
+            $repaid = 0;
             if ($row['status'] === 'active') {
                 $loan = Money::fromDecimal($row['loan_amount']);
+                $ratio = $loan > 0 ? Money::fromDecimal($row['principal_left']) / $loan : 0;
                 // Float only for the ratio (pledge x principal could pass the int range); rounded up
                 // to whole currency units so a pledge never shows stray cents
-                $share = $loan > 0 ? $pledge * (Money::fromDecimal($row['principal_left']) / $loan) : 0;
-                $pledge = (int) (ceil($share / LoanMath::UNIT) * LoanMath::UNIT);
+                $held = (int) (ceil($pledge * $ratio / LoanMath::UNIT) * LoanMath::UNIT);
+                $repaid = (int) floor((1 - $ratio) * 100);
             }
-            $total += $pledge;
+            $out[(int) $row['id']] = ['pledge' => $pledge, 'held' => $held, 'repaid_percent' => $repaid];
         }
-        return $total;
+        return $out;
+    }
+
+    /** A loan is fully repaid: its guarantors' savings are free again, and they're told so */
+    public static function releaseGuarantors(PDO $db, int $loanId): void
+    {
+        $stmt = $db->prepare(
+            "SELECT g.guarantor_id, g.amount, l.loan_no, u.full_name FROM loan_guarantors g
+             JOIN loans l ON l.id = g.loan_id JOIN users u ON u.id = l.user_id
+             WHERE g.loan_id = ? AND g.status = 'accepted'"
+        );
+        $stmt->execute([$loanId]);
+        foreach ($stmt->fetchAll() as $g) {
+            \Sacco\Support\Notify::member((int) $g['guarantor_id'], 'guarantee_released',
+                'You are released as a guarantor',
+                "{$g['full_name']} has fully repaid loan {$g['loan_no']}. The " . \Sacco\Support\Notify::money($g['amount'])
+                    . ' you pledged is no longer held, so you can withdraw it or guarantee someone else.',
+                '/loans');
+        }
     }
 
 
@@ -315,6 +348,7 @@ final class Loans
             'interest' => Money::fromDecimal($r['interest']),
             'principal_paid' => 0,
             'interest_paid' => 0,
+            'cleared_on' => null,
         ], $installments->fetchAll());
 
         $charges = $db->prepare('SELECT id, type, amount, charged_on FROM loan_charges WHERE loan_id = ? AND waived_at IS NULL ORDER BY charged_on, id');
@@ -354,6 +388,9 @@ final class Loans
                     $split[$part] += $take;
                     $left -= $take;
                 }
+                if ($row['cleared_on'] === null && $row['principal_paid'] === $row['principal'] && $row['interest_paid'] === $row['interest']) {
+                    $row['cleared_on'] = $payment['paid_on'];
+                }
             }
             unset($row);
             foreach ($split as $part => $cents) {
@@ -363,10 +400,10 @@ final class Loans
             }
         }
 
-        $update = $db->prepare('UPDATE loan_installments SET principal_paid = ?, interest_paid = ? WHERE id = ?');
+        $update = $db->prepare('UPDATE loan_installments SET principal_paid = ?, interest_paid = ?, cleared_on = ? WHERE id = ?');
         $allPaid = true;
         foreach ($rows as $row) {
-            $update->execute([Money::toDecimal($row['principal_paid']), Money::toDecimal($row['interest_paid']), $row['id']]);
+            $update->execute([Money::toDecimal($row['principal_paid']), Money::toDecimal($row['interest_paid']), $row['cleared_on'], $row['id']]);
             $allPaid = $allPaid && $row['principal_paid'] === $row['principal'] && $row['interest_paid'] === $row['interest'];
         }
         $updateCharge = $db->prepare('UPDATE loan_charges SET paid = ? WHERE id = ?');
@@ -376,10 +413,19 @@ final class Loans
         }
 
         if ($allPaid) {
-            $db->prepare("UPDATE loans SET status = 'closed', closed_on = ? WHERE id = ? AND status = 'active'")->execute([$lastPaidOn, $loanId]);
+            $close = $db->prepare("UPDATE loans SET status = 'closed', closed_on = ? WHERE id = ? AND status = 'active'");
+            $close->execute([$lastPaidOn, $loanId]);
+            if ($close->rowCount() > 0) {
+                self::releaseGuarantors($db, $loanId);
+            }
         } else {
             $db->prepare("UPDATE loans SET status = 'active', closed_on = NULL WHERE id = ? AND status = 'closed'")->execute([$loanId]);
         }
+
+        // Repayments (and reversals of them) change how well the borrower repays
+        $borrower = $db->prepare('SELECT user_id FROM loans WHERE id = ?');
+        $borrower->execute([$loanId]);
+        Credit::refresh($db, (int) $borrower->fetchColumn());
     }
 
     /** Totals for a disbursed loan, in cents. Unpaid charges (penalties) count as owed and overdue. */

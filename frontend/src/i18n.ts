@@ -74,6 +74,19 @@ const LG: Record<string, string> = {
   Language: 'Olulimi',
   'My member card': 'Kaadi yange ey’obwammemba',
   'Share certificate': "Satifikeeti y'emigabo",
+  'held for guarantees': "ezikwatiddwa olw'okweyimirira",
+  'free to guarantee': "ez'okweyimirira abalala",
+  'Held for guarantees': "Ezikwatiddwa olw'okweyimirira",
+  'Free to guarantee': "Ez'okweyimirira abalala",
+  'My savings': 'Ensimbi zange ezitereke',
+  'Credit standing': "Engeri gy'osasulamu",
+  'Good payer': 'Asasula bulungi',
+  'Fair payer': 'Asasula mu kigero',
+  'Slow payer': 'Asasula mpola',
+  'No repayments yet': 'Tannaba kusasula',
+  'Add a photo': 'Teekamu ekifaananyi',
+  'Change photo': 'Kyusa ekifaananyi',
+  'Remove photo': 'Ggyawo ekifaananyi',
 }
 
 const SW: Record<string, string> = {
@@ -117,6 +130,19 @@ const SW: Record<string, string> = {
   Language: 'Lugha',
   'My member card': 'Kadi yangu ya uanachama',
   'Share certificate': 'Cheti cha hisa',
+  'held for guarantees': 'zimeshikiliwa kwa dhamana',
+  'free to guarantee': 'zinazoweza kudhamini',
+  'Held for guarantees': 'Zimeshikiliwa kwa dhamana',
+  'Free to guarantee': 'Zinazoweza kudhamini',
+  'My savings': 'Akiba yangu',
+  'Credit standing': 'Hali ya ulipaji',
+  'Good payer': 'Mlipaji mzuri',
+  'Fair payer': 'Mlipaji wa wastani',
+  'Slow payer': 'Mlipaji wa kuchelewa',
+  'No repayments yet': 'Bado hajalipa',
+  'Add a photo': 'Weka picha',
+  'Change photo': 'Badilisha picha',
+  'Remove photo': 'Ondoa picha',
 }
 
 /** The member-side wording in the chosen language */

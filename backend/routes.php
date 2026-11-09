@@ -17,6 +17,7 @@ use Sacco\Controllers\MemberExitController;
 use Sacco\Controllers\NoticeController;
 use Sacco\Controllers\NotificationController;
 use Sacco\Controllers\ProductController;
+use Sacco\Controllers\PhotoController;
 use Sacco\Controllers\PublicController;
 use Sacco\Controllers\LoanController;
 use Sacco\Controllers\MemberImportController;
@@ -259,6 +260,10 @@ $router->patch('/api/finance/budget', [FinanceController::class, 'saveBudget'], 
 // The SACCO's rules
 $router->get('/api/settings', [SettingsController::class, 'index'], $admins);
 $router->patch('/api/settings', [SettingsController::class, 'update'], ['roles' => [Roles::SUPER_ADMIN]]);
+// Profile photos: anyone signed in sets their own; members see their own, the office sees all
+$router->post('/api/me/photo', [PhotoController::class, 'upload']);
+$router->delete('/api/me/photo', [PhotoController::class, 'remove']);
+$router->get('/api/users/{id}/photo', [PhotoController::class, 'show']);
 $router->post('/api/settings/logo', [PublicController::class, 'uploadLogo'], $super);
 $router->delete('/api/settings/logo', [PublicController::class, 'removeLogo'], $super);
 

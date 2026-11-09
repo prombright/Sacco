@@ -232,6 +232,7 @@ final class AuthController
             'department' => $user['department'] ?? null,
             'position' => $user['position'] ?? null,
             'address' => $user['address'] ?? null,
+            'photo_url' => !empty($user['photo']) ? "api/users/{$user['id']}/photo?v={$user['photo']}" : null,
             'phone' => $user['phone'],
             'role' => $user['role'],
             'role_label' => Roles::label($user['role']),

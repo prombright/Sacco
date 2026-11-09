@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import UserAvatar from '@/components/UserAvatar.vue'
 import { t } from '@/i18n'
 import { canInstall, install } from '@/pwa'
 import LanguagePicker from '@/components/LanguagePicker.vue'
@@ -111,7 +112,6 @@ function isCurrent(link: NavLink) {
 }
 
 const title = computed(() => route.meta.title ?? '')
-const initials = computed(() => auth.user?.full_name.split(' ').map((p) => p[0]).slice(0, 2).join('') ?? '')
 const wide = computed(() => !collapsed.value || drawer.value)
 
 watch(
@@ -260,7 +260,7 @@ async function signOut() {
             aria-haspopup="menu"
             @click="accountMenu = !accountMenu"
           >
-            <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-saffron-300 to-saffron-500 text-sm font-bold text-navy-950 ring-2 ring-white/10">{{ initials }}</span>
+            <UserAvatar :name="auth.user?.full_name ?? ''" :photo-url="auth.user?.photo_url" size="h-9 w-9 text-sm ring-2 ring-white/10" />
             <span v-if="wide" class="min-w-0 flex-1">
               <span class="block truncate text-sm font-semibold text-white">{{ auth.user?.full_name }}</span>
               <span class="block truncate text-xs text-navy-200/60">{{ auth.user?.role_label }}<template v-if="!auth.isAdmin"> · {{ auth.user?.account_no }}</template></span>

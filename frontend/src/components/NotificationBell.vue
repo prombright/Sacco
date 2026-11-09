@@ -3,13 +3,17 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   ArrowDownLeftIcon,
+  ArrowTrendingUpIcon,
   ArrowUpRightIcon,
   ArrowUturnLeftIcon,
   BanknotesIcon,
   BellIcon,
+  CalendarDaysIcon,
   CheckCircleIcon,
   ExclamationCircleIcon,
+  ExclamationTriangleIcon,
   InboxArrowDownIcon,
+  LockOpenIcon,
   ShieldCheckIcon,
   UserCircleIcon,
   UserGroupIcon,
@@ -82,6 +86,11 @@ function icon(kind: string) {
   if (kind === 'loan_disbursed' || kind === 'withdrawal_paid') return { c: BanknotesIcon, style: 'bg-emerald-50 text-emerald-700' }
   if (kind.endsWith('approved')) return { c: CheckCircleIcon, style: 'bg-emerald-50 text-emerald-700' }
   if (kind.endsWith('rejected')) return { c: ExclamationCircleIcon, style: 'bg-red-50 text-red-700' }
+  if (kind === 'loan_due') return { c: CalendarDaysIcon, style: 'bg-navy-50 text-navy-800' }
+  if (kind === 'loan_late') return { c: ExclamationCircleIcon, style: 'bg-red-50 text-red-700' }
+  if (kind === 'slow_payer') return { c: ExclamationTriangleIcon, style: 'bg-amber-50 text-amber-800' }
+  if (kind === 'credit_up') return { c: ArrowTrendingUpIcon, style: 'bg-emerald-50 text-emerald-700' }
+  if (kind === 'guarantee_released') return { c: LockOpenIcon, style: 'bg-emerald-50 text-emerald-700' }
   if (kind.startsWith('guarantee') || kind.startsWith('guarantor')) return { c: UserGroupIcon, style: 'bg-navy-50 text-navy-800' }
   return { c: InboxArrowDownIcon, style: 'bg-gray-100 text-gray-700' }
 }

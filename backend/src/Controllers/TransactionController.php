@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Sacco\Controllers;
 
+use Sacco\Loans\Credit;
 use Sacco\Support\Periods;
 use Sacco\Auth\Auth;
 use Sacco\Database;
@@ -86,6 +87,9 @@ final class TransactionController
             'last_dividend' => $dividends[0] ?? null,
             'balances' => Ledger::balances($id),
             'pledged' => Money::toDecimal(Loans::pledged($db, $id)),
+            // Savings not held for guarantees or withdrawals: what they can still pledge for a colleague
+            'free_to_guarantee' => Money::toDecimal(Savings::free($db, $id)),
+            'credit' => Credit::standing($db, $id),
             'share_price' => Settings::get('share_price', '0'),
             'share_position' => Savings::sharePosition($db, $id),
             'withdrawable' => Money::toDecimal(Savings::withdrawable($db, $id)),
@@ -220,6 +224,8 @@ final class TransactionController
             'user' => AuthController::present($user),
             'balances' => Ledger::balances((int) $user['id']),
             'share_price' => Settings::get('share_price', '0'),
+            'pledged' => Money::toDecimal(Loans::pledged(Database::tenant(), (int) $user['id'])),
+            'credit' => Credit::standing(Database::tenant(), (int) $user['id']),
         ]);
     }
 

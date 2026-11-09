@@ -18,14 +18,20 @@ require __DIR__ . '/../bootstrap.php';
 
 use Sacco\Database;
 use Sacco\Loans\Loans;
+use Sacco\Support\Notify;
+use Sacco\Tenant;
 
-foreach (Database::platform()->query('SELECT code, db_name FROM saccos ORDER BY id') as $sacco) {
-    $db = Database::connect($sacco['db_name']);
-    $ids = $db->query("SELECT id FROM loans WHERE status IN ('active', 'closed')")->fetchAll(PDO::FETCH_COLUMN);
-    $db->beginTransaction();
-    foreach ($ids as $id) {
-        Loans::applyPayments($db, (int) $id);
-    }
-    $db->commit();
-    echo "SACCO {$sacco['code']}: " . count($ids) . " loans\n";
+foreach (Database::platform()->query('SELECT * FROM saccos ORDER BY id') as $sacco) {
+    // As that SACCO, so messages (a guarantor released, a slow payer) reach its members
+    $count = Tenant::actAs($sacco, function (PDO $db) {
+        $ids = $db->query("SELECT id FROM loans WHERE status IN ('active', 'closed')")->fetchAll(PDO::FETCH_COLUMN);
+        Notify::$system = true;
+        $db->beginTransaction();
+        foreach ($ids as $id) {
+            Loans::applyPayments($db, (int) $id);
+        }
+        $db->commit();
+        return count($ids);
+    });
+    echo "SACCO {$sacco['code']}: $count loans\n";
 }

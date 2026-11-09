@@ -17,7 +17,8 @@ import {
 import { api, ApiError } from '@/api'
 import { useAuth } from '@/stores/auth'
 import { useTheme } from '@/stores/theme'
-import type { Balances, Transaction } from '@/types'
+import type { Balances, CreditStanding, Transaction } from '@/types'
+import CreditBadge from '@/components/CreditBadge.vue'
 import TransactionList from '@/components/TransactionList.vue'
 import NoticeBoard from '@/components/NoticeBoard.vue'
 import EarningsCard from '@/components/EarningsCard.vue'
@@ -40,6 +41,8 @@ interface ActiveLoan {
 interface Summary {
   balances: Balances
   pledged: string
+  free_to_guarantee: string
+  credit: CreditStanding
   share_price: string
   share_position: { shares: number | null; min_shares: number; still_needed: string }
   withdrawable: string
@@ -222,6 +225,10 @@ const actions = computed(() => [
                 <p class="text-sm text-navy-100/80">{{ t('Savings') }}</p>
                 <p class="text-xl font-semibold"><CountUp :value="data.balances.savings" :format="show" :delay="200" /></p>
                 <Sparkline class="mt-1.5" :values="data.trend.savings.map((p) => Number(p.value))" color="#c2c7f2" label="Savings" :width="120" :height="26" />
+                <p v-if="Number(data.pledged) > 0" class="mt-1 text-xs text-navy-100/80">
+                  <span class="font-semibold text-white">−{{ show(data.pledged) }}</span> {{ t('held for guarantees') }}<br />
+                  <span class="font-semibold text-white">{{ show(data.free_to_guarantee) }}</span> {{ t('free to guarantee') }}
+                </p>
               </div>
             </div>
             <div class="flex items-start gap-2.5">
@@ -271,6 +278,14 @@ const actions = computed(() => [
               <template v-if="Number(data.loan_owed) > 0">{{ show(data.loan_owed) }} already owed on your loan{{ data.loans.length === 1 ? '' : 's' }}.</template>
               <template v-else>Based on your savings, with colleagues as guarantors.</template>
             </p>
+            <div class="mt-4 rounded-xl border border-line p-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-xs font-medium text-gray-600">{{ t('Credit standing') }}</span>
+                <CreditBadge :credit="data.credit" />
+              </div>
+              <p v-if="data.credit.grade !== 'good'" class="mt-1.5 text-xs" :class="data.credit.grade === 'poor' || data.credit.overdue_now ? 'text-red-700' : 'text-gray-600'">{{ data.credit.advice }}</p>
+              <p v-else class="mt-1.5 text-xs text-gray-600">{{ data.credit.on_time }} of your last {{ data.credit.due }} instalments paid on time.</p>
+            </div>
             <RouterLink :to="{ name: 'loan-apply' }" class="btn-primary mt-auto w-full !mt-6">Apply for a loan<ArrowRightIcon class="h-4 w-4" /></RouterLink>
           </template>
           <template v-else>
