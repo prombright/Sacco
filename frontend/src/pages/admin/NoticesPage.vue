@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ask } from '@/confirm'
 import { onMounted, reactive, ref } from 'vue'
 import { MegaphoneIcon } from '@heroicons/vue/24/outline'
 import { api, ApiError } from '@/api'
@@ -47,7 +48,7 @@ async function post() {
 }
 
 async function end(n: Notice) {
-  if (!confirm(`Take down "${n.title}"?`)) return
+  if (!await ask(`Take down "${n.title}"?`)) return
   await api.delete(`/notices/${n.id}`)
   await load()
 }

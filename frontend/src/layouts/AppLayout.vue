@@ -11,6 +11,7 @@ import {
   DocumentTextIcon,
   HomeIcon,
   KeyIcon,
+  ReceiptPercentIcon,
   UserCircleIcon,
   WalletIcon,
   XMarkIcon,
@@ -72,6 +73,7 @@ const groups = computed<NavGroup[]>(() => {
       links: [
         { name: 'dashboard', label: 'Dashboard', icon: HomeIcon },
         { name: 'statement', label: 'Statement', icon: DocumentTextIcon, also: ['statement-print'] },
+        { name: 'receipts-mine', label: 'Receipts', icon: ReceiptPercentIcon },
         { name: 'loans', label: 'Loans', icon: BanknotesIcon, also: ['loan-apply', 'loan'] },
         { name: 'withdrawals', label: 'Withdraw savings', icon: WalletIcon },
         { name: 'profile', label: 'Profile & next of kin', icon: UserCircleIcon },

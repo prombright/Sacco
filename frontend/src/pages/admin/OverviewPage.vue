@@ -18,6 +18,7 @@ import { formatMoney } from '@/money'
 import { loanStatus } from '@/loans'
 import type { LoanStatus } from '@/types'
 import MonthChart from '@/components/MonthChart.vue'
+import CountUp from '@/components/CountUp.vue'
 import { useTheme } from '@/stores/theme'
 
 interface Overview {
@@ -152,9 +153,9 @@ const money = (v: number) => formatMoney(String(v))
         </p>
       </div>
       <div class="flex flex-wrap gap-2">
-        <RouterLink :to="{ name: 'notices' }" class="btn-secondary"><MegaphoneIcon class="h-4 w-4" />Post a notice</RouterLink>
-        <RouterLink :to="{ name: 'member-import' }" class="btn-secondary"><UserPlusIcon class="h-4 w-4" />Import members</RouterLink>
-        <RouterLink :to="{ name: 'payroll' }" class="btn-primary"><ArrowUpTrayIcon class="h-4 w-4" />Post this month's payroll</RouterLink>
+        <RouterLink v-can="'notices'" :to="{ name: 'notices' }" class="btn-secondary"><MegaphoneIcon class="h-4 w-4" />Post a notice</RouterLink>
+        <RouterLink v-can="'members'" :to="{ name: 'member-import' }" class="btn-secondary"><UserPlusIcon class="h-4 w-4" />Import members</RouterLink>
+        <RouterLink v-can="'money'" :to="{ name: 'payroll' }" class="btn-primary"><ArrowUpTrayIcon class="h-4 w-4" />Post this month's payroll</RouterLink>
       </div>
     </div>
 
@@ -190,29 +191,29 @@ const money = (v: number) => formatMoney(String(v))
 
       <!-- Headline figures -->
       <section class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Headline figures">
-        <div class="relative overflow-hidden rounded-2xl bg-navy-900 p-5 text-white shadow-lift">
+        <div class="reveal relative overflow-hidden rounded-2xl bg-navy-900 p-5 text-white shadow-lift">
           <div class="absolute -right-14 -top-16 h-32 w-32 rounded-full border-2 border-saffron-400/90" aria-hidden="true" />
           <p class="text-xs font-semibold uppercase tracking-wider text-navy-200">Member funds</p>
-          <p class="mt-2 text-2xl font-bold tabular-nums">{{ money(funds) }}</p>
+          <p class="mt-2 text-2xl font-bold"><CountUp :value="funds" :duration="1500" /></p>
           <p class="mt-1 text-xs text-navy-200">Savings {{ formatMoney(data.totals.savings) }} · Shares {{ formatMoney(data.totals.shares) }}</p>
         </div>
-        <div class="card p-5">
+        <div class="reveal card p-5" style="--i: 1">
           <p class="eyebrow">Loans outstanding</p>
-          <p class="figure mt-2 text-2xl">{{ formatMoney(data.totals.loans_outstanding) }}</p>
+          <p class="figure mt-2 text-2xl"><CountUp :value="data.totals.loans_outstanding" :delay="150" /></p>
           <p class="mt-1 text-xs text-gray-500">{{ data.totals.active_loans }} active loan{{ data.totals.active_loans === 1 ? '' : 's' }}</p>
         </div>
-        <RouterLink :to="{ name: 'reports' }" class="card p-5 transition hover:shadow-lift" :class="{ '!border-red-200 !bg-red-50/60': data.totals.loans_in_arrears }">
+        <RouterLink :to="{ name: 'reports' }" class="reveal card p-5 transition hover:shadow-lift" style="--i: 2" :class="{ '!border-red-200 !bg-red-50/60': data.totals.loans_in_arrears }">
           <p class="eyebrow flex items-center gap-1.5" :class="{ '!text-red-700': data.totals.loans_in_arrears }">
             <ExclamationTriangleIcon v-if="data.totals.loans_in_arrears" class="h-4 w-4" aria-hidden="true" />In arrears
           </p>
-          <p class="figure mt-2 text-2xl" :class="{ '!text-red-700': data.totals.loans_in_arrears }">{{ formatMoney(data.totals.arrears) }}</p>
+          <p class="figure mt-2 text-2xl" :class="{ '!text-red-700': data.totals.loans_in_arrears }"><CountUp :value="data.totals.arrears" :delay="300" /></p>
           <p class="mt-1 text-xs text-gray-500">
             {{ data.totals.loans_in_arrears ? `${data.totals.loans_in_arrears} loan${data.totals.loans_in_arrears === 1 ? '' : 's'} behind on repayments` : 'Every loan is up to date' }}
           </p>
         </RouterLink>
-        <RouterLink :to="{ name: 'users' }" class="card p-5 transition hover:shadow-lift">
+        <RouterLink :to="{ name: 'users' }" class="reveal card p-5 transition hover:shadow-lift" style="--i: 3">
           <p class="eyebrow">Active members</p>
-          <p class="figure mt-2 text-2xl">{{ data.totals.members }}</p>
+          <p class="figure mt-2 text-2xl"><CountUp :value="data.totals.members" :format="(n: number) => n.toLocaleString()" :delay="450" /></p>
           <p class="mt-1 text-xs text-gray-500">{{ data.totals.new_members_this_month }} joined this month</p>
         </RouterLink>
       </section>
@@ -225,14 +226,14 @@ const money = (v: number) => formatMoney(String(v))
         </div>
       </div>
       <section class="mt-3 grid gap-4 xl:grid-cols-5">
-        <div class="card p-5 xl:col-span-3 min-w-0">
+        <div class="reveal card p-5 xl:col-span-3 min-w-0" style="--i: 4">
           <div class="flex items-baseline justify-between gap-2">
             <h2 class="font-semibold">Member funds</h2>
             <p class="text-xs text-gray-500">Savings + shares at each month end</p>
           </div>
           <MonthChart :key="'f' + range" class="mt-4" :points="funds6" kind="area" :color="chartColors.blue" label="Member funds" :format="money" />
         </div>
-        <div class="card p-5 xl:col-span-2 min-w-0">
+        <div class="reveal card p-5 xl:col-span-2 min-w-0" style="--i: 5">
           <div class="flex items-baseline justify-between gap-2">
             <h2 class="font-semibold">Loan repayments</h2>
             <p class="text-xs text-gray-500">Collected each month</p>
@@ -243,7 +244,7 @@ const money = (v: number) => formatMoney(String(v))
 
       <!-- This month, loans, activity -->
       <section class="mt-6 grid gap-4 xl:grid-cols-3">
-        <div class="card p-5">
+        <div class="reveal card p-5" style="--i: 6">
           <h2 class="font-semibold">{{ monthName }} so far</h2>
           <div class="mt-4 space-y-4 text-sm">
             <div>
@@ -270,7 +271,7 @@ const money = (v: number) => formatMoney(String(v))
           </div>
         </div>
 
-        <div class="card p-5">
+        <div class="reveal card p-5" style="--i: 7">
           <div class="flex items-center justify-between">
             <h2 class="font-semibold">Loans</h2>
             <RouterLink :to="{ name: 'admin-loans' }" class="text-sm font-semibold text-brand hover:underline">All loans</RouterLink>
@@ -307,7 +308,7 @@ const money = (v: number) => formatMoney(String(v))
           </ul>
         </div>
 
-        <div class="card p-5">
+        <div class="reveal card p-5" style="--i: 8">
           <div class="flex items-center justify-between">
             <h2 class="font-semibold">Latest activity</h2>
             <RouterLink :to="{ name: 'reports' }" class="text-sm font-semibold text-brand hover:underline">Audit log</RouterLink>

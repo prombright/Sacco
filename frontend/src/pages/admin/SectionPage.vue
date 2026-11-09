@@ -55,10 +55,11 @@ const waitingHere = computed(() => (office.waiting ? items.value.reduce((n, i) =
     <!-- Modules -->
     <div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       <RouterLink
-        v-for="item in items"
+        v-for="(item, n) in items"
         :key="item.name"
         :to="{ name: item.name }"
-        class="card group relative flex flex-col overflow-hidden p-5 transition duration-200 hover:-translate-y-1 hover:shadow-lift"
+        :style="{ '--i': n }"
+        class="reveal card group relative flex flex-col overflow-hidden p-5 transition duration-200 hover:-translate-y-1 hover:shadow-lift"
       >
         <span class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r opacity-0 transition group-hover:opacity-100" :class="section.tone" aria-hidden="true" />
         <div class="flex items-start justify-between gap-3">

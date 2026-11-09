@@ -148,7 +148,7 @@ final class UserController
         }
         $temporary = Passwords::temporary();
         Database::tenant()->prepare(
-            'UPDATE users SET password_hash = ?, must_change_password = 1, failed_attempts = 0, locked_until = NULL WHERE id = ?'
+            'UPDATE users SET password_hash = ?, must_change_password = 1, password_changed_at = NOW(), failed_attempts = 0, locked_until = NULL WHERE id = ?'
         )->execute([Passwords::hash($temporary), $user['id']]);
         Audit::log('user.password_reset', 'user', (int) $user['id']);
         if ($user['role'] === Roles::MEMBER) {

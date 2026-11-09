@@ -156,7 +156,7 @@ async function download(kind: 'pdf' | 'excel') {
             Closing <span class="font-semibold tabular-nums text-ink">{{ formatMoney(acc.closing) }}</span>
           </p>
         </div>
-        <table class="mt-2 w-full text-sm">
+        <div class="overflow-x-auto print:overflow-visible"><table class="mt-2 w-full min-w-[32rem] text-sm print:min-w-0">
           <thead class="border-y border-gray-300 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
             <tr><th class="py-2 pr-3">Date</th><th class="py-2 pr-3">Entry</th><th class="py-2 pr-3">Details</th><th class="py-2 pr-3 text-right">Amount</th><th class="py-2 text-right">Balance</th></tr>
           </thead>
@@ -171,12 +171,12 @@ async function download(kind: 'pdf' | 'excel') {
             </tr>
             <tr class="border-t border-gray-300 font-semibold"><td class="py-2 pr-3" colspan="4">Closing balance</td><td class="py-2 text-right tabular-nums">{{ formatMoney(acc.closing) }}</td></tr>
           </tbody>
-        </table>
+        </table></div>
       </section>
 
       <section v-if="data.loans.length" class="mt-7 break-inside-avoid-page">
         <h2 class="text-lg font-bold">Loans</h2>
-        <table class="mt-2 w-full text-sm">
+        <div class="overflow-x-auto print:overflow-visible"><table class="mt-2 w-full min-w-[32rem] text-sm print:min-w-0">
           <thead class="border-y border-gray-300 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
             <tr><th class="py-2 pr-3">Loan</th><th class="py-2 pr-3">Paid out</th><th class="py-2 pr-3 text-right">Amount</th><th class="py-2 pr-3 text-right">Repaid</th><th class="py-2 pr-3 text-right">Still owed</th><th class="py-2 text-right">Next due</th></tr>
           </thead>
@@ -190,7 +190,7 @@ async function download(kind: 'pdf' | 'excel') {
               <td class="py-1.5 text-right">{{ l.next_due_date ? formatDate(l.next_due_date) : '' }}</td>
             </tr>
           </tbody>
-        </table>
+        </table></div>
       </section>
 
       <footer class="mt-10 border-t border-gray-200 pt-3 text-xs text-gray-500">

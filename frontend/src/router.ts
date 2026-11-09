@@ -22,6 +22,7 @@ declare module 'vue-router' {
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
+  scrollBehavior: (_to, _from, saved) => saved ?? { top: 0 },
   routes: [
     // The SACCO's public homepage: anyone can read it, signed in or not
     { path: '/welcome', name: 'home', component: () => import('@/pages/HomePage.vue'), meta: { public: true, title: 'Welcome' } },
@@ -36,7 +37,7 @@ const router = createRouter({
       component: () => import('@/layouts/AppLayout.vue'),
       children: [
         { path: '', name: 'dashboard', component: () => import('@/pages/DashboardPage.vue'), meta: { member: true, title: 'My dashboard' } },
-        { path: 'office', name: 'overview', component: () => import('@/pages/admin/OverviewPage.vue'), meta: { admin: true, title: 'Overview' } },
+        { path: 'office', name: 'overview', component: () => import('@/pages/admin/OverviewPage.vue'), meta: { admin: true, title: 'Dashboard' } },
         { path: 'members/import', name: 'member-import', component: () => import('@/pages/admin/MemberImportPage.vue'), meta: { admin: true, title: 'Import members' } },
         { path: 'profile', name: 'profile', component: () => import('@/pages/ProfilePage.vue'), meta: { member: true, title: 'My profile' } },
         { path: 'admin/cashbook', name: 'cashbook', redirect: { name: 'payments' } },
@@ -85,6 +86,10 @@ const router = createRouter({
         { path: 'reports/annual', name: 'annual-report', component: () => import('@/pages/accounts/AnnualReportPage.vue'), meta: { admin: true, title: 'Annual report' } },
         { path: 'reports/audit', name: 'audit-report', component: () => import('@/pages/admin/ReportsPage.vue'), meta: { admin: true, title: 'Audit report', report: 'audit' } },
         { path: 'accounts/chart', name: 'chart', component: () => import('@/pages/accounts/ChartOfAccountsPage.vue'), meta: { admin: true, title: 'Chart of accounts' } },
+        { path: 'accounts/bank-reconciliation', name: 'bank-rec', component: () => import('@/pages/accounts/BankRecPage.vue'), meta: { admin: true, title: 'Bank reconciliation' } },
+        { path: 'accounts/bank-reconciliation/:id(\\d+)', name: 'bank-rec-detail', component: () => import('@/pages/accounts/BankRecPage.vue'), meta: { admin: true, title: 'Bank reconciliation' } },
+        { path: 'receipts', name: 'receipts-mine', component: () => import('@/pages/ReceiptsPage.vue'), meta: { member: true, title: 'My receipts' } },
+        { path: 'members/:id(\\d+)/receipts', name: 'member-receipts', component: () => import('@/pages/ReceiptsPage.vue'), meta: { admin: true, title: 'Receipts' } },
         // Administration
         { path: 'admin/loan-interest', name: 'loan-interest', component: () => import('@/pages/accounts/FinancialReportPage.vue'), meta: { admin: true, title: 'Monthly loan interest', report: 'loan_interest' } },
         { path: 'admin/transactions', name: 'transactions', component: () => import('@/pages/admin/TransactionsPage.vue'), meta: { admin: true, title: 'Transactions & reversals' } },
@@ -144,6 +149,20 @@ router.beforeEach(async (to) => {
     return { name: 'overview' }
   }
   return true
+})
+
+router.afterEach((to) => {
+  if (to.meta.dev) return
+  const name = useAuth().sacco?.short_name || useAuth().sacco?.name || 'SACCO'
+  document.title = to.meta.title ? `${to.meta.title} · ${name}` : name
+})
+
+// After an update the old page's files are gone: load the new version instead of failing
+router.onError((error, to) => {
+  if (/dynamically imported module|Importing a module script|Failed to fetch/i.test(String(error?.message)) && !sessionStorage.getItem('sacco-reloaded')) {
+    sessionStorage.setItem('sacco-reloaded', '1')
+    window.location.assign(import.meta.env.BASE_URL + to.fullPath.replace(/^\//, ''))
+  }
 })
 
 export default router

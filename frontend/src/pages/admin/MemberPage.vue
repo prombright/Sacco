@@ -119,6 +119,7 @@ loadLedger()
         <div class="flex flex-wrap gap-2">
           <button v-can="'members'" type="button" class="btn-secondary" @click="editingDetails = true">Edit details</button>
           <template v-if="isMember">
+            <RouterLink :to="{ name: 'member-receipts', params: { id: member.id } }" class="btn-secondary">Receipts</RouterLink>
             <RouterLink :to="{ name: 'member-statement', params: { id: member.id } }" class="btn-secondary">Print statement</RouterLink>
             <button v-can="'money'" v-if="!isSelf" type="button" class="btn-primary" @click="recording = true">Record an entry</button>
           </template>

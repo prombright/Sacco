@@ -13,6 +13,7 @@ import { formatMoney } from '@/money'
 import { useTheme } from '@/stores/theme'
 import MonthChart from '@/components/MonthChart.vue'
 import Modal from '@/components/Modal.vue'
+import CountUp from '@/components/CountUp.vue'
 import { ago, type DevSacco, type PortalLogRow, type SaccoStats } from './dev'
 
 interface Row extends DevSacco {
@@ -111,22 +112,22 @@ function closeAdding() {
         <div class="relative overflow-hidden rounded-2xl bg-navy-900 p-5 text-white shadow-lift">
           <div class="absolute -right-14 -top-16 h-32 w-32 rounded-full border-2 border-saffron-400/90" aria-hidden="true" />
           <p class="text-xs font-semibold uppercase tracking-wider text-navy-200">Member funds, all SACCOs</p>
-          <p class="mt-2 text-2xl font-bold tabular-nums">{{ money(funds(data.totals)) }}</p>
+          <p class="mt-2 text-2xl font-bold"><CountUp :value="funds(data.totals)" :duration="1500" /></p>
           <p class="mt-1 text-xs text-navy-200">Savings {{ formatMoney(data.totals.savings) }} · Shares {{ formatMoney(data.totals.shares) }}</p>
         </div>
         <div class="card p-5">
           <p class="eyebrow">Loans outstanding</p>
-          <p class="figure mt-2 text-2xl">{{ formatMoney(data.totals.loans_outstanding) }}</p>
+          <p class="figure mt-2 text-2xl"><CountUp :value="data.totals.loans_outstanding" :delay="150" /></p>
           <p class="mt-1 text-xs" :class="Number(data.totals.arrears) > 0 ? 'font-semibold text-red-700' : 'text-gray-500'">{{ Number(data.totals.arrears) > 0 ? formatMoney(data.totals.arrears) + ' in arrears' : 'Nothing in arrears' }}</p>
         </div>
         <div class="card p-5">
           <p class="eyebrow">Members</p>
-          <p class="figure mt-2 text-2xl">{{ data.totals.members.toLocaleString() }}</p>
+          <p class="figure mt-2 text-2xl"><CountUp :value="data.totals.members" :format="(n: number) => n.toLocaleString()" :delay="300" /></p>
           <p class="mt-1 text-xs text-gray-500">Active member accounts</p>
         </div>
         <div class="card p-5">
           <p class="eyebrow">Waiting for SACCO offices</p>
-          <p class="figure mt-2 text-2xl">{{ data.totals.waiting }}</p>
+          <p class="figure mt-2 text-2xl"><CountUp :value="data.totals.waiting" :format="(n: number) => String(n)" :delay="450" /></p>
           <p class="mt-1 text-xs text-gray-500">Loans and withdrawals to approve or pay</p>
         </div>
       </section>

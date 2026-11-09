@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ask } from '@/confirm'
 import { computed, onMounted, ref } from 'vue'
 import { api, ApiError } from '@/api'
 import { formatDate, formatMoney } from '@/money'
@@ -57,7 +58,7 @@ async function submit() {
 }
 
 async function cancel(r: Withdrawal) {
-  if (!confirm(`Cancel your request to withdraw ${formatMoney(r.amount)}?`)) return
+  if (!await ask(`Cancel your request to withdraw ${formatMoney(r.amount)}?`)) return
   try {
     await api.post(`/withdrawals/${r.id}/cancel`)
     await load()

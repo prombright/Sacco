@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ask } from '@/confirm'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { api, ApiError } from '@/api'
@@ -101,10 +102,10 @@ async function post() {
   if (!report.value) return
   let confirmDuplicate = false
   if (report.value.duplicate_period) {
-    if (!confirm(`A payroll for ${period.value} has already been posted. Post this one as well?`)) return
+    if (!await ask(`A payroll for ${period.value} has already been posted. Post this one as well?`)) return
     confirmDuplicate = true
   }
-  if (!confirm(`Post ${report.value.posted_rows} members' deductions for ${period.value}?`)) return
+  if (!await ask(`Post ${report.value.posted_rows} members' deductions for ${period.value}?`)) return
   error.value = ''
   busy.value = true
   try {

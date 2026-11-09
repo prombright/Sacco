@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ask } from '@/confirm'
 import { onMounted, reactive, ref, watch } from 'vue'
 import { api, ApiError } from '@/api'
 import { useAuth } from '@/stores/auth'
@@ -62,7 +63,7 @@ async function act(path: string, body: Record<string, unknown> = {}) {
 }
 
 async function approve(r: Withdrawal) {
-  if (confirm(`Approve ${r.full_name}'s withdrawal of ${formatMoney(r.amount)}?`)) await act(`/withdrawals/${r.id}/approve`)
+  if (await ask(`Approve ${r.full_name}'s withdrawal of ${formatMoney(r.amount)}?`)) await act(`/withdrawals/${r.id}/approve`)
 }
 </script>
 

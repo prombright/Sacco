@@ -6,6 +6,7 @@ import { useAuth } from '@/stores/auth'
 import type { Report } from '@/reports'
 import { downloadPdfBook, downloadWorkbook } from '@/exporters'
 import ReportView from '@/components/ReportView.vue'
+import CountUp from '@/components/CountUp.vue'
 
 interface Annual {
   year: number
@@ -46,12 +47,12 @@ const cards = computed(() => {
   if (!h) return []
   const cur = auth.sacco?.currency ?? 'UGX'
   return [
-    { label: 'Members', value: String(h.members) },
-    { label: `Savings (${cur})`, value: short(h.savings) },
-    { label: `Share capital (${cur})`, value: short(h.shares) },
-    { label: `Loans issued (${cur})`, value: short(h.loans_issued) },
-    { label: `Income (${cur})`, value: short(h.income) },
-    { label: `${Number(h.surplus) >= 0 ? 'Surplus' : 'Deficit'} (${cur})`, value: short(h.surplus) },
+    { label: 'Members', raw: h.members, value: String(h.members) },
+    { label: `Savings (${cur})`, raw: h.savings, value: short(h.savings) },
+    { label: `Share capital (${cur})`, raw: h.shares, value: short(h.shares) },
+    { label: `Loans issued (${cur})`, raw: h.loans_issued, value: short(h.loans_issued) },
+    { label: `Income (${cur})`, raw: h.income, value: short(h.income) },
+    { label: `${Number(h.surplus) >= 0 ? 'Surplus' : 'Deficit'} (${cur})`, raw: h.surplus, value: short(h.surplus) },
   ]
 })
 
@@ -96,8 +97,8 @@ async function download(kind: 'pdf' | 'excel') {
         </div>
       </div>
       <div v-if="data" class="relative mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-2xl bg-white/10 sm:grid-cols-3 xl:grid-cols-6">
-        <div v-for="c in cards" :key="c.label" class="bg-navy-950/40 p-4">
-          <p class="text-2xl font-bold tabular-nums">{{ c.value }}</p>
+        <div v-for="(c, n) in cards" :key="c.label" class="bg-navy-950/40 p-4">
+          <p class="text-2xl font-bold"><CountUp :value="c.raw" :format="short" :delay="n * 120" /></p>
           <p class="mt-0.5 text-xs text-navy-100/70">{{ c.label }}</p>
         </div>
       </div>

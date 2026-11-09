@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ask } from '@/confirm'
 import { computed, ref } from 'vue'
 import { ArrowDownTrayIcon, ArrowUpTrayIcon, CheckCircleIcon } from '@heroicons/vue/24/outline'
 import { api, ApiError } from '@/api'
@@ -62,7 +63,7 @@ async function pick(e: Event) {
 }
 
 async function importAll() {
-  if (!report.value || !confirm(`Add ${report.value.row_count} members with their opening balances?`)) return
+  if (!report.value || !await ask(`Add ${report.value.row_count} members with their opening balances?`)) return
   error.value = ''
   busy.value = true
   try {

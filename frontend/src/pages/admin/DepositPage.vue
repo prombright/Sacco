@@ -5,6 +5,8 @@ import { api, ApiError } from '@/api'
 import { formatMoney } from '@/money'
 import type { Balances, PickedMember } from '@/types'
 import type { Report } from '@/reports'
+import { useAuth } from '@/stores/auth'
+import { downloadReceiptNo } from '@/receipts'
 import MemberPicker from '@/components/MemberPicker.vue'
 import ReportView from '@/components/ReportView.vue'
 
@@ -16,6 +18,9 @@ const form = reactive({ account: 'savings', amount: '', value_date: today, refer
 const error = ref('')
 const done = ref('')
 const busy = ref(false)
+const lastReceipt = ref('')
+const auth = useAuth()
+const receipt = () => downloadReceiptNo(lastReceipt.value, { sacco: auth.sacco, user: auth.user?.full_name ?? null })
 
 watch(member, async (m) => {
   balances.value = m ? (await api.get<{ balances: Balances }>(`/members/${m.id}`)).balances : null
@@ -26,7 +31,8 @@ async function save() {
   done.value = ''
   busy.value = true
   try {
-    const res = await api.post<{ balances: Balances }>(`/members/${member.value!.id}/transactions`, { ...form, type: 'deposit' })
+    const res = await api.post<{ balances: Balances; transaction: { id: number } }>(`/members/${member.value!.id}/transactions`, { ...form, type: 'deposit' })
+    lastReceipt.value = 'RCT-T' + String(res.transaction.id).padStart(6, '0')
     done.value = `${formatMoney(form.amount)} added to ${member.value!.full_name}'s ${form.account}. They have been told.`
     balances.value = res.balances
     Object.assign(form, { amount: '', reference: '', narration: '' })
@@ -96,6 +102,7 @@ const report = computed<Report>(() => ({
       <div class="flex flex-wrap items-center gap-3 lg:col-span-2">
         <button type="submit" class="btn-primary" :disabled="busy || !member || !form.amount">{{ busy ? 'Saving…' : 'Record the deposit' }}</button>
         <p v-if="done" class="text-sm text-emerald-700">{{ done }}</p>
+        <button v-if="done && lastReceipt" type="button" class="btn-secondary" @click="receipt">Download receipt</button>
         <p v-if="error" class="text-sm text-red-700" role="alert">{{ error }}</p>
       </div>
     </form>

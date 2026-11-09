@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ask } from '@/confirm'
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { api, ApiError } from '@/api'
@@ -75,7 +76,7 @@ async function calculate() {
 
 async function post() {
   if (!preview.value) return
-  if (!confirm(`Credit ${formatMoney(preview.value.total_dividend)} in dividends to ${preview.value.member_count} members?`)) return
+  if (!await ask(`Credit ${formatMoney(preview.value.total_dividend)} in dividends to ${preview.value.member_count} members?`)) return
   error.value = ''
   busy.value = true
   try {

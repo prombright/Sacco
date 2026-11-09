@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ask } from '@/confirm'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
@@ -144,13 +145,13 @@ async function addAccount() {
   }
 }
 async function resetPassword(u: { id: number; full_name: string }) {
-  if (!confirm(`Give ${u.full_name} a new temporary password? Their current one stops working at once, and the SACCO's office is told.`)) return
+  if (!await ask(`Give ${u.full_name} a new temporary password? Their current one stops working at once, and the SACCO's office is told.`)) return
   const res = await api.post<{ temporary_password: string; login: string }>(`/dev/saccos/${id.value}/users/${u.id}/reset-password`)
   secret.value = { who: u.full_name, login: res.login, password: res.temporary_password }
   await load()
 }
 async function setStatus(u: OfficeAccount, status: 'active' | 'suspended') {
-  if (status === 'suspended' && !confirm(`Suspend ${u.full_name}? They are signed out and can't sign in until reactivated.`)) return
+  if (status === 'suspended' && !await ask(`Suspend ${u.full_name}? They are signed out and can't sign in until reactivated.`)) return
   data.value = await api.post<Detail>(`/dev/saccos/${id.value}/users/${u.id}/status`, { status })
 }
 
@@ -178,7 +179,7 @@ async function saveDetails() {
 }
 async function togglePaused() {
   const pausing = data.value?.sacco.status === 'active'
-  if (pausing && !confirm('Pause this SACCO? Nobody in it can sign in until it is made active again.')) return
+  if (pausing && !await ask('Pause this SACCO? Nobody in it can sign in until it is made active again.')) return
   data.value = await api.patch<Detail>(`/dev/saccos/${id.value}`, { status: pausing ? 'paused' : 'active' })
 }
 

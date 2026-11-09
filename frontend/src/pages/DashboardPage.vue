@@ -21,6 +21,7 @@ import TransactionList from '@/components/TransactionList.vue'
 import NoticeBoard from '@/components/NoticeBoard.vue'
 import EarningsCard from '@/components/EarningsCard.vue'
 import MonthChart from '@/components/MonthChart.vue'
+import CountUp from '@/components/CountUp.vue'
 import { formatDate, formatMoney } from '@/money'
 
 interface ActiveLoan {
@@ -165,13 +166,13 @@ const actions = [
     <template v-if="data">
       <!-- What I have, and what I can borrow -->
       <section class="mt-6 grid gap-4 lg:grid-cols-3" aria-label="Balances">
-        <div class="relative min-w-0 overflow-hidden rounded-3xl bg-gradient-to-br from-navy-800 via-navy-900 to-navy-950 p-6 text-white shadow-lift lg:col-span-2">
+        <div class="reveal relative min-w-0 overflow-hidden rounded-3xl bg-gradient-to-br from-navy-800 via-navy-900 to-navy-950 p-6 text-white shadow-lift lg:col-span-2">
           <div class="absolute -right-20 -top-24 h-64 w-64 rounded-full border-2 border-saffron-400/70" aria-hidden="true" />
           <div class="absolute -bottom-28 right-24 h-56 w-56 rounded-full bg-saffron-400/10" aria-hidden="true" />
           <div class="relative flex items-start justify-between gap-4">
             <div>
               <p class="text-sm text-navy-100/80">My money in the SACCO</p>
-              <p class="mt-1 text-4xl font-bold tabular-nums sm:text-5xl">{{ show(total) }}</p>
+              <p class="mt-1 text-4xl font-bold sm:text-5xl"><CountUp :value="total" :format="show" :duration="1500" /></p>
             </div>
             <button
               type="button"
@@ -186,7 +187,7 @@ const actions = [
 
           <!-- Savings and shares, side by side -->
           <div class="relative mt-6 flex h-3 overflow-hidden rounded-full bg-white/10" role="img" :aria-label="`Savings ${Math.round(savingsShare)}%, shares ${100 - Math.round(savingsShare)}%`">
-            <div class="h-full bg-navy-200 transition-all duration-700" :style="{ width: savingsShare + '%' }" />
+            <div class="fill-bar h-full bg-navy-200" :style="{ width: savingsShare + '%' }" />
             <div class="ml-0.5 h-full flex-1 bg-saffron-400" />
           </div>
           <div class="relative mt-3 grid gap-4 sm:grid-cols-2">
@@ -194,14 +195,14 @@ const actions = [
               <span class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-navy-200" aria-hidden="true" />
               <div>
                 <p class="text-sm text-navy-100/80">Savings</p>
-                <p class="text-xl font-semibold tabular-nums">{{ show(data.balances.savings) }}</p>
+                <p class="text-xl font-semibold"><CountUp :value="data.balances.savings" :format="show" :delay="200" /></p>
               </div>
             </div>
             <div class="flex items-start gap-2.5">
               <span class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-saffron-400" aria-hidden="true" />
               <div>
                 <p class="text-sm text-navy-100/80">Share capital</p>
-                <p class="text-xl font-semibold tabular-nums">{{ show(data.balances.shares) }}</p>
+                <p class="text-xl font-semibold"><CountUp :value="data.balances.shares" :format="show" :delay="350" /></p>
                 <p v-if="data.share_position.min_shares > 0 && data.share_position.shares !== null" class="mt-0.5 flex items-center gap-1 text-xs" :class="Number(data.share_position.still_needed) > 0 ? 'text-saffron-300' : 'text-navy-100/80'">
                   <CheckCircleIcon v-if="Number(data.share_position.still_needed) <= 0" class="h-3.5 w-3.5" aria-hidden="true" />
                   {{ data.share_position.shares }} share{{ data.share_position.shares === 1 ? '' : 's' }}<template v-if="Number(data.share_position.still_needed) > 0"> · {{ show(data.share_position.still_needed) }} more to reach {{ data.share_position.min_shares }}</template><template v-else> · minimum of {{ data.share_position.min_shares }} reached</template>
@@ -213,31 +214,31 @@ const actions = [
           <dl class="relative mt-6 grid grid-cols-2 gap-4 border-t border-white/10 pt-4 text-sm sm:grid-cols-3">
             <div>
               <dt class="text-navy-100/70">You can withdraw</dt>
-              <dd class="mt-0.5 font-semibold tabular-nums">{{ show(data.withdrawable) }}</dd>
+              <dd class="mt-0.5 font-semibold"><CountUp :value="data.withdrawable" :format="show" :delay="500" /></dd>
             </div>
             <div>
               <dt class="text-navy-100/70">Saved this year</dt>
-              <dd class="mt-0.5 font-semibold tabular-nums">{{ show(data.saved_this_year) }}</dd>
+              <dd class="mt-0.5 font-semibold"><CountUp :value="data.saved_this_year" :format="show" :delay="600" /></dd>
             </div>
             <div v-if="Number(data.pledged) > 0">
               <dt class="flex items-center gap-1 text-navy-100/70"><LockClosedIcon class="h-3.5 w-3.5" aria-hidden="true" />Pledged for colleagues</dt>
-              <dd class="mt-0.5 font-semibold tabular-nums">{{ show(data.pledged) }}</dd>
+              <dd class="mt-0.5 font-semibold"><CountUp :value="data.pledged" :format="show" :delay="700" /></dd>
             </div>
             <div v-else>
               <dt class="text-navy-100/70">Dividends &amp; profit so far</dt>
-              <dd class="mt-0.5 font-semibold tabular-nums">{{ show(data.dividends_total) }}</dd>
+              <dd class="mt-0.5 font-semibold"><CountUp :value="data.dividends_total" :format="show" :delay="700" /></dd>
             </div>
           </dl>
         </div>
 
         <!-- Borrowing power -->
-        <div class="card flex min-w-0 flex-col p-6">
+        <div class="reveal card flex min-w-0 flex-col p-6" style="--i: 1">
           <p class="eyebrow">Borrowing power</p>
           <template v-if="!data.loan_wait_reason">
             <p class="mt-3 text-sm text-gray-600">You can borrow up to</p>
-            <p class="figure text-3xl">{{ show(data.loan_limit) }}</p>
+            <p class="figure text-3xl"><CountUp :value="data.loan_limit" :format="show" :delay="300" /></p>
             <div class="mt-4 h-2 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
-              <div class="h-full rounded-full bg-brand transition-all duration-700" :style="{ width: Math.min(100, (Number(data.loan_owed) / (Number(data.loan_owed) + Number(data.loan_limit) || 1)) * 100) + '%' }" />
+              <div class="fill-bar h-full rounded-full bg-brand" :style="{ width: Math.min(100, (Number(data.loan_owed) / (Number(data.loan_owed) + Number(data.loan_limit) || 1)) * 100) + '%' }" />
             </div>
             <p class="mt-2 text-xs text-gray-500">
               <template v-if="Number(data.loan_owed) > 0">{{ show(data.loan_owed) }} already owed on your loan{{ data.loans.length === 1 ? '' : 's' }}.</template>
@@ -255,7 +256,7 @@ const actions = [
 
       <!-- Growth, and loans -->
       <section class="mt-4 grid gap-4 lg:grid-cols-3">
-        <div class="card min-w-0 p-5 lg:col-span-2">
+        <div class="reveal card min-w-0 p-5 lg:col-span-2" style="--i: 2">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 class="font-semibold">How my {{ series === 'savings' ? 'savings' : 'shares' }} have grown</h2>
@@ -284,7 +285,7 @@ const actions = [
           />
         </div>
 
-        <div class="card min-w-0 p-5">
+        <div class="reveal card min-w-0 p-5" style="--i: 3">
           <div class="flex items-center justify-between">
             <h2 class="font-semibold">My loan{{ data.loans.length > 1 ? 's' : '' }}</h2>
             <RouterLink :to="{ name: 'loans' }" class="text-sm font-semibold text-brand hover:underline">All loans</RouterLink>
@@ -295,9 +296,9 @@ const actions = [
                 <span class="relative inline-flex h-20 w-20 shrink-0 items-center justify-center">
                   <svg viewBox="0 0 80 80" class="h-20 w-20 -rotate-90" aria-hidden="true">
                     <circle cx="40" cy="40" r="34" fill="none" stroke-width="7" class="stroke-gray-100" />
-                    <circle cx="40" cy="40" r="34" fill="none" stroke-width="7" stroke-linecap="round" class="stroke-brand transition-all duration-700" :stroke-dasharray="ring" :stroke-dashoffset="ring * (1 - progress(l) / 100)" />
+                    <circle cx="40" cy="40" r="34" fill="none" stroke-width="7" stroke-linecap="round" class="ring-fill stroke-brand" :style="{ '--ring': ring }" :stroke-dasharray="ring" :stroke-dashoffset="ring * (1 - progress(l) / 100)" />
                   </svg>
-                  <span class="absolute text-sm font-bold tabular-nums">{{ progress(l) }}%</span>
+                  <span class="absolute text-sm font-bold"><CountUp :value="progress(l)" :format="(n: number) => `${n}%`" :delay="250" /></span>
                 </span>
                 <span class="min-w-0 flex-1">
                   <span class="block text-sm font-semibold group-hover:text-brand">{{ l.loan_no }} · {{ show(l.amount) }}</span>
@@ -320,9 +321,9 @@ const actions = [
         </div>
       </section>
 
-      <EarningsCard class="mt-4" />
+      <EarningsCard class="reveal mt-4" style="--i: 4" />
 
-      <section class="mt-4">
+      <section class="reveal mt-4" style="--i: 5">
         <div class="flex items-center justify-between">
           <h2 class="font-semibold">Recent activity</h2>
           <RouterLink :to="{ name: 'statement' }" class="text-sm font-semibold text-brand hover:underline">Full statement</RouterLink>

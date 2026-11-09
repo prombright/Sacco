@@ -4,6 +4,8 @@ import { ArrowUturnLeftIcon } from '@heroicons/vue/24/outline'
 import { api, ApiError } from '@/api'
 import { formatMoney, transactionTypeLabel } from '@/money'
 import type { Report } from '@/reports'
+import { useAuth } from '@/stores/auth'
+import { downloadReceiptNo } from '@/receipts'
 import ReportView from '@/components/ReportView.vue'
 import Modal from '@/components/Modal.vue'
 
@@ -76,6 +78,8 @@ const report = computed<Report | null>(() => data.value && {
 const byId = (id: unknown) => data.value?.transactions.find((t) => t.id === id)
 const canReverse = (t?: Tx) => !!t && !t.reversed_by && !t.reversal_of && t.type !== 'reversal' && t.type !== 'transfer'
 
+const auth = useAuth()
+const receipt = (id: unknown) => downloadReceiptNo('RCT-T' + String(id).padStart(6, '0'), { sacco: auth.sacco, user: auth.user?.full_name ?? null })
 const reversing = ref<Tx | null>(null)
 const reason = ref('')
 const reverseError = ref('')
@@ -115,6 +119,7 @@ async function reverse() {
         <div><label for="x-to" class="label">To</label><input id="x-to" v-model="to" type="date" class="input" @change="page = 1; load()" /></div>
       </template>
       <template #actions="{ row }">
+        <button v-if="row.type !== 'reversal'" type="button" class="rounded-lg px-2 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-100" @click="receipt(row._id)">Receipt</button>
         <button v-can="'money'" v-if="canReverse(byId(row._id))" type="button" class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-100" @click="reversing = byId(row._id)!; reason = ''; reverseError = ''">
           <ArrowUturnLeftIcon class="h-3.5 w-3.5" />Reverse
         </button>

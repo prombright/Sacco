@@ -8,6 +8,7 @@ use Sacco\Auth\Auth;
 use Sacco\Auth\DevAuth;
 use Sacco\Auth\Passwords;
 use Sacco\Auth\Roles;
+use Sacco\Auth\Throttle;
 use Sacco\Config;
 use Sacco\Database;
 use Sacco\Http\Request;
@@ -54,6 +55,7 @@ final class DevController
         if ($email === '' || $password === '') {
             Response::error('Enter your email and password.', 422);
         }
+        Throttle::check();
         $db = Database::platform();
         $stmt = $db->prepare('SELECT * FROM developers WHERE email = ?');
         $stmt->execute([$email]);
@@ -64,6 +66,7 @@ final class DevController
         }
         $ok = password_verify($password, $d['password_hash'] ?? '$2y$10$RcphI0l3G1eTAalvvYK7/ulMOfdATNeOvFR3kQ7gQx2173uxZe8Vm');
         if (!$d || !$ok) {
+            Throttle::fail();
             if ($d) {
                 $failed = (int) $d['failed_attempts'] + 1;
                 $failed >= self::MAX_FAILED_ATTEMPTS
@@ -350,7 +353,7 @@ final class DevController
         $temporary = Passwords::temporary();
         $user = Tenant::actAs($s, function (\PDO $db) use ($userId, $temporary) {
             $u = $this->user($db, $userId);
-            $db->prepare('UPDATE users SET password_hash = ?, must_change_password = 1, failed_attempts = 0, locked_until = NULL WHERE id = ?')
+            $db->prepare('UPDATE users SET password_hash = ?, must_change_password = 1, password_changed_at = NOW(), failed_attempts = 0, locked_until = NULL WHERE id = ?')
                 ->execute([Passwords::hash($temporary), $userId]);
             return $u;
         });

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Sacco\Auth\Roles;
 use Sacco\Controllers\AccountingController;
 use Sacco\Controllers\AuthController;
+use Sacco\Controllers\BankRecController;
 use Sacco\Controllers\BackupController;
 use Sacco\Controllers\CashbookController;
 use Sacco\Controllers\DevController;
@@ -20,6 +21,7 @@ use Sacco\Controllers\LoanController;
 use Sacco\Controllers\MemberImportController;
 use Sacco\Controllers\MembershipFeeController;
 use Sacco\Controllers\OfficeController;
+use Sacco\Controllers\ReceiptController;
 use Sacco\Controllers\ReportController;
 use Sacco\Controllers\PayrollController;
 use Sacco\Controllers\WithdrawalController;
@@ -214,6 +216,21 @@ $router->post('/api/membership-fees/{id}/waive', [MembershipFeeController::class
 $router->post('/api/membership-fees/{id}/undo', [MembershipFeeController::class, 'undo'], $edit('money'));
 $router->get('/api/me/membership-fees', [MembershipFeeController::class, 'mine'], $members);
 $router->get('/api/office/sections', [OfficeController::class, 'sections'], $admins);
+
+// Bank reconciliation
+$router->get('/api/bank-recs', [BankRecController::class, 'index'], $admins);
+$router->post('/api/bank-recs', [BankRecController::class, 'store'], $edit('money'));
+$router->get('/api/bank-recs/{id}', [BankRecController::class, 'show'], $admins);
+$router->patch('/api/bank-recs/{id}', [BankRecController::class, 'update'], $edit('money'));
+$router->post('/api/bank-recs/{id}/tick', [BankRecController::class, 'tick'], $edit('money'));
+$router->post('/api/bank-recs/{id}/complete', [BankRecController::class, 'complete'], $edit('money'));
+$router->post('/api/bank-recs/{id}/reopen', [BankRecController::class, 'reopen'], $super);
+$router->delete('/api/bank-recs/{id}', [BankRecController::class, 'destroy'], $edit('money'));
+
+// Receipts
+$router->get('/api/me/receipts', [ReceiptController::class, 'mine'], $members);
+$router->get('/api/members/{id}/receipts', [ReceiptController::class, 'member'], $admins);
+$router->get('/api/receipts/{no}', [ReceiptController::class, 'show']);
 
 // The SACCO's rules
 $router->get('/api/settings', [SettingsController::class, 'index'], $admins);

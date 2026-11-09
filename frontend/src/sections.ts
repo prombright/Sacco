@@ -10,6 +10,7 @@ import {
   BookOpenIcon,
   BriefcaseIcon,
   BuildingLibraryIcon,
+  BuildingOffice2Icon,
   CalculatorIcon,
   ChartBarIcon,
   CheckBadgeIcon,
@@ -151,6 +152,7 @@ export const sections: Section[] = [
       { name: 'payments', label: 'Payments (expenses)', description: 'Stationery, bank charges, meetings…', icon: ArrowUpRightIcon, figure: (s) => `${formatMoney(s.payments_month)} in ${month}` },
       { name: 'receipts', label: 'Receipts (income)', description: 'Bank interest, grants and other income', icon: ArrowDownLeftIcon, figure: (s) => `${formatMoney(s.receipts_month)} in ${month}` },
       { name: 'journal', label: 'Journal entries', description: 'Every entry in the books; add your own', icon: BookOpenIcon, figure: (s) => `${s.journals_month} typed in this month` },
+      { name: 'bank-rec', label: 'Bank reconciliation', description: 'Agree the books with the bank statement', icon: BuildingOffice2Icon, also: ['bank-rec-detail'] },
       { name: 'investments', label: 'Investments', description: 'Where the SACCO\'s money is invested', icon: ArrowTrendingUpIcon, figure: (s) => `${short(s.investments)} invested` },
       { name: 'dividends', label: 'Dividends & profit', description: 'Year-end payouts to members', icon: ReceiptPercentIcon, also: ['dividend-run'] },
     ],
@@ -184,7 +186,7 @@ export const sections: Section[] = [
     intro: 'The SACCO\'s rules and keeping its data safe.',
     items: [
       { name: 'settings', label: 'Setup & rules', description: 'Rates, fees, shares, loan types', icon: Cog6ToothIcon },
-      { name: 'backup', label: 'Download backup', description: 'A copy of everything to keep safe', icon: CircleStackIcon, figure: (s) => (s.last_backup ? `Last: ${new Date(s.last_backup.replace(' ', 'T')).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : 'Never downloaded') },
+      { name: 'backup', label: 'Download backup', description: 'A copy of everything to keep safe', icon: CircleStackIcon, superOnly: true, figure: (s) => (s.last_backup ? `Last: ${new Date(s.last_backup.replace(' ', 'T')).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : 'Never downloaded') },
     ],
   },
 ]

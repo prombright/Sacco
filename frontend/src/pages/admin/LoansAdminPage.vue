@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ask } from '@/confirm'
 import { onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { api, ApiError } from '@/api'
@@ -32,7 +33,7 @@ const bringingIn = ref(false)
 
 /** Charges every late loan its penalty; safe to press again (once per loan per month) */
 async function chargePenalties() {
-  if (!confirm('Charge the late-payment penalty on every loan with instalments past their due date? Each loan is charged at most once a month.')) return
+  if (!await ask('Charge the late-payment penalty on every loan with instalments past their due date? Each loan is charged at most once a month.')) return
   charging.value = true
   error.value = ''
   try {

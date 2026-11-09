@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ask } from '@/confirm'
 import { computed, onMounted, ref } from 'vue'
 import { api, ApiError } from '@/api'
 import type { LoanStatus } from '@/types'
@@ -47,7 +48,7 @@ async function load() {
 }
 
 async function answer(g: Guarantee, action: 'accept' | 'decline') {
-  if (action === 'decline' && !confirm(`Decline to guarantee ${g.borrower_name}'s loan?`)) return
+  if (action === 'decline' && !await ask(`Decline to guarantee ${g.borrower_name}'s loan?`)) return
   error.value = ''
   busy.value = g.id
   try {

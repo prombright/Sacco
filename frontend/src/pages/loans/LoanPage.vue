@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ask } from '@/confirm'
 import { computed, reactive, ref, watch } from 'vue'
 import { CheckCircleIcon, ExclamationTriangleIcon, ShieldCheckIcon, XCircleIcon } from '@heroicons/vue/24/outline'
 import { useRoute } from 'vue-router'
@@ -59,7 +60,7 @@ function open(d: Dialog, payment?: LoanPayment) {
 }
 
 async function act(path: string, body: Record<string, unknown> = {}, confirmText?: string) {
-  if (confirmText && !confirm(confirmText)) return
+  if (confirmText && !await ask(confirmText)) return
   formError.value = ''
   error.value = ''
   busy.value = true

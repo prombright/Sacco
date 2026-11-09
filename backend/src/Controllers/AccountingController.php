@@ -178,6 +178,9 @@ final class AccountingController
     public function createJournal(Request $request): never
     {
         $date = $this->date($request->string('entry_date') ?: date('Y-m-d'));
+        if ($date > date('Y-m-d')) {
+            Response::error('A journal entry can\'t be dated in the future.', 422, ['entry_date' => 'Invalid']);
+        }
         $narration = mb_substr($request->string('narration'), 0, 255);
         if ($narration === '') {
             Response::error('Describe the entry, e.g. "Bank charges for October".', 422, ['narration' => 'Required']);

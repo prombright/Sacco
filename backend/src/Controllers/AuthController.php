@@ -7,6 +7,7 @@ namespace Sacco\Controllers;
 use Sacco\Auth\Auth;
 use Sacco\Auth\Passwords;
 use Sacco\Auth\Roles;
+use Sacco\Auth\Throttle;
 use Sacco\Database;
 use Sacco\Http\Request;
 use Sacco\Http\Response;
@@ -50,6 +51,7 @@ final class AuthController
             Response::error('Enter your email or employee number, and your password.', 422);
         }
 
+        Throttle::check();
         $code = $request->string('sacco');
         $sacco = $code !== '' ? Tenant::find($code) : Tenant::fromRequest();
         if (!$sacco) {
@@ -86,6 +88,7 @@ final class AuthController
                     $db->prepare('UPDATE users SET failed_attempts = ? WHERE id = ?')->execute([$failed, $user['id']]);
                 }
             }
+            Throttle::fail();
             self::logAttempt($login, $user, false, $user ? 'wrong_password' : 'unknown_login');
             Response::error('That email/employee number and password don\'t match.', 401);
         }

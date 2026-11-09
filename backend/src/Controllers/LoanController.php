@@ -254,6 +254,9 @@ final class LoanController
         if (!$isOwner && !Roles::allows($user['role'], [Roles::ADMIN])) {
             Response::error('Loan not found.', 404);
         }
+        if (!$isOwner && !Roles::can($user, 'loans')) {
+            Response::error('Only the super admin can do this.', 403);
+        }
         if (!in_array($loan['status'], ['pending_guarantors', 'pending_approval', 'approved'], true)) {
             Response::error('Only a loan that hasn\'t been paid out can be cancelled.', 422);
         }
@@ -370,8 +373,8 @@ final class LoanController
 
         $loanId = Database::transaction(function (\PDO $db) use ($userId, $rules, $amount, $months, $rate, $disbursedOn, $repaid, $request) {
             $db->prepare(
-                "INSERT INTO loans (user_id, product_id, amount, months, interest_rate_monthly, interest_method, purpose, status, decided_by, decided_at, decision_note, disbursed_by, disbursed_on, disbursement_ref)
-                 VALUES (?, ?, ?, ?, ?, 'reducing_balance', ?, 'active', ?, NOW(), 'Brought in from the old records', ?, ?, ?)"
+                "INSERT INTO loans (user_id, product_id, source, amount, months, interest_rate_monthly, interest_method, purpose, status, decided_by, decided_at, decision_note, disbursed_by, disbursed_on, disbursement_ref)
+                 VALUES (?, ?, 'old_records', ?, ?, ?, 'reducing_balance', ?, 'active', ?, NOW(), 'Brought in from the old records', ?, ?, ?)"
             )->execute([
                 $userId, $rules['product_id'], Money::toDecimal($amount), $months, Money::toDecimal($rate),
                 mb_substr($request->string('purpose'), 0, 255) ?: 'From the old records', Auth::id(), Auth::id(), $disbursedOn,

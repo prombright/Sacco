@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ask } from '@/confirm'
 import { computed, onMounted, ref, watch } from 'vue'
 import { ArrowDownLeftIcon, BanknotesIcon, CheckCircleIcon, ExclamationTriangleIcon, PlusIcon } from '@heroicons/vue/24/outline'
 import { api, ApiError } from '@/api'
@@ -6,6 +7,7 @@ import { useAuth } from '@/stores/auth'
 import { formatMoney } from '@/money'
 import type { Report } from '@/reports'
 import ReportView from '@/components/ReportView.vue'
+import CountUp from '@/components/CountUp.vue'
 import Modal from '@/components/Modal.vue'
 
 interface Fee {
@@ -70,7 +72,7 @@ const charge = () => act(async () => {
   return r.charged ? `${r.charged} member${r.charged === 1 ? '' : 's'} charged the ${year.value} fee. They have been told.` : 'Everyone has already been charged.'
 })
 const collect = () => act(async () => {
-  if (!confirm(`Take the ${year.value} fee from the savings of every member who hasn't paid? Each is told.`)) return ''
+  if (!await ask(`Take the ${year.value} fee from the savings of every member who hasn't paid? Each is told.`)) return ''
   const r = await api.post<{ collected: number; not_enough_savings: string[] }>('/membership-fees/collect', { year: year.value })
   return `${r.collected} fee${r.collected === 1 ? '' : 's'} taken from savings.` + (r.not_enough_savings.length ? ` Not enough free savings: ${r.not_enough_savings.join(', ')}. Record those when they pay in cash.` : '')
 })
@@ -149,13 +151,13 @@ const thisYear = new Date().getFullYear()
         </div>
         <div class="card p-5">
           <p class="eyebrow">Collected</p>
-          <p class="figure mt-2 text-2xl text-emerald-700">{{ formatMoney(data.totals.paid) }}</p>
-          <div class="mt-3 h-2 overflow-hidden rounded-full bg-gray-100"><div class="h-full rounded-full bg-emerald-600 transition-all duration-700" :style="{ width: paidPct + '%' }" /></div>
+          <p class="figure mt-2 text-2xl text-emerald-700"><CountUp :value="data.totals.paid" /></p>
+          <div class="mt-3 h-2 overflow-hidden rounded-full bg-gray-100"><div class="fill-bar h-full rounded-full bg-emerald-600" :style="{ width: paidPct + '%' }" /></div>
           <p class="mt-1.5 text-xs text-gray-500">{{ paidPct }}% · {{ data.counts.paid }} member{{ data.counts.paid === 1 ? '' : 's' }}</p>
         </div>
         <div class="card p-5" :class="{ '!border-saffron-300 !bg-saffron-50': data.counts.unpaid }">
           <p class="eyebrow">Still unpaid</p>
-          <p class="figure mt-2 text-2xl">{{ formatMoney(data.totals.unpaid) }}</p>
+          <p class="figure mt-2 text-2xl"><CountUp :value="data.totals.unpaid" :delay="150" /></p>
           <p class="mt-1 text-xs text-gray-500">{{ data.counts.unpaid }} member{{ data.counts.unpaid === 1 ? '' : 's' }}<template v-if="data.counts.waived"> · {{ data.counts.waived }} waived</template></p>
         </div>
         <div class="card flex flex-col justify-between gap-3 p-5">

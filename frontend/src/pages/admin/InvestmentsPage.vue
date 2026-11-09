@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ask } from '@/confirm'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ArrowTrendingUpIcon, BanknotesIcon, PlusIcon, SparklesIcon } from '@heroicons/vue/24/outline'
 import { api, ApiError } from '@/api'
@@ -134,7 +135,7 @@ async function previewShare() {
   }
 }
 async function payShare() {
-  if (!share.value || !confirm(`Credit ${formatMoney(share.value.total_paid)} to ${share.value.member_count} members' ${book.value?.credit_account}?`)) return
+  if (!share.value || !await ask(`Credit ${formatMoney(share.value.total_paid)} to ${share.value.member_count} members' ${book.value?.credit_account}?`)) return
   sharing.value = true
   shareError.value = ''
   try {

@@ -56,6 +56,11 @@ final class Router
 
     public function dispatch(Request $request): never
     {
+        // The developer portal can be limited to the developers' own addresses (DEV_ALLOWED_IPS)
+        $allowed = array_filter(array_map('trim', explode(',', (string) Config::get('DEV_ALLOWED_IPS', ''))));
+        if ($allowed && str_starts_with($request->path, '/api/dev/') && !in_array($_SERVER['REMOTE_ADDR'] ?? '', $allowed, true)) {
+            Response::error('Not found', 404);
+        }
         $pathMatched = false;
         foreach ($this->routes as $route) {
             if (!preg_match($route['regex'], $request->path, $m)) {

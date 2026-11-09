@@ -125,12 +125,12 @@ const tip = computed(() => {
             <stop offset="100%" :stop-color="color" stop-opacity="0" />
           </linearGradient>
         </defs>
-        <path :d="area" :fill="`url(#${fillId})`" />
-        <path :d="line" fill="none" :stroke="color" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
+        <path class="chart-area" :d="area" :fill="`url(#${fillId})`" />
+        <path class="chart-line" pathLength="1" :d="line" fill="none" :stroke="color" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
         <circle v-if="hover !== null" :cx="x(hover)" :cy="y(values[hover])" r="5" :fill="color" stroke="white" stroke-width="2" />
       </template>
       <template v-else>
-        <path v-for="(v, i) in values" :key="i" :d="barPath(i, v)" :fill="color" :opacity="hover === null || hover === i ? 1 : 0.55" />
+        <path v-for="(v, i) in values" :key="i" class="chart-bar" :style="{ '--i': i }" :d="barPath(i, v)" :fill="color" :opacity="hover === null || hover === i ? 1 : 0.55" />
       </template>
 
       <!-- Months -->

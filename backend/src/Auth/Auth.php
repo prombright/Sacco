@@ -21,6 +21,8 @@ final class Auth
         if (session_status() === PHP_SESSION_ACTIVE) {
             return;
         }
+        ini_set('session.use_strict_mode', '1');
+        ini_set('session.use_only_cookies', '1');
         session_name($name);
         session_set_cookie_params([
             'lifetime' => 0,
@@ -48,7 +50,8 @@ final class Auth
                 $stmt = Database::tenant()->prepare('SELECT * FROM users WHERE id = ?');
                 $stmt->execute([$_SESSION['user_id']]);
                 $row = $stmt->fetch();
-                if ($row && $row['status'] === 'active') {
+                $stale = $row && $row['password_changed_at'] && strtotime($row['password_changed_at']) > (int) ($_SESSION['auth_at'] ?? 0);
+                if ($row && $row['status'] === 'active' && !$stale) {
                     self::$user = $row;
                 } else {
                     self::logout();
@@ -68,6 +71,7 @@ final class Auth
         session_regenerate_id(true);
         $_SESSION['user_id'] = (int) $user['id'];
         $_SESSION['sacco'] = $saccoCode;
+        $_SESSION['auth_at'] = time();
         $_SESSION['csrf'] = bin2hex(random_bytes(32));
         self::$user = null;
     }
@@ -90,5 +94,6 @@ final class Auth
     public static function refresh(): void
     {
         self::$user = null;
+        $_SESSION['auth_at'] = time();
     }
 }

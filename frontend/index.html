@@ -5,15 +5,8 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SACCO</title>
-    <script>
-      // The theme before anything draws (see src/stores/theme.ts), so dark mode never flashes white
-      try {
-        var t = localStorage.getItem('sacco-theme')
-        if (t === 'dark' || (t !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-          document.documentElement.classList.add('dark')
-        }
-      } catch (e) {}
-    </script>
+    <!-- The theme before anything draws, so dark mode never flashes white -->
+    <script src="/brand/theme-init.js"></script>
   </head>
   <body>
     <div id="app"></div>

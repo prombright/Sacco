@@ -95,6 +95,18 @@ php backend/bin/create-developer.php --name="Jane Doe" --email=jane@example.com
 It prints a temporary password, changed at first sign-in. Run it again with the same email to reset
 a developer's password.
 
+## 7. Security settings on the live server
+
+- In `backend/.env`: `APP_ENV=production` and `APP_DEBUG=false`. Production marks the sign-in cookie
+  secure and turns on strict HTTPS for the API.
+- Apache needs `mod_headers` (cPanel has it): the root `.htaccess` sends the security headers for
+  the app's pages, and HTTPS is forced everywhere except localhost.
+- To limit the developer portal to your own internet addresses, set
+  `DEV_ALLOWED_IPS=1.2.3.4,5.6.7.8` in `backend/.env`. Everyone else gets "not found".
+- Run `php backend/bin/migrate.php` after every update, for the platform database and each SACCO.
+- Sign-ins: an account locks after 5 wrong passwords (15 minutes); one internet address is blocked
+  after 30 failures in 10 minutes. A password change or reset ends that account's other sessions.
+
 ## Going live with St Mark's: checklist
 
 Do these in order, signed in as the super admin.

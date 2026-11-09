@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ask } from '@/confirm'
 import { onMounted, ref, watch } from 'vue'
 import { api, ApiError } from '@/api'
 import { useAuth } from '@/stores/auth'
@@ -63,7 +64,7 @@ function canManage(user: User) {
 }
 
 async function resetPassword(user: User) {
-  if (!confirm(`Give ${user.full_name} a new temporary password? Their current password will stop working.`)) return
+  if (!await ask(`Give ${user.full_name} a new temporary password? Their current password will stop working.`)) return
   try {
     const res = await api.post<{ user: User; temporary_password: string }>(`/users/${user.id}/reset-password`)
     issued.value = { user: res.user, password: res.temporary_password }
@@ -114,7 +115,7 @@ const statusLabel: Record<string, string> = { active: 'Active', suspended: 'Susp
 
     <div class="card mt-4 overflow-hidden">
       <!-- Wide screens: a table -->
-      <table class="hidden w-full text-sm md:table">
+      <table class="hidden w-full text-sm lg:table">
         <thead class="border-b border-gray-200 bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
           <tr>
             <th class="px-4 py-3">Name</th>
@@ -157,7 +158,7 @@ const statusLabel: Record<string, string> = { active: 'Active', suspended: 'Susp
       </table>
 
       <!-- Phones: one card per user -->
-      <ul class="divide-y divide-gray-100 md:hidden">
+      <ul class="divide-y divide-gray-100 lg:hidden">
         <li v-for="user in users" :key="user.id" class="p-4">
           <div class="flex items-start justify-between gap-2">
             <div class="min-w-0">
