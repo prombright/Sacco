@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Sacco\Controllers;
 
+use Sacco\Support\Periods;
 use Sacco\Auth\Auth;
 use Sacco\Auth\Roles;
 use Sacco\Database;
@@ -66,7 +67,8 @@ final class LoanController
             'products' => $products,
             'rules' => $rules,
             'eligibility' => array_map([Money::class, 'toDecimal'], $eligibility),
-            'membership' => $membership + ['wait_reason' => Loans::borrowerWaitReason(Database::tenant(), (int) Auth::id())],
+            'membership' => $membership + ['wait_reason' => Loans::productBlock(Database::tenant(), (int) Auth::id(), $rules, (int) $request->query('replaces_loan_id', 0) ?: null)],
+            'top_ups' => Loans::topUps(Database::tenant(), (int) Auth::id(), $rules),
             'schedule' => $schedule,
         ]);
     }
@@ -84,8 +86,13 @@ final class LoanController
         }
         $rules = Loans::productRules(Database::tenant(), $productId);
 
-        if ($wait = Loans::borrowerWaitReason(Database::tenant(), $me)) {
-            Response::error($wait, 422);
+        // A top-up replaces one of the member's active loans of this type
+        $replacing = (int) $request->input('replaces_loan_id', 0) ?: null;
+        if ($replacing && !in_array($replacing, array_column(Loans::topUps(Database::tenant(), $me, $rules), 'id'), true)) {
+            Response::error('That loan can\'t be topped up with this type of loan.', 422, ['replaces_loan_id' => 'Invalid']);
+        }
+        if ($block = Loans::productBlock(Database::tenant(), $me, $rules, $replacing)) {
+            Response::error($block, 422);
         }
 
         $amount = Money::parse($request->input('amount'));
@@ -97,9 +104,18 @@ final class LoanController
         } elseif ($amount > Loans::MAX_CENTS) {
             $errors['amount'] = 'That amount is too large.';
         } else {
-            $limit = Loans::eligibility($me, null, $productId)['limit'];
+            $limit = Loans::eligibility($me, $replacing, $productId)['limit'];
+            $min = $rules['min_amount'] !== null ? Money::fromDecimal($rules['min_amount']) : 0;
+            $max = $rules['max_amount'] !== null ? Money::fromDecimal($rules['max_amount']) : null;
+            $toClear = $replacing ? Loans::settlementQuote(Database::tenant(), $replacing)['amount'] : 0;
             if ($amount > $limit) {
                 $errors['amount'] = 'You can borrow up to ' . number_format($limit / 100) . ' right now.';
+            } elseif ($max !== null && $amount > $max) {
+                $errors['amount'] = "A {$rules['product_name']} can be at most " . number_format($max / 100) . '.';
+            } elseif ($amount < $min) {
+                $errors['amount'] = "A {$rules['product_name']} must be at least " . number_format($min / 100) . '.';
+            } elseif ($amount <= $toClear) {
+                $errors['amount'] = 'A top-up must be more than the ' . number_format($toClear / 100) . ' still owed on the loan it replaces.';
             }
         }
         if ($months < 1 || $months > $rules['max_months']) {
@@ -130,9 +146,9 @@ final class LoanController
             Response::error(reset($errors), 422, $errors);
         }
 
-        $loanId = Database::transaction(function (\PDO $db) use ($me, $amount, $months, $purpose, $rules, $guarantors) {
-            $db->prepare('INSERT INTO loans (user_id, product_id, amount, months, interest_rate_monthly, interest_method, purpose) VALUES (?, ?, ?, ?, ?, ?, ?)')
-                ->execute([$me, $rules['product_id'], Money::toDecimal($amount), $months, $rules['interest_rate_monthly'], $rules['interest_method'], $purpose]);
+        $loanId = Database::transaction(function (\PDO $db) use ($me, $amount, $months, $purpose, $rules, $guarantors, $replacing) {
+            $db->prepare('INSERT INTO loans (user_id, product_id, replaces_loan_id, amount, months, interest_rate_monthly, interest_method, purpose) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+                ->execute([$me, $rules['product_id'], $replacing, Money::toDecimal($amount), $months, $rules['interest_rate_monthly'], $rules['interest_method'], $purpose]);
             $id = (int) $db->lastInsertId();
             $db->prepare('UPDATE loans SET loan_no = ? WHERE id = ?')->execute(['L' . str_pad((string) $id, 5, '0', STR_PAD_LEFT), $id]);
             $insert = $db->prepare('INSERT INTO loan_guarantors (loan_id, guarantor_id, amount, requested_amount) VALUES (?, ?, ?, ?)');
@@ -317,14 +333,36 @@ final class LoanController
 
         // The product's processing fee comes off the cheque; the loan itself is the full amount
         $fee = self::fee(Money::fromDecimal($loan['amount']), Loans::productRules(Database::tenant(), $loan['product_id'] ? (int) $loan['product_id'] : null)['processing_fee_percent']);
-        Database::transaction(function (\PDO $db) use ($loan, $date, $reference, $fee) {
-            $db->prepare("UPDATE loans SET status = 'active', disbursed_by = ?, disbursed_on = ?, disbursement_ref = ?, processing_fee = ? WHERE id = ? AND status = 'approved'")
-                ->execute([Auth::id(), $date, $reference, Money::toDecimal($fee), $loan['id']]);
+        Periods::check($date);
+        $moneyAccount = Periods::moneyAccount($request);
+        $cleared = Database::transaction(function (\PDO $db) use ($loan, $date, $reference, $fee, $moneyAccount) {
+            $cleared = 0;
+            if ($loan['replaces_loan_id']) {
+                $old = $db->prepare("SELECT * FROM loans WHERE id = ? AND status = 'active' FOR UPDATE");
+                $old->execute([$loan['replaces_loan_id']]);
+                if ($old = $old->fetch()) {
+                    $quote = Loans::settlementQuote($db, (int) $old['id']);
+                    $cleared = $quote['amount'];
+                    if ($cleared + $fee > Money::fromDecimal($loan['amount'])) {
+                        throw new LedgerException('The new loan no longer covers what is owed on ' . $old['loan_no'] . ' (' . number_format($cleared / 100) . ') and the fee.');
+                    }
+                    Loans::waiveFutureInterest($db, (int) $old['id'], $quote['keep']);
+                    $db->prepare('INSERT INTO loan_payments (loan_id, amount, paid_on, reference, narration, money_account_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)')
+                        ->execute([$old['id'], Money::toDecimal($cleared), $date, $loan['loan_no'], "Cleared by top-up loan {$loan['loan_no']}", $moneyAccount, Auth::id()]);
+                    Loans::applyPayments($db, (int) $old['id']);
+                    $db->prepare('UPDATE loans SET settled_early_on = ? WHERE id = ?')->execute([$date, $old['id']]);
+                }
+            }
+            $db->prepare("UPDATE loans SET status = 'active', disbursed_by = ?, disbursed_on = ?, disbursement_ref = ?, money_account_id = ?, processing_fee = ?, settled_amount = ? WHERE id = ? AND status = 'approved'")
+                ->execute([Auth::id(), $date, $reference, $moneyAccount, Money::toDecimal($fee), Money::toDecimal($cleared), $loan['id']]);
             Loans::createSchedule($db, $loan, $date);
+            return $cleared;
         });
+        $fee += $cleared;
         Audit::log('loan.disbursed', 'loan', (int) $loan['id'], ['on' => $date, 'reference' => $reference, 'fee' => Money::toDecimal($fee)]);
         Notify::member((int) $loan['user_id'], 'loan_disbursed', 'Your loan has been paid out',
             'Cheque ' . $reference . ' for ' . Notify::money(Money::toDecimal(Money::fromDecimal($loan['amount']) - $fee)) . ' has been issued for loan ' . $loan['loan_no']
+            . ($cleared ? '. It first cleared the ' . Notify::cents($cleared) . ' still owed on your earlier loan' : '')
             . '. Your repayment schedule starts now; see it under Loans.', '/loans/' . $loan['id']);
         Response::ok(['loan' => $this->detail((int) $loan['id'])]);
     }
@@ -366,6 +404,7 @@ final class LoanController
             Response::error('Interest between 0% and 10% a month.', 422, ['interest_rate_monthly' => 'Invalid']);
         }
         $disbursedOn = $this->date($request->string('disbursed_on'), 'disbursed_on');
+        Periods::check($disbursedOn);
         $repaid = Money::parse($request->input('repaid_so_far', '0') ?: '0');
         if ($repaid === null || $repaid < 0) {
             Response::error('Enter how much has been repaid (0 if nothing).', 422, ['repaid_so_far' => 'Invalid']);
@@ -415,12 +454,13 @@ final class LoanController
             Response::error('Only an active loan can be paid off.', 422);
         }
         $reference = mb_substr($request->string('reference'), 0, 80) ?: null;
-        $result = Database::transaction(function (\PDO $db) use ($loan, $reference) {
+        $moneyAccount = Periods::moneyAccount($request);
+        $result = Database::transaction(function (\PDO $db) use ($loan, $reference, $moneyAccount) {
             $db->prepare('SELECT id FROM loans WHERE id = ? FOR UPDATE')->execute([$loan['id']]);
             $quote = Loans::settlementQuote($db, (int) $loan['id']);
             $waived = Loans::waiveFutureInterest($db, (int) $loan['id'], $quote['keep']);
-            $db->prepare('INSERT INTO loan_payments (loan_id, amount, paid_on, reference, narration, created_by) VALUES (?, ?, CURDATE(), ?, ?, ?)')
-                ->execute([$loan['id'], Money::toDecimal($quote['amount']), $reference, 'Paid off early', Auth::id()]);
+            $db->prepare('INSERT INTO loan_payments (loan_id, amount, paid_on, reference, narration, money_account_id, created_by) VALUES (?, ?, CURDATE(), ?, ?, ?, ?)')
+                ->execute([$loan['id'], Money::toDecimal($quote['amount']), $reference, 'Paid off early', $moneyAccount, Auth::id()]);
             Loans::applyPayments($db, (int) $loan['id']);
             $db->prepare('UPDATE loans SET settled_early_on = CURDATE() WHERE id = ?')->execute([$loan['id']]);
             return ['paid' => $quote['amount'], 'waived' => $waived];
@@ -518,7 +558,8 @@ final class LoanController
         $receipt = Database::transaction(fn (\PDO $db) => $this->postPayment(
             $db, $loan, $cents, $paidOn,
             mb_substr($request->string('reference'), 0, 80) ?: null,
-            mb_substr($request->string('narration'), 0, 255) ?: null
+            mb_substr($request->string('narration'), 0, 255) ?: null,
+            Periods::moneyAccount($request)
         ));
         Audit::log('loan.payment_recorded', 'loan_payment', $receipt['payment_id'], ['loan' => (int) $loan['id'], 'amount' => Money::toDecimal($cents)]);
         $this->tellAboutLoan($loan, 'loan_repayment', 'Loan repayment of ' . Notify::cents($cents) . ' received',
@@ -559,15 +600,16 @@ final class LoanController
      * Records a repayment and applies it. Returns its receipt: the split, what is still owed and
      * what falls due next. Call inside a transaction.
      */
-    private function postPayment(\PDO $db, array $loan, int $cents, string $paidOn, ?string $reference, ?string $narration): array
+    private function postPayment(\PDO $db, array $loan, int $cents, string $paidOn, ?string $reference, ?string $narration, ?int $moneyAccount = null): array
     {
+        Periods::assertOpen($paidOn);
         $db->prepare('SELECT id FROM loans WHERE id = ? FOR UPDATE')->execute([$loan['id']]);
         $before = Loans::position($db, (int) $loan['id']);
         if ($cents > $before['total_left']) {
             throw new LedgerException('That is more than the ' . number_format($before['total_left'] / 100) . ' still owed on this loan.');
         }
-        $db->prepare('INSERT INTO loan_payments (loan_id, amount, paid_on, reference, narration, created_by) VALUES (?, ?, ?, ?, ?, ?)')
-            ->execute([$loan['id'], Money::toDecimal($cents), $paidOn, $reference, $narration, Auth::id()]);
+        $db->prepare('INSERT INTO loan_payments (loan_id, amount, paid_on, reference, narration, money_account_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)')
+            ->execute([$loan['id'], Money::toDecimal($cents), $paidOn, $reference, $narration, $moneyAccount, Auth::id()]);
         $paymentId = (int) $db->lastInsertId();
         Loans::applyPayments($db, (int) $loan['id']);
         $after = Loans::position($db, (int) $loan['id']);
@@ -623,6 +665,59 @@ final class LoanController
         Response::ok(['loan' => $this->detail((int) $loan['id'])]);
     }
 
+    /**
+     * POST /api/loans/{id}/guarantors/{gid}/replace { user_id, amount? } - the borrower, or the
+     * office, asks another member to take over a guarantee. The old guarantor is released once the
+     * new one agrees to cover at least what they pledged.
+     */
+    public function replaceGuarantor(Request $request): never
+    {
+        $loan = $this->find((int) $request->param('id'));
+        $user = Auth::user();
+        $isOwner = (int) $loan['user_id'] === (int) $user['id'];
+        if (!$isOwner && !Roles::can($user, 'loans')) {
+            Response::error('Loan not found.', 404);
+        }
+        if (!in_array($loan['status'], ['pending_approval', 'approved', 'active'], true)) {
+            Response::error('A guarantor can be replaced on a loan that is approved or running.', 422);
+        }
+        $db = Database::tenant();
+        $stmt = $db->prepare("SELECT g.*, u.full_name FROM loan_guarantors g JOIN users u ON u.id = g.guarantor_id WHERE g.id = ? AND g.loan_id = ? AND g.status = 'accepted'");
+        $stmt->execute([(int) $request->param('gid'), $loan['id']]);
+        $old = $stmt->fetch() ?: Response::error('That guarantor isn\'t standing behind this loan.', 404);
+        $pending = $db->prepare("SELECT 1 FROM loan_guarantors WHERE replaces_id = ? AND status = 'pending'");
+        $pending->execute([$old['id']]);
+        if ($pending->fetchColumn()) {
+            Response::error('Someone has already been asked to take over this guarantee. Wait for their answer.', 422);
+        }
+        $newId = (int) $request->input('user_id');
+        $errors = [];
+        $g = $this->guarantors([['user_id' => $newId, 'amount' => $request->input('amount') ?: $old['amount']]], (int) $loan['user_id'], $errors);
+        if (!empty($errors)) {
+            Response::error(reset($errors), 422, $errors);
+        }
+        $taken = $db->prepare('SELECT 1 FROM loan_guarantors WHERE loan_id = ? AND guarantor_id = ?');
+        $taken->execute([$loan['id'], $newId]);
+        if ($taken->fetchColumn()) {
+            Response::error('That member is already asked on this loan.', 422);
+        }
+        $amount = max($g[0]['amount'], Money::fromDecimal($old['amount']));
+        $db->prepare('INSERT INTO loan_guarantors (loan_id, guarantor_id, amount, requested_amount, replaces_id) VALUES (?, ?, ?, ?, ?)')
+            ->execute([$loan['id'], $newId, Money::toDecimal($amount), Money::toDecimal($amount), $old['id']]);
+        Audit::log('loan.guarantor_replacing', 'loan', (int) $loan['id'], ['guarantor' => $newId, 'replaces' => (int) $old['guarantor_id'], 'amount' => Money::toDecimal($amount)]);
+        $borrower = $isOwner ? $user['full_name'] : $this->borrowerName((int) $loan['user_id']);
+        Notify::member($newId, 'guarantee_request', "$borrower asks you to guarantee a loan",
+            "$borrower asks you to take over {$old['full_name']}'s guarantee of " . Notify::cents($amount) . " on loan {$loan['loan_no']}. Open Loans to agree or decline.", '/loans');
+        Response::ok(['loan' => $this->detail((int) $loan['id'])], 201);
+    }
+
+    private function borrowerName(int $userId): string
+    {
+        $s = Database::tenant()->prepare('SELECT full_name FROM users WHERE id = ?');
+        $s->execute([$userId]);
+        return (string) $s->fetchColumn();
+    }
+
     /** GET /api/me/guarantees - requests to guarantee others' loans, and what's pledged */
     public function myGuarantees(Request $request): never
     {
@@ -673,11 +768,26 @@ final class LoanController
             if ($pledge > $free) {
                 throw new LedgerException('You have ' . number_format($free / 100) . ' free in your savings (not already pledged or being withdrawn), so you can guarantee up to that.');
             }
+            if ($guarantee['replaces_id'] && $pledge < Money::fromDecimal($guarantee['requested_amount'] ?? $guarantee['amount'])) {
+                throw new LedgerException('To take over this guarantee you need to cover at least ' . number_format(Money::fromDecimal($guarantee['requested_amount'] ?? $guarantee['amount']) / 100) . '.');
+            }
             $db->prepare("UPDATE loan_guarantors SET status = 'accepted', amount = ?, responded_at = NOW() WHERE id = ? AND status = 'pending'")
                 ->execute([Money::toDecimal($pledge), $guarantee['id']]);
-            Loans::advance($db, (int) $guarantee['loan_id']);
+            if ($guarantee['replaces_id']) {
+                $db->prepare("UPDATE loan_guarantors SET status = 'released', responded_at = NOW() WHERE id = ?")->execute([$guarantee['replaces_id']]);
+            } else {
+                Loans::advance($db, (int) $guarantee['loan_id']);
+            }
         });
         Audit::log('loan.guarantee_accepted', 'loan', (int) $guarantee['loan_id'], ['amount' => Money::toDecimal($pledge), 'asked' => $guarantee['requested_amount']]);
+        if ($guarantee['replaces_id']) {
+            $old = Database::tenant()->prepare('SELECT g.guarantor_id, l.loan_no FROM loan_guarantors g JOIN loans l ON l.id = g.loan_id WHERE g.id = ?');
+            $old->execute([$guarantee['replaces_id']]);
+            if ($o = $old->fetch()) {
+                Notify::member((int) $o['guarantor_id'], 'account_update', 'You are released from a guarantee',
+                    Auth::user()['full_name'] . " has taken over your guarantee on loan {$o['loan_no']}. Those savings are free again.", '/loans');
+            }
+        }
         $this->tellBorrower((int) $guarantee['loan_id'], Auth::user()['full_name'] . ' agreed to guarantee ' . Notify::money(Money::toDecimal($pledge)) . ' of your loan.');
         Response::ok();
     }
@@ -838,7 +948,8 @@ final class LoanController
         );
         $stmt->execute([$id, Auth::id()]);
         $g = $stmt->fetch() ?: Response::error('Request not found.', 404);
-        if ($g['status'] !== 'pending' || $g['loan_status'] !== 'pending_guarantors') {
+        $open = $g['replaces_id'] ? in_array($g['loan_status'], ['pending_approval', 'approved', 'active'], true) : $g['loan_status'] === 'pending_guarantors';
+        if ($g['status'] !== 'pending' || !$open) {
             Response::error('This request has already been answered or is no longer needed.', 422);
         }
         return $g;
@@ -941,6 +1052,8 @@ final class LoanController
             'product_name' => $l['product_name'],
             'processing_fee' => $l['processing_fee'],
             'settled_early_on' => $l['settled_early_on'],
+            'replaces_loan_id' => $l['replaces_loan_id'] ? (int) $l['replaces_loan_id'] : null,
+            'settled_amount' => $l['settled_amount'],
             'closed_on' => $l['closed_on'],
             'created_at' => $l['created_at'],
             'position' => $position ? array_map(fn ($v) => is_int($v) ? Money::toDecimal($v) : $v, $position) : null,
@@ -954,7 +1067,7 @@ final class LoanController
         $db = Database::tenant();
         $loan = $this->summary($id);
 
-        $g = $db->prepare('SELECT g.id, g.guarantor_id, u.full_name, u.account_no, g.amount, g.requested_amount, g.status, g.responded_at FROM loan_guarantors g JOIN users u ON u.id = g.guarantor_id WHERE g.loan_id = ? ORDER BY g.id');
+        $g = $db->prepare('SELECT g.id, g.guarantor_id, u.full_name, u.account_no, g.amount, g.requested_amount, g.status, g.responded_at, g.replaces_id FROM loan_guarantors g JOIN users u ON u.id = g.guarantor_id WHERE g.loan_id = ? ORDER BY g.id');
         $g->execute([$id]);
         $loan['guarantors'] = $g->fetchAll();
 

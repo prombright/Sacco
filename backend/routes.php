@@ -10,6 +10,7 @@ use Sacco\Controllers\BackupController;
 use Sacco\Controllers\CashbookController;
 use Sacco\Controllers\DevController;
 use Sacco\Controllers\DividendController;
+use Sacco\Controllers\FinanceController;
 use Sacco\Controllers\InvestmentController;
 use Sacco\Controllers\MemberDetailsController;
 use Sacco\Controllers\MemberExitController;
@@ -46,6 +47,8 @@ $router->get('/api/sacco', [AuthController::class, 'sacco'], ['auth' => false]);
 $router->get('/api/auth/me', [AuthController::class, 'me'], ['auth' => false]);
 $router->post('/api/auth/login', [AuthController::class, 'login'], ['auth' => false]);
 $router->get('/api/public/terms', [PublicController::class, 'terms'], ['auth' => false]);
+$router->get('/api/public/manifest', [PublicController::class, 'manifest'], ['auth' => false]);
+$router->get('/api/public/logo', [PublicController::class, 'logo'], ['auth' => false]);
 
 $router->post('/api/auth/two-step', [AuthController::class, 'twoStep'], ['auth' => false]);
 
@@ -75,6 +78,7 @@ $router->get('/api/me/loans', [LoanController::class, 'mine'], $members);
 $router->post('/api/loans', [LoanController::class, 'store'], $members);
 $router->get('/api/loans/{id}', [LoanController::class, 'show']);
 $router->post('/api/loans/{id}/guarantors', [LoanController::class, 'addGuarantor'], $members);
+$router->post('/api/loans/{id}/guarantors/{gid}/replace', [LoanController::class, 'replaceGuarantor']);
 $router->post('/api/loans/{id}/cancel', [LoanController::class, 'cancel']);
 $router->get('/api/members/search', [LoanController::class, 'searchMembers']);
 $router->get('/api/me/guarantees', [LoanController::class, 'myGuarantees'], $members);
@@ -195,6 +199,7 @@ $router->post('/api/dev/saccos/{id}/update-system', [DevController::class, 'upda
 
 // The books: chart of accounts, journal entries, statements
 $router->get('/api/accounting/accounts', [AccountingController::class, 'accounts'], $admins);
+$router->get('/api/money-accounts', [AccountingController::class, 'moneyAccounts'], $admins);
 $router->post('/api/accounting/accounts', [AccountingController::class, 'createAccount'], $super);
 $router->patch('/api/accounting/accounts/{id}', [AccountingController::class, 'updateAccount'], $super);
 $router->get('/api/accounting/journal', [AccountingController::class, 'journal'], $admins);
@@ -244,8 +249,17 @@ $router->post('/api/me/two-step/start', [TwoStepController::class, 'start']);
 $router->post('/api/me/two-step/confirm', [TwoStepController::class, 'confirm']);
 $router->post('/api/me/two-step/disable', [TwoStepController::class, 'disable']);
 
+// Year-end closing and budgets
+$router->get('/api/finance/years', [FinanceController::class, 'years'], $admins);
+$router->post('/api/finance/years/{year}/close', [FinanceController::class, 'close'], $super);
+$router->post('/api/finance/years/{year}/reopen', [FinanceController::class, 'reopen'], $super);
+$router->get('/api/finance/budget', [FinanceController::class, 'budget'], $admins);
+$router->patch('/api/finance/budget', [FinanceController::class, 'saveBudget'], $super);
+
 // The SACCO's rules
 $router->get('/api/settings', [SettingsController::class, 'index'], $admins);
 $router->patch('/api/settings', [SettingsController::class, 'update'], ['roles' => [Roles::SUPER_ADMIN]]);
+$router->post('/api/settings/logo', [PublicController::class, 'uploadLogo'], $super);
+$router->delete('/api/settings/logo', [PublicController::class, 'removeLogo'], $super);
 
 return $router;

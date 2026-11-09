@@ -1,11 +1,13 @@
 <script setup lang="ts">
+import { downloadLoanLetter } from '@/documents'
+import MoneyAccountSelect from '@/components/MoneyAccountSelect.vue'
 import { ask } from '@/confirm'
 import { computed, reactive, ref, watch } from 'vue'
-import { CheckCircleIcon, ExclamationTriangleIcon, ShieldCheckIcon, XCircleIcon } from '@heroicons/vue/24/outline'
+import { CheckCircleIcon, DocumentTextIcon, ExclamationTriangleIcon, ShieldCheckIcon, XCircleIcon } from '@heroicons/vue/24/outline'
 import { useRoute } from 'vue-router'
 import { api, ApiError } from '@/api'
 import { useAuth } from '@/stores/auth'
-import type { Installment, Loan, LoanCharge, LoanPayment, PaymentReceipt, PickedMember } from '@/types'
+import type { Installment, Loan, LoanCharge, LoanPayment, PaymentReceipt, PickedMember, LoanGuarantor } from '@/types'
 import { formatDate, formatMoney } from '@/money'
 import { guarantorStatus, loanStatus } from '@/loans'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -36,13 +38,14 @@ load()
 
 // --- Actions: each opens a small form in a dialog --------------------------------------
 
-type Dialog = 'reject' | 'disburse' | 'payment' | 'reverse' | 'guarantor' | 'settle' | 'waive' | 'approve' | null
+type Dialog = 'reject' | 'disburse' | 'payment' | 'reverse' | 'guarantor' | 'settle' | 'waive' | 'approve' | null | 'replace'
 const dialog = ref<Dialog>(null)
-const form = reactive({ note: '', date: today, reference: '', amount: '', reason: '', message: '' })
+const form = reactive({ note: '', date: today, reference: '', amount: '', reason: '', message: '', money_account_id: '' })
 const newGuarantor = ref<(PickedMember & { amount: string }) | null>(null)
 const reversing = ref<LoanPayment | null>(null)
 const waiving = ref<LoanCharge | null>(null)
 const formError = ref('')
+const replacing = ref<LoanGuarantor | null>(null)
 const busy = ref(false)
 
 function open(d: Dialog, payment?: LoanPayment) {
@@ -112,6 +115,8 @@ function installmentState(i: Installment) {
   if (i.due_date < today) return { label: paid > 0 ? 'Part paid · overdue' : 'Overdue', style: 'text-red-700' }
   return paid > 0 ? { label: 'Part paid', style: 'text-gray-700' } : { label: '', style: '' }
 }
+
+const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: auth.user?.full_name ?? null })
 </script>
 
 <template>
@@ -131,7 +136,12 @@ function installmentState(i: Installment) {
             · {{ loan.purpose }} · {{ loan.interest_rate_monthly }}% a month, reducing balance
           </p>
         </div>
-        <StatusBadge :label="loanStatus[loan.status].label" :style-class="loanStatus[loan.status].style" />
+        <div class="flex flex-wrap items-center gap-2">
+          <button v-if="['approved', 'active', 'closed'].includes(loan.status) && (isOwner || auth.isAdmin)" type="button" class="btn-secondary" @click="letter">
+            <DocumentTextIcon class="h-4 w-4" aria-hidden="true" />Approval letter
+          </button>
+          <StatusBadge :label="loanStatus[loan.status].label" :style-class="loanStatus[loan.status].style" />
+        </div>
       </div>
 
       <!-- The repayment just recorded -->
@@ -237,7 +247,15 @@ function installmentState(i: Installment) {
               </p>
               <p v-else class="text-gray-600 tabular-nums">{{ g.status === 'accepted' ? 'Guarantees' : 'Asked for' }} {{ formatMoney(g.amount) }}</p>
             </div>
-            <StatusBadge :label="guarantorStatus[g.status].label" :style-class="guarantorStatus[g.status].style" />
+            <span class="flex shrink-0 items-center gap-2">
+              <button
+                v-if="g.status === 'accepted' && (isOwner || auth.can('loans')) && ['pending_approval', 'approved', 'active'].includes(loan.status) && !(loan.guarantors ?? []).some((x) => x.replaces_id === g.id && x.status === 'pending')"
+                type="button"
+                class="btn-ghost px-2 py-1 text-xs"
+                @click="replacing = g; newGuarantor = null; open('replace')"
+              >Replace</button>
+              <StatusBadge :label="guarantorStatus[g.status].label" :style-class="guarantorStatus[g.status].style" />
+            </span>
           </li>
         </ul>
       </section>
@@ -329,7 +347,7 @@ function installmentState(i: Installment) {
     </Modal>
 
     <Modal v-if="dialog === 'disburse' && loan" title="Record the payout" @close="dialog = null">
-      <form class="space-y-4" @submit.prevent="act(`/loans/${loan.id}/disburse`, { disbursed_on: form.date, reference: form.reference })">
+      <form class="space-y-4" @submit.prevent="act(`/loans/${loan.id}/disburse`, { disbursed_on: form.date, reference: form.reference, money_account_id: form.money_account_id })">
         <div v-if="formError" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ formError }}</div>
         <p class="text-sm text-gray-700">Record the cheque issued to {{ loan.borrower_name }}. The repayment schedule starts from this date.</p>
         <dl class="grid grid-cols-2 gap-y-1 rounded-xl bg-gray-50 p-3 text-sm">
@@ -341,6 +359,7 @@ function installmentState(i: Installment) {
         </dl>
         <div class="grid gap-4 sm:grid-cols-2">
           <div><label for="ref" class="label">Cheque number</label><input id="ref" v-model="form.reference" class="input" maxlength="80" /></div>
+          <MoneyAccountSelect id="d-money" v-model="form.money_account_id" label="Paid from" class="sm:col-span-2" />
           <div><label for="date" class="label">Date issued</label><input id="date" v-model="form.date" type="date" :max="today" class="input" /></div>
         </div>
         <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -351,7 +370,7 @@ function installmentState(i: Installment) {
     </Modal>
 
     <Modal v-if="dialog === 'payment' && loan" title="Record a repayment" @close="dialog = null">
-      <form class="space-y-4" @submit.prevent="act(`/loans/${loan.id}/payments`, { amount: form.amount, paid_on: form.date, reference: form.reference })">
+      <form class="space-y-4" @submit.prevent="act(`/loans/${loan.id}/payments`, { money_account_id: form.money_account_id, amount: form.amount, paid_on: form.date, reference: form.reference })">
         <div v-if="formError" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ formError }}</div>
         <p v-if="loan.position" class="text-sm text-gray-700">
           {{ formatMoney(loan.position.total_left) }} still owed. A repayment clears any penalty first, then the oldest instalment: its interest, then principal.
@@ -360,6 +379,7 @@ function installmentState(i: Installment) {
           <div><label for="amt" class="label">Amount</label><input id="amt" v-model="form.amount" class="input tabular-nums" inputmode="decimal" /></div>
           <div><label for="pdate" class="label">Date paid</label><input id="pdate" v-model="form.date" type="date" :max="today" class="input" /></div>
         </div>
+        <MoneyAccountSelect id="p-money" v-model="form.money_account_id" label="Paid into" />
         <div><label for="pref" class="label">Reference <span class="font-normal text-gray-400">(optional)</span></label><input id="pref" v-model="form.reference" class="input" maxlength="80" placeholder="Receipt or payroll month" /></div>
 
         <!-- What this repayment will do -->
@@ -426,7 +446,7 @@ function installmentState(i: Installment) {
     </Modal>
 
     <Modal v-if="dialog === 'settle' && loan?.settlement" title="Pay off early" @close="dialog = null">
-      <form class="space-y-4" @submit.prevent="act(`/loans/${loan.id}/settle`, { reference: form.reference })">
+      <form class="space-y-4" @submit.prevent="act(`/loans/${loan.id}/settle`, { reference: form.reference, money_account_id: form.money_account_id })">
         <div v-if="formError" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ formError }}</div>
         <p class="text-sm text-gray-700">
           {{ loan.borrower_name }} pays everything off today: the principal still owed, any penalties, and interest only up to this month.
@@ -435,6 +455,7 @@ function installmentState(i: Installment) {
           <dt class="font-semibold">To pay today</dt><dd class="text-right font-semibold tabular-nums">{{ formatMoney(loan.settlement.amount) }}</dd>
           <dt class="text-gray-600">Interest they save</dt><dd class="text-right tabular-nums text-emerald-700">{{ formatMoney(loan.settlement.interest_saved) }}</dd>
         </dl>
+        <MoneyAccountSelect id="s-money" v-model="form.money_account_id" label="Paid into" />
         <div><label for="sref" class="label">Reference <span class="font-normal text-gray-400">(optional)</span></label><input id="sref" v-model="form.reference" class="input" maxlength="80" placeholder="Receipt or bank slip" /></div>
         <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>
@@ -451,6 +472,27 @@ function installmentState(i: Installment) {
         <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>
           <button type="submit" class="btn-primary" :disabled="busy || !form.reason.trim()">Waive penalty</button>
+        </div>
+      </form>
+    </Modal>
+
+    <Modal v-if="dialog === 'replace' && loan && replacing" :title="`Replace ${replacing.full_name}`" @close="dialog = null">
+      <form class="space-y-4" @submit.prevent="newGuarantor && act(`/loans/${loan.id}/guarantors/${replacing.id}/replace`, { user_id: newGuarantor.id, amount: newGuarantor.amount })">
+        <p class="text-sm text-gray-700">Choose a member to take over {{ replacing.full_name }}'s guarantee of {{ formatMoney(replacing.amount) }}. They are asked first; {{ replacing.full_name }} is released once they agree.</p>
+        <div v-if="formError" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ formError }}</div>
+        <MemberPicker
+          v-if="!newGuarantor"
+          :exclude="[loan.user_id, ...(loan.guarantors ?? []).map((g) => g.guarantor_id)]"
+          @pick="newGuarantor = { ...$event, amount: replacing!.amount }"
+        />
+        <div v-else class="flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 p-3">
+          <p class="flex-1 font-medium">{{ newGuarantor.full_name }}</p>
+          <input v-model="newGuarantor.amount" class="input w-40 tabular-nums" inputmode="numeric" aria-label="Amount to guarantee" />
+          <button type="button" class="btn-ghost px-2 py-1" @click="newGuarantor = null">Change</button>
+        </div>
+        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>
+          <button type="submit" class="btn-primary" :disabled="busy || !newGuarantor">Ask them</button>
         </div>
       </form>
     </Modal>

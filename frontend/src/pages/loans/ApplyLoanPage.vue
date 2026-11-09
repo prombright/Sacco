@@ -12,12 +12,14 @@ interface Quote {
   eligibility: { savings: string; owed: string; limit: string }
   /** How long they've saved; wait_reason is set when that's not long enough to borrow yet */
   membership: { since: string | null; months: number; wait_reason: string | null }
+  /** Running loans of this type that this loan can top up, with what clearing each costs */
+  top_ups: { id: number; loan_no: string; amount: string; to_clear: string }[]
   schedule: null | { installment: string; total_interest: string; total_repayable: string; processing_fee: string; you_receive: string; rows: (Installment & { balance_after: string })[] }
 }
 
 const router = useRouter()
 
-const form = reactive({ product_id: 0, amount: '', months: 12, purpose: '' })
+const form = reactive({ product_id: 0, amount: '', months: 12, purpose: '', replaces_loan_id: 0 })
 const guarantors = ref<(PickedMember & { amount: string })[]>([])
 const quote = ref<Quote | null>(null)
 const showSchedule = ref(false)
@@ -49,6 +51,7 @@ async function loadQuote() {
       product_id: form.product_id || undefined,
       amount: form.amount.replace(/[,\s]/g, '') || undefined,
       months: form.months,
+      replaces_loan_id: form.replaces_loan_id || undefined,
     })
     // The first product is chosen until the member picks another; months stay within its limit
     form.product_id ||= quote.value.rules.product_id ?? 0
@@ -58,7 +61,8 @@ async function loadQuote() {
   }
 }
 let timer: ReturnType<typeof setTimeout> | undefined
-watch(() => [form.product_id, form.amount, form.months], () => {
+watch(() => form.product_id, () => (form.replaces_loan_id = 0))
+watch(() => [form.product_id, form.amount, form.months, form.replaces_loan_id], () => {
   clearTimeout(timer)
   timer = setTimeout(loadQuote, 300)
 })
@@ -80,6 +84,7 @@ async function submit() {
       amount: form.amount,
       months: form.months,
       purpose: form.purpose,
+      replaces_loan_id: form.replaces_loan_id || undefined,
       guarantors: guarantors.value.map((g) => ({ user_id: g.id, amount: g.amount })),
     })
     await router.replace({ name: 'loan', params: { id: res.loan.id } })
@@ -101,14 +106,6 @@ async function submit() {
     <RouterLink :to="{ name: 'loans' }" class="text-sm font-medium text-gray-600 hover:text-gray-900">← Loans</RouterLink>
     <h1 class="mt-3 text-2xl font-bold">Apply for a loan</h1>
 
-    <div v-if="quote?.membership.wait_reason" class="card mt-5 p-5">
-      <p class="font-medium">Not yet</p>
-      <p class="mt-1 text-sm text-gray-700">{{ quote.membership.wait_reason }}</p>
-      <p v-if="quote.membership.since" class="mt-2 text-sm text-gray-600">Saving since {{ formatDate(quote.membership.since) }}.</p>
-      <RouterLink :to="{ name: 'loans' }" class="btn-secondary mt-4">Back to loans</RouterLink>
-    </div>
-
-    <template v-else>
     <!-- Which kind of loan -->
     <fieldset v-if="quote && quote.products.length > 1" class="mt-5">
       <legend class="label">Type of loan</legend>
@@ -132,6 +129,22 @@ async function submit() {
       </div>
     </fieldset>
 
+    <div v-if="quote?.membership.wait_reason" class="card mt-5 p-5">
+      <p class="font-medium">Not yet</p>
+      <p class="mt-1 text-sm text-gray-700">{{ quote.membership.wait_reason }}</p>
+      <p v-if="quote.membership.since" class="mt-2 text-sm text-gray-600">Saving since {{ formatDate(quote.membership.since) }}.</p>
+      <div v-if="quote.top_ups.length" class="mt-4 space-y-2">
+        <p class="text-sm font-semibold">You can top up instead</p>
+        <button v-for="t in quote.top_ups" :key="t.id" type="button" class="btn-primary" @click="form.replaces_loan_id = t.id">Top up {{ t.loan_no }} ({{ formatMoney(t.to_clear) }} still to clear)</button>
+      </div>
+      <RouterLink v-else :to="{ name: 'loans' }" class="btn-secondary mt-4">Back to loans</RouterLink>
+    </div>
+
+    <template v-else>
+    <p v-if="form.replaces_loan_id" class="mt-5 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-navy-100 bg-navy-50/60 px-4 py-3 text-sm">
+      <span>Topping up <strong class="font-semibold">{{ quote?.top_ups.find((t) => t.id === form.replaces_loan_id)?.loan_no }}</strong>: the new loan first clears the {{ formatMoney(quote?.top_ups.find((t) => t.id === form.replaces_loan_id)?.to_clear ?? '0') }} still owed on it, and you receive the rest.</span>
+      <button type="button" class="font-semibold text-brand hover:underline" @click="form.replaces_loan_id = 0">Don't top up</button>
+    </p>
     <div v-if="quote" class="card mt-5 grid gap-4 p-5 sm:grid-cols-3">
       <div>
         <p class="text-sm text-gray-600">You can borrow up to</p>

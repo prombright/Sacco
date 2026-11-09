@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import MoneyAccountSelect from '@/components/MoneyAccountSelect.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ArrowUturnLeftIcon, PlusIcon } from '@heroicons/vue/24/outline'
@@ -72,7 +73,7 @@ const report = computed<Report>(() => ({
 
 // --- Recording one ---
 const adding = ref(false)
-const form = reactive({ account_id: '', amount: '', entry_date: today, description: '', reference: '' })
+const form = reactive({ account_id: '', amount: '', entry_date: today, description: '', reference: '', money_account_id: '' })
 const formError = ref('')
 const choices = computed(() => accounts.value.filter((a) => a.type === kind.value))
 function start() {
@@ -147,6 +148,7 @@ const byId = (id: unknown) => entries.value.find((e) => e.id === id)
           <div><label for="e-amount" class="label">Amount</label><input id="e-amount" v-model="form.amount" inputmode="decimal" class="input tabular-nums" /></div>
           <div><label for="e-date" class="label">Date</label><input id="e-date" v-model="form.entry_date" type="date" :max="today" class="input" /></div>
         </div>
+        <MoneyAccountSelect id="e-money" v-model="form.money_account_id" :label="isIncome ? 'Received into' : 'Paid from'" />
         <div><label for="e-desc" class="label">Details</label><input id="e-desc" v-model="form.description" class="input" :placeholder="isIncome ? 'e.g. Bank interest for October' : 'e.g. Receipt books for the office'" /></div>
         <div><label for="e-ref" class="label">{{ isIncome ? 'Receipt no.' : 'Voucher / receipt no.' }} <span class="font-normal text-gray-500">(optional)</span></label><input id="e-ref" v-model="form.reference" class="input" /></div>
         <p v-if="formError" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ formError }}</p>

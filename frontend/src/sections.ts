@@ -21,6 +21,7 @@ import {
   IdentificationIcon,
   InboxStackIcon,
   ListBulletIcon,
+  LockClosedIcon,
   MegaphoneIcon,
   PresentationChartLineIcon,
   ReceiptPercentIcon,
@@ -166,6 +167,8 @@ export const sections: Section[] = [
     intro: 'Statements for the committee, the AGM and the auditors. Each downloads as Excel or PDF, or prints.',
     items: [
       { name: 'annual-report', label: 'Annual report', description: 'The year in one PDF for the AGM and auditors', icon: DocumentChartBarIcon, figure: (s) => `${short(s.income_year)} income this year` },
+      { name: 'budget', label: 'Budget and actual', description: 'Planned income and spending against the real figures', icon: CalculatorIcon },
+      { name: 'year-end', label: 'Year-end closing', description: 'Close a year and lock its books', icon: LockClosedIcon },
       { name: 'balance-sheet', label: 'Balance sheet', description: 'What the SACCO owns and owes', icon: BuildingLibraryIcon, figure: (s) => (s.balanced ? 'Balanced' : 'Not balanced: check') },
       { name: 'income-statement', label: 'Income statement', description: 'Income, expenses and the surplus', icon: PresentationChartLineIcon, figure: (s) => `${short(s.surplus_year)} surplus this year` },
       { name: 'trial-balance', label: 'Trial balance', description: 'Every account; debits equal credits', icon: ScaleIcon },

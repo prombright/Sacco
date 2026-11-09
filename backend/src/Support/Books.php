@@ -174,6 +174,7 @@ final class Books
             $member = (int) $t['user_id'];
             $label = ucfirst(str_replace('_', ' ', $type));
             $lines = [[$memberAcct, -$cents, $member, $t['full_name'] . ' · ' . $t['account']]];
+            $bank = (int) ($t['money_account_id'] ?: self::account($db, 'bank'));
             $other = match ($type) {
                 'deposit', 'withdrawal' => 'bank',
                 'charge' => 'withdrawal_fee_income',
@@ -187,10 +188,10 @@ final class Books
             $feeRow = $fees[$reversal ? $t['original_id'] : $t['id']] ?? null;
             if ($type === 'withdrawal' && $feeRow && !$feeRow['fee_on_top']) {
                 $fee = Money::fromDecimal($feeRow['fee']) * ($cents < 0 ? 1 : -1);
-                $lines[] = [self::account($db, 'bank'), $cents + $fee, null, null];
+                $lines[] = [$bank, $cents + $fee, null, null];
                 $lines[] = [self::account($db, 'withdrawal_fee_income'), -$fee, $member, 'Withdrawal fee'];
             } else {
-                $lines[] = [self::account($db, $other), $cents, $other === 'bank' ? null : $member, null];
+                $lines[] = [$other === 'bank' ? $bank : self::account($db, $other), $cents, $other === 'bank' ? null : $member, null];
             }
 
             if ($t['batch_id']) {
@@ -253,7 +254,7 @@ final class Books
             if ($l['source'] === 'old_records') {
                 $lines[] = [self::account($db, 'opening'), -$amount, $member, 'Loan from the old records'];
             } else {
-                $lines[] = [self::account($db, 'bank'), -($amount - $fee), null, $l['disbursement_ref'] ? 'Cheque ' . $l['disbursement_ref'] : null];
+                $lines[] = [(int) ($l['money_account_id'] ?: self::account($db, 'bank')), -($amount - $fee), null, $l['disbursement_ref'] ? 'Cheque ' . $l['disbursement_ref'] : null];
                 $lines[] = [self::account($db, 'loan_fee_income'), -$fee, $member, 'Processing fee'];
             }
             self::add($db, $l['disbursed_on'], "Loan {$l['loan_no']} paid out to {$l['full_name']}", 'loan_disbursement', (int) $id, $lines, $l['disbursement_ref']);
@@ -328,7 +329,7 @@ final class Books
             } elseif ($l['source'] === 'old_records' && $p['reference'] === 'Old records') {
                 $from = [self::account($db, 'opening'), $cents, $member, 'Repaid before this system'];
             } else {
-                $from = [self::account($db, 'bank'), $cents, null, null];
+                $from = [(int) ($p['money_account_id'] ?: self::account($db, 'bank')), $cents, null, null];
             }
             $lines = [
                 $from,
@@ -385,7 +386,7 @@ final class Books
             $account = (int) ($c['account_id'] ?: self::account($db, $c['kind'] === 'income' ? 'other_income' : 'other_expense'));
             $sign = $c['kind'] === 'income' ? 1 : -1;
             self::add($db, $c['entry_date'], ($c['kind'] === 'income' ? 'Receipt: ' : 'Payment: ') . ($c['description'] ?: $c['category']), $c['kind'] === 'income' ? 'receipt' : 'payment', (int) $c['id'], [
-                [self::account($db, 'bank'), $sign * $cents, null, null],
+                [(int) ($c['money_account_id'] ?: self::account($db, 'bank')), $sign * $cents, null, null],
                 [$account, -$sign * $cents, null, $c['description']],
             ], $c['reference']);
         }
@@ -400,7 +401,7 @@ final class Books
         foreach ($rows as $f) {
             $cents = Money::fromDecimal($f['amount']);
             self::add($db, $f['paid_on'], "Membership fee {$f['year']}, {$f['full_name']}", 'membership_fee', (int) $f['id'], [
-                [self::account($db, 'bank'), $cents, null, null],
+                [(int) ($f['money_account_id'] ?: self::account($db, 'bank')), $cents, null, null],
                 [self::account($db, 'membership_fee_income'), -$cents, (int) $f['user_id'], (string) $f['year']],
             ], $f['reference']);
         }
@@ -409,9 +410,11 @@ final class Books
     // --- Reading the books ---------------------------------------------------------------------
 
     /** Each account's debits and credits up to a date (and from one, when given), in cents */
-    public static function totals(PDO $db, string $to, ?string $from = null): array
+    /** $withClosing false leaves out year-end closing entries: for income and expense figures */
+    public static function totals(PDO $db, string $to, ?string $from = null, bool $withClosing = true): array
     {
-        $sql = 'SELECT l.account_id, SUM(l.debit) AS d, SUM(l.credit) AS c FROM journal_lines l JOIN journal_entries e ON e.id = l.entry_id WHERE e.entry_date <= ?';
+        $sql = 'SELECT l.account_id, SUM(l.debit) AS d, SUM(l.credit) AS c FROM journal_lines l JOIN journal_entries e ON e.id = l.entry_id WHERE e.entry_date <= ?'
+            . ($withClosing ? '' : " AND e.source <> 'year_end'");
         $args = [$to];
         if ($from) {
             $sql .= ' AND e.entry_date >= ?';

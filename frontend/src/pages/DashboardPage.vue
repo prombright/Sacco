@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
 import { computed, onMounted, ref, watch } from 'vue'
 import {
   ArrowRightIcon,
@@ -71,7 +72,7 @@ onMounted(async () => {
 })
 
 const hour = new Date().getHours()
-const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+const greeting = computed(() => t(hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'))
 const firstName = computed(() => auth.user?.full_name.split(' ')[0] ?? '')
 
 // Hide the amounts on a shared screen; remembered on this device
@@ -142,19 +143,19 @@ const badges = computed(() => {
   ]
 })
 
-const actions = [
-  { label: 'Apply for a loan', to: { name: 'loan-apply' }, icon: BanknotesIcon },
-  { label: 'Withdraw savings', to: { name: 'withdrawals' }, icon: ArrowUpTrayIcon },
-  { label: 'My statement', to: { name: 'statement' }, icon: DocumentTextIcon },
-  { label: 'My profile', to: { name: 'profile' }, icon: UserCircleIcon },
-]
+const actions = computed(() => [
+  { label: t('Apply for a loan'), to: { name: 'loan-apply' }, icon: BanknotesIcon },
+  { label: t('Withdraw savings'), to: { name: 'withdrawals' }, icon: ArrowUpTrayIcon },
+  { label: t('My statement'), to: { name: 'statement' }, icon: DocumentTextIcon },
+  { label: t('My profile'), to: { name: 'profile' }, icon: UserCircleIcon },
+])
 </script>
 
 <template>
   <div>
     <div class="flex flex-wrap items-end justify-between gap-4">
       <div>
-        <p class="eyebrow">My account · <span class="font-mono normal-case tracking-normal">{{ auth.user?.account_no }}</span></p>
+        <p class="eyebrow">{{ t('My account') }} · <span class="font-mono normal-case tracking-normal">{{ auth.user?.account_no }}</span></p>
         <h1 class="mt-1 text-2xl font-bold sm:text-3xl">{{ greeting }}, {{ firstName }}</h1>
       </div>
       <nav class="flex flex-wrap gap-2" aria-label="Quick actions">
@@ -195,7 +196,7 @@ const actions = [
         <div class="bg-gradient-to-br from-navy-800 via-navy-900 to-navy-950 reveal relative min-w-0 overflow-hidden rounded-3xl p-6 text-white shadow-lift lg:col-span-2">
           <div class="relative flex items-start justify-between gap-4">
             <div>
-              <p class="text-sm text-navy-100/80">My money in the SACCO</p>
+              <p class="text-sm text-navy-100/80">{{ t('My money in the SACCO') }}</p>
               <p class="mt-1 text-4xl font-bold sm:text-5xl"><CountUp :value="total" :format="show" :duration="1500" /></p>
             </div>
             <button
@@ -218,7 +219,7 @@ const actions = [
             <div class="flex items-start gap-2.5">
               <span class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-navy-200" aria-hidden="true" />
               <div>
-                <p class="text-sm text-navy-100/80">Savings</p>
+                <p class="text-sm text-navy-100/80">{{ t('Savings') }}</p>
                 <p class="text-xl font-semibold"><CountUp :value="data.balances.savings" :format="show" :delay="200" /></p>
                 <Sparkline class="mt-1.5" :values="data.trend.savings.map((p) => Number(p.value))" color="#c2c7f2" label="Savings" :width="120" :height="26" />
               </div>
@@ -226,7 +227,7 @@ const actions = [
             <div class="flex items-start gap-2.5">
               <span class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-saffron-400" aria-hidden="true" />
               <div>
-                <p class="text-sm text-navy-100/80">Share capital</p>
+                <p class="text-sm text-navy-100/80">{{ t('Share capital') }}</p>
                 <p class="text-xl font-semibold"><CountUp :value="data.balances.shares" :format="show" :delay="350" /></p>
                 <Sparkline class="mt-1.5" :values="data.trend.shares.map((p) => Number(p.value))" color="#f2b934" label="Share capital" :width="120" :height="26" />
                 <p v-if="data.share_position.min_shares > 0 && data.share_position.shares !== null" class="mt-0.5 flex items-center gap-1 text-xs" :class="Number(data.share_position.still_needed) > 0 ? 'text-saffron-300' : 'text-navy-100/80'">
@@ -239,15 +240,15 @@ const actions = [
 
           <dl class="relative mt-6 grid grid-cols-2 gap-4 border-t border-white/10 pt-4 text-sm sm:grid-cols-3">
             <div>
-              <dt class="text-navy-100/70">You can withdraw</dt>
+              <dt class="text-navy-100/70">{{ t('You can withdraw') }}</dt>
               <dd class="mt-0.5 font-semibold"><CountUp :value="data.withdrawable" :format="show" :delay="500" /></dd>
             </div>
             <div>
-              <dt class="text-navy-100/70">Saved this year</dt>
+              <dt class="text-navy-100/70">{{ t('Saved this year') }}</dt>
               <dd class="mt-0.5 font-semibold"><CountUp :value="data.saved_this_year" :format="show" :delay="600" /></dd>
             </div>
             <div v-if="Number(data.pledged) > 0">
-              <dt class="flex items-center gap-1 text-navy-100/70"><LockClosedIcon class="h-3.5 w-3.5" aria-hidden="true" />Pledged for colleagues</dt>
+              <dt class="flex items-center gap-1 text-navy-100/70"><LockClosedIcon class="h-3.5 w-3.5" aria-hidden="true" />{{ t('Pledged for colleagues') }}</dt>
               <dd class="mt-0.5 font-semibold"><CountUp :value="data.pledged" :format="show" :delay="700" /></dd>
             </div>
             <div v-else>
@@ -259,9 +260,9 @@ const actions = [
 
         <!-- Borrowing power -->
         <div class="reveal card flex min-w-0 flex-col p-6" style="--i: 1">
-          <p class="eyebrow">Borrowing power</p>
+          <p class="eyebrow">{{ t('Borrowing power') }}</p>
           <template v-if="!data.loan_wait_reason">
-            <p class="mt-3 text-sm text-gray-600">You can borrow up to</p>
+            <p class="mt-3 text-sm text-gray-600">{{ t('You can borrow up to') }}</p>
             <p class="figure text-3xl"><CountUp :value="data.loan_limit" :format="show" :delay="300" /></p>
             <div class="mt-4 h-2 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
               <div class="fill-bar h-full rounded-full bg-brand" :style="{ width: Math.min(100, (Number(data.loan_owed) / (Number(data.loan_owed) + Number(data.loan_limit) || 1)) * 100) + '%' }" />
@@ -275,7 +276,7 @@ const actions = [
           <template v-else>
             <p class="mt-3 text-sm text-gray-700">{{ data.loan_wait_reason }}</p>
             <p class="mt-3 text-sm text-gray-500">Keep saving: the more you save, the more you'll be able to borrow.</p>
-            <RouterLink :to="{ name: 'loans' }" class="btn-secondary mt-auto w-full !mt-6">See my loans</RouterLink>
+            <RouterLink :to="{ name: 'loans' }" class="btn-secondary mt-auto w-full !mt-6">{{ t('See my loans') }}</RouterLink>
           </template>
         </div>
       </section>
@@ -284,7 +285,7 @@ const actions = [
       <section class="reveal mt-4 rounded-2xl border border-line bg-surface p-5 shadow-card" style="--i: 2">
         <div class="flex flex-wrap items-center gap-5">
           <div class="min-w-[14rem] flex-1">
-            <p class="eyebrow">My saver level</p>
+            <p class="eyebrow">{{ t('My saver level') }}</p>
             <p class="text-xl font-bold">{{ level.name }}</p>
             <template v-if="nextLevel">
               <div class="mt-2 h-2 overflow-hidden rounded-full bg-gray-100"><div class="fill-bar h-full rounded-full bg-gradient-to-r" :class="level.tone" :style="{ width: levelProgress + '%' }" /></div>
@@ -305,7 +306,7 @@ const actions = [
         <div class="reveal card min-w-0 p-5 lg:col-span-2" style="--i: 2">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 class="font-semibold">How my {{ series === 'savings' ? 'savings' : 'shares' }} have grown</h2>
+              <h2 class="font-semibold">{{ series === 'savings' ? t('How my savings have grown') : 'How my shares have grown' }}</h2>
               <p class="text-sm text-gray-500">
                 <template v-if="growth > 0"><span class="font-semibold text-emerald-700">+{{ show(growth) }}</span> in the last {{ range }} months</template>
                 <template v-else>Balance at the end of each month</template>
@@ -333,8 +334,8 @@ const actions = [
 
         <div class="reveal card min-w-0 p-5" style="--i: 3">
           <div class="flex items-center justify-between">
-            <h2 class="font-semibold">My loan{{ data.loans.length > 1 ? 's' : '' }}</h2>
-            <RouterLink :to="{ name: 'loans' }" class="text-sm font-semibold text-brand hover:underline">All loans</RouterLink>
+            <h2 class="font-semibold">{{ data.loans.length > 1 ? t('Loans') : t('My loan') }}</h2>
+            <RouterLink :to="{ name: 'loans' }" class="text-sm font-semibold text-brand hover:underline">{{ t('All loans') }}</RouterLink>
           </div>
           <ul v-if="data.loans.length" class="mt-4 space-y-5">
             <li v-for="l in data.loans" :key="l.id">
@@ -371,8 +372,8 @@ const actions = [
 
       <section class="reveal mt-4" style="--i: 5">
         <div class="flex items-center justify-between">
-          <h2 class="font-semibold">Recent activity</h2>
-          <RouterLink :to="{ name: 'statement' }" class="text-sm font-semibold text-brand hover:underline">Full statement</RouterLink>
+          <h2 class="font-semibold">{{ t('Recent activity') }}</h2>
+          <RouterLink :to="{ name: 'statement' }" class="text-sm font-semibold text-brand hover:underline">{{ t('Full statement') }}</RouterLink>
         </div>
         <div class="card mt-3 overflow-hidden">
           <TransactionList :transactions="data.recent" show-account />

@@ -9,6 +9,7 @@ import App from './App.vue'
 import router from './router'
 import { handleAuthProblems } from './api'
 import { installMotion } from './motion'
+import { setUpPwa } from './pwa'
 import { useAuth } from './stores/auth'
 import { useTheme } from './stores/theme'
 
@@ -41,4 +42,5 @@ handleAuthProblems((status, code) => {
 })
 
 installMotion(router)
+setUpPwa()
 app.mount('#app')

@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+import { canInstall, install, installed } from '@/pwa'
+import LanguagePicker from '@/components/LanguagePicker.vue'
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ApiError } from '@/api'
@@ -23,6 +26,7 @@ const photo = computed(() => (auth.sacco?.login_image ? import.meta.env.BASE_URL
 const slogan = computed(() => auth.sacco?.slogan || 'Save together. Grow together.')
 
 const needCode = ref(false)
+const remember = ref(installed.value)
 const code = ref('')
 
 // Admins start at the office overview, members at their own dashboard (or the page they asked for)
@@ -55,7 +59,7 @@ async function submit() {
   error.value = ''
   busy.value = true
   try {
-    needCode.value = await auth.login(login.value.trim(), password.value, otherSacco.value ? saccoCode.value.trim() : undefined)
+    needCode.value = await auth.login(login.value.trim(), password.value, otherSacco.value ? saccoCode.value.trim() : undefined, remember.value)
     if (!needCode.value) await goIn()
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Something went wrong. Please try again.'
@@ -111,7 +115,7 @@ async function submit() {
 
       <div class="flex flex-1 items-start justify-center px-4 py-8 sm:py-12 lg:items-center">
         <div class="w-full max-w-sm">
-          <h1 class="text-3xl font-bold">Welcome back</h1>
+          <h1 class="text-3xl font-bold">{{ t('Welcome back') }}</h1>
           <p class="mt-1 text-gray-600">Sign in to {{ auth.sacco?.name ?? 'your SACCO' }}.</p>
 
           <form v-if="needCode" class="mt-8 space-y-4" novalidate @submit.prevent="submitCode">
@@ -134,19 +138,28 @@ async function submit() {
             </div>
 
             <div>
-              <label for="login" class="label">Email or employee number</label>
+              <label for="login" class="label">{{ t('Email or employee number') }}</label>
               <input id="login" v-model="login" class="input py-2.5" autocomplete="username" autocapitalize="none" spellcheck="false" />
             </div>
 
             <div>
-              <label for="password" class="label">Password</label>
+              <label for="password" class="label">{{ t('Password') }}</label>
               <PasswordInput id="password" v-model="password" autocomplete="current-password" />
             </div>
 
+            <label class="flex items-start gap-2 text-sm text-gray-700">
+              <input v-model="remember" type="checkbox" class="mt-0.5 accent-brand" />
+              <span>{{ t('Keep me signed in on this phone') }}<span class="block text-xs text-gray-500">Members only, on your own phone. Office accounts always sign out after a while.</span></span>
+            </label>
             <button type="submit" class="btn-primary w-full py-3 text-base" :disabled="busy || !login || !password">
-              {{ busy ? 'Signing in…' : 'Sign in' }}
+              {{ busy ? t('Signing in…') : t('Sign in') }}
             </button>
           </form>
+
+          <div class="mt-6 flex flex-wrap items-center gap-3">
+            <LanguagePicker />
+            <button v-if="canInstall" type="button" class="btn-secondary" @click="install">{{ t('Install the app') }}</button>
+          </div>
 
           <p class="mt-6 text-sm text-gray-600">Forgot your password? Ask your SACCO office to reset it.</p>
           <RouterLink :to="{ name: 'home' }" class="mt-2 inline-block text-sm font-semibold text-brand hover:underline">About the SACCO, rates and loan calculator</RouterLink>

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Sacco\Controllers;
 
+use Sacco\Support\Periods;
 use Sacco\Auth\Auth;
 use Sacco\Database;
 use Sacco\Http\Request;
@@ -58,7 +59,14 @@ final class AccountingController
             'balance' => Money::toDecimal(Books::balance($a, $totals)),
             'used' => in_array($a['id'], $used),
             'control' => in_array($a['system_key'], self::CONTROL, true),
-        ], Books::chart($db)), 'types' => self::TYPES]);
+            'is_money' => (bool) $a['is_money'],
+        ], Books::chart($db)), 'types' => self::TYPES, 'money_accounts' => Periods::moneyAccounts($db), 'last_closed_year' => Periods::lastClosedYear($db)]);
+    }
+
+    /** GET /api/money-accounts - the bank and cash accounts money can go through */
+    public function moneyAccounts(Request $request): never
+    {
+        Response::ok(['accounts' => Periods::moneyAccounts(Database::tenant())]);
     }
 
     /** POST /api/accounting/accounts { code, name, type, description } (super admin) */
@@ -66,7 +74,7 @@ final class AccountingController
     {
         $d = $this->accountInput($request, null);
         $db = Database::tenant();
-        $db->prepare('INSERT INTO gl_accounts (code, name, type, description) VALUES (?, ?, ?, ?)')->execute([$d['code'], $d['name'], $d['type'], $d['description']]);
+        $db->prepare('INSERT INTO gl_accounts (code, name, type, is_money, description) VALUES (?, ?, ?, ?, ?)')->execute([$d['code'], $d['name'], $d['type'], $d['is_money'], $d['description']]);
         $id = (int) $db->lastInsertId();
         Audit::log('account.created', 'gl_account', $id, ['name' => "{$d['code']} {$d['name']}", 'type' => $d['type']]);
         $this->accounts($request);
@@ -84,8 +92,8 @@ final class AccountingController
         if ($status === 'archived' && $a['system_key']) {
             Response::error('The system posts to this account, so it can\'t be archived.', 422);
         }
-        $db->prepare('UPDATE gl_accounts SET code = ?, name = ?, type = ?, description = ?, status = ? WHERE id = ?')
-            ->execute([$d['code'], $d['name'], $d['type'], $d['description'], $status, $a['id']]);
+        $db->prepare('UPDATE gl_accounts SET code = ?, name = ?, type = ?, is_money = ?, description = ?, status = ? WHERE id = ?')
+            ->execute([$d['code'], $d['name'], $d['type'], $d['is_money'], $d['description'], $status, $a['id']]);
         Audit::log('account.updated', 'gl_account', (int) $a['id'], ['before' => array_intersect_key($a, $d + ['status' => 1]), 'after' => $d + ['status' => $status]]);
         $this->accounts($request);
     }
@@ -113,7 +121,9 @@ final class AccountingController
         if ($dup->fetchColumn()) {
             Response::error("Another account already has code $code.", 422, ['code' => 'Taken']);
         }
-        return ['code' => $code, 'name' => $name, 'type' => $type, 'description' => mb_substr($request->string('description'), 0, 255) ?: null];
+        // A bank or cash account is an asset; the main bank and cash accounts stay so
+        $isMoney = $type === 'asset' && ($request->input('is_money') || in_array($existing['system_key'] ?? null, ['bank', 'cash'], true)) ? 1 : 0;
+        return ['code' => $code, 'name' => $name, 'type' => $type, 'is_money' => $isMoney, 'description' => mb_substr($request->string('description'), 0, 255) ?: null];
     }
 
     // --- Journal entries -----------------------------------------------------------------------
@@ -178,6 +188,7 @@ final class AccountingController
     public function createJournal(Request $request): never
     {
         $date = $this->date($request->string('entry_date') ?: date('Y-m-d'));
+        Periods::check($date);
         if ($date > date('Y-m-d')) {
             Response::error('A journal entry can\'t be dated in the future.', 422, ['entry_date' => 'Invalid']);
         }
@@ -303,7 +314,7 @@ final class AccountingController
         };
         $is = $this->income_statement($db, $from, $to);
         $income = $expense = $interest = 0;
-        $yt = Books::totals($db, $to, $from);
+        $yt = Books::totals($db, $to, $from, false);
         foreach (Books::chart($db) as $a) {
             if ($a['type'] === 'income') {
                 $income += Books::balance($a, $yt);
@@ -479,7 +490,7 @@ final class AccountingController
 
     private function income_statement(\PDO $db, string $from, string $to, ?Request $request = null): array
     {
-        $totals = Books::totals($db, $to, $from);
+        $totals = Books::totals($db, $to, $from, false);
         $sum = ['income' => 0, 'expense' => 0];
         $rows = ['income' => [], 'expense' => []];
         foreach (Books::chart($db) as $a) {

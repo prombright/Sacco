@@ -19,6 +19,7 @@ interface Account {
   balance: string
   used: boolean
   control: boolean
+  is_money: boolean
 }
 
 /** The chart of accounts: every account in the books with today's balance. The super admin adds and edits them. */
@@ -48,7 +49,7 @@ const report = computed<Report | null>(() => {
       rows.push({
         code: a.code,
         name: a.name + (a.status === 'archived' ? ' (archived)' : ''),
-        note: a.control ? 'Follows members\' accounts' : a.system_key ? 'Posted by the system' : a.description ?? '',
+        note: a.is_money ? 'Bank or cash account' : a.control ? 'Follows members\' accounts' : a.system_key ? 'Posted by the system' : a.description ?? '',
         balance: a.balance,
         _account_id: a.id,
       })
@@ -73,13 +74,13 @@ const editing = ref<Partial<Account> | null>(null)
 const formError = ref('')
 function start(a?: Account) {
   formError.value = ''
-  editing.value = a ? { ...a } : { code: '', name: '', type: 'expense', description: '', status: 'active' }
+  editing.value = a ? { ...a } : { code: '', name: '', type: 'expense', description: '', status: 'active', is_money: false }
 }
 async function save() {
   if (!editing.value) return
   formError.value = ''
   try {
-    const body = { code: editing.value.code, name: editing.value.name, type: editing.value.type, description: editing.value.description ?? '', status: editing.value.status }
+    const body = { code: editing.value.code, name: editing.value.name, type: editing.value.type, is_money: editing.value.is_money, description: editing.value.description ?? '', status: editing.value.status }
     const res = editing.value.id
       ? await api.patch<{ accounts: Account[] }>(`/accounting/accounts/${editing.value.id}`, body)
       : await api.post<{ accounts: Account[] }>('/accounting/accounts', body)
@@ -125,6 +126,10 @@ const byId = (id: unknown) => accounts.value.find((a) => a.id === id)
           </select>
           <p v-if="editing.system_key" class="mt-1 text-xs text-gray-500">The system posts to this account, so its kind stays.</p>
         </div>
+        <label v-if="editing.type === 'asset'" class="flex items-center gap-2 text-sm">
+          <input v-model="editing.is_money" type="checkbox" class="accent-brand" :disabled="editing.system_key === 'bank' || editing.system_key === 'cash'" />
+          A bank or cash account (offered when money is received or paid)
+        </label>
         <div><label for="a-desc" class="label">Description <span class="font-normal text-gray-500">(optional)</span></label><input id="a-desc" v-model="editing.description" class="input" /></div>
         <label v-if="editing.id && !editing.system_key" class="flex items-center gap-2 text-sm">
           <input type="checkbox" :checked="editing.status === 'archived'" class="accent-brand" @change="editing!.status = ($event.target as HTMLInputElement).checked ? 'archived' : 'active'" />

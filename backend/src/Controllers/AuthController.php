@@ -103,11 +103,11 @@ final class AuthController
         // The password was right; with two-step sign-in on, the code comes next
         if ($user['totp_enabled_at']) {
             session_regenerate_id(true);
-            $_SESSION['two_step'] = ['user' => (int) $user['id'], 'login' => $login, 'at' => time(), 'tries' => 0];
+            $_SESSION['two_step'] = ['user' => (int) $user['id'], 'login' => $login, 'at' => time(), 'tries' => 0, 'remember' => (bool) $request->input('remember')];
             Response::ok(['two_step' => true]);
         }
 
-        $this->finishSignIn($request, $user, $login, $sacco['code']);
+        $this->finishSignIn($request, $user, $login, $sacco['code'], (bool) $request->input('remember'));
     }
 
     /** POST /api/auth/two-step { code } - the app's six digits, or a recovery code */
@@ -143,7 +143,7 @@ final class AuthController
             Response::error('That code isn\'t right. Enter the newest code from your app, or a recovery code.', 422, ['code' => 'Wrong']);
         }
         unset($_SESSION['two_step']);
-        $this->finishSignIn($request, $user, $pending['login'], (string) $_SESSION['sacco']);
+        $this->finishSignIn($request, $user, $pending['login'], (string) $_SESSION['sacco'], !empty($pending['remember']));
     }
 
     private function useRecoveryCode(\PDO $db, array $user, string $code): bool
@@ -162,11 +162,15 @@ final class AuthController
         return false;
     }
 
-    private function finishSignIn(Request $request, array $user, string $login, string $saccoCode): never
+    private function finishSignIn(Request $request, array $user, string $login, string $saccoCode, bool $remember = false): never
     {
         Database::tenant()->prepare('UPDATE users SET failed_attempts = 0, locked_until = NULL, last_login_at = NOW() WHERE id = ?')
             ->execute([$user['id']]);
         Auth::login($user, $saccoCode);
+        // Only members' own devices are remembered; office accounts always time out
+        if ($remember && $user['role'] === Roles::MEMBER) {
+            Auth::remember();
+        }
         self::logAttempt($login, $user, true, null);
         $this->me($request);
     }

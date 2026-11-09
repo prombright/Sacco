@@ -30,4 +30,5 @@ export const guarantorStatus: Record<string, { label: string; style: string }> =
   accepted: { label: 'Agreed', style: 'bg-green-50 text-green-800' },
   declined: { label: 'Declined', style: 'bg-red-50 text-red-700' },
   withdrawn: { label: 'No longer asked', style: 'bg-gray-100 text-gray-600' },
+  released: { label: 'Released', style: 'bg-gray-100 text-gray-600' },
 }

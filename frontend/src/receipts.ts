@@ -1,5 +1,6 @@
 import { api } from '@/api'
 import type { Who } from '@/exporters'
+import { drawMark, loadLogo } from '@/documents'
 
 export interface Receipt {
   no: string
@@ -63,7 +64,6 @@ export async function downloadReceipt(r: Receipt, member: ReceiptMember, who: Wh
   const brand = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16)) as [number, number, number]
   const name = who.sacco?.name ?? 'SACCO'
   const currency = who.sacco?.currency ?? 'UGX'
-  const initials = (who.sacco?.short_name || name).replace(/sacco/i, '').trim().slice(0, 2).toUpperCase() || 'S'
   const incoming = r.direction === 'in'
 
   // Letterhead
@@ -71,13 +71,9 @@ export async function downloadReceipt(r: Receipt, member: ReceiptMember, who: Wh
   doc.rect(0, 0, W, 3.5, 'F')
   doc.setFillColor(238, 169, 15)
   doc.rect(0, 3.5, W, 0.9, 'F')
-  doc.setFillColor(...brand)
-  doc.roundedRect(M, 9, 11, 11, 2, 2, 'F')
-  doc.setTextColor(255, 255, 255)
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(9.5)
-  doc.text(initials, M + 5.5, 16.1, { align: 'center' })
+  drawMark(doc, who, await loadLogo(who), M, 9, 11)
   doc.setTextColor(21, 24, 33)
+  doc.setFont('helvetica', 'bold')
   doc.setFontSize(12)
   doc.text(name, M + 14, 13.5)
   if (who.sacco?.slogan) {

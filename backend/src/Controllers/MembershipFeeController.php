@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Sacco\Controllers;
 
+use Sacco\Support\Periods;
 use Sacco\Auth\Auth;
 use Sacco\Database;
 use Sacco\Http\Request;
@@ -137,8 +138,9 @@ final class MembershipFeeController
         if (!$d || $d->format('Y-m-d') !== $date || $date > date('Y-m-d')) {
             Response::error('Enter a valid date, not in the future.', 422);
         }
-        Database::tenant()->prepare("UPDATE membership_fees SET status = 'paid', method = 'cash', paid_on = ?, reference = ?, paid_by = ? WHERE id = ? AND status = 'unpaid'")
-            ->execute([$date, mb_substr($request->string('reference'), 0, 80) ?: null, Auth::id(), $f['id']]);
+        Periods::check($date);
+        Database::tenant()->prepare("UPDATE membership_fees SET status = 'paid', method = 'cash', money_account_id = ?, paid_on = ?, reference = ?, paid_by = ? WHERE id = ? AND status = 'unpaid'")
+            ->execute([Periods::moneyAccount($request), $date, mb_substr($request->string('reference'), 0, 80) ?: null, Auth::id(), $f['id']]);
         Audit::log('membership_fee.paid', 'membership_fee', (int) $f['id'], ['member' => (int) $f['user_id'], 'amount' => $f['amount']]);
         Notify::member((int) $f['user_id'], 'money_in', "{$f['year']} membership fee received", 'Thank you: your ' . Notify::money($f['amount']) . " membership fee for {$f['year']} has been received.", '/');
         Response::ok();

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Sacco\Controllers;
 
+use Sacco\Support\Periods;
 use Sacco\Auth\Auth;
 use Sacco\Database;
 use Sacco\Http\Request;
@@ -71,6 +72,7 @@ final class PayrollController
         if (!$d || $d->format('Y-m-d') !== $valueDate || $valueDate > date('Y-m-d')) {
             Response::error('Enter a valid posting date, not in the future.', 422);
         }
+        Periods::check($valueDate);
         $fileName = mb_substr($request->string('file_name'), 0, 190) ?: null;
         $input = $this->rows($request);
 

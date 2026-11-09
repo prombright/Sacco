@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import SaccoMark from '@/components/SaccoMark.vue'
 import { onMounted, ref } from 'vue'
-import { api, ApiError } from '@/api'
+import { api, ApiError, http } from '@/api'
 import { useAuth } from '@/stores/auth'
 import LoanProducts from './LoanProducts.vue'
 
@@ -50,6 +51,26 @@ async function save() {
     busy.value = false
   }
 }
+
+// The SACCO's logo
+const logoError = ref('')
+async function uploadLogo(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  logoError.value = ''
+  const body = new FormData()
+  body.append('logo', file)
+  try {
+    const res = await http.post('/settings/logo', body, { headers: { 'Content-Type': 'multipart/form-data' } })
+    auth.sacco && (auth.sacco.logo_url = res.data.data.logo_url)
+  } catch (err) {
+    logoError.value = (err as { response?: { data?: { message?: string } } }).response?.data?.message ?? 'The logo couldn\'t be uploaded.'
+  }
+}
+async function removeLogo() {
+  await api.delete('/settings/logo')
+  auth.sacco && (auth.sacco.logo_url = null)
+}
 </script>
 
 <template>
@@ -59,6 +80,20 @@ async function save() {
       Set by the committee.
       <template v-if="!auth.isSuperAdmin">Only a super admin can change them.</template>
     </p>
+
+    <section v-if="auth.isSuperAdmin" class="card mb-6 flex flex-wrap items-center gap-4 p-5">
+      <SaccoMark :sacco="auth.sacco" size="lg" />
+      <div class="min-w-[14rem] flex-1">
+        <h2 class="font-semibold">The SACCO's logo</h2>
+        <p class="text-sm text-gray-600">Shown in the app and on every letterhead, receipt, card and certificate. A PNG or JPG under 1 MB, ideally square.</p>
+        <p v-if="logoError" class="mt-1 text-sm text-red-700" role="alert">{{ logoError }}</p>
+      </div>
+      <label class="btn-primary cursor-pointer">
+        {{ auth.sacco?.logo_url ? 'Change the logo' : 'Upload the logo' }}
+        <input type="file" accept="image/png,image/jpeg,image/webp" class="sr-only" @change="uploadLogo" />
+      </label>
+      <button v-if="auth.sacco?.logo_url" type="button" class="btn-ghost" @click="removeLogo">Remove</button>
+    </section>
 
     <LoanProducts />
 

@@ -35,6 +35,7 @@ final class Activity
             'loan.penalties_charged' => 'charged late-payment penalties on ' . ($d['count'] ?? 0) . ' loans',
             'loan.charge_waived' => 'waived a loan charge',
             'loan.guarantor_added' => 'asked another guarantor',
+            'loan.guarantor_replacing' => 'asked a member to take over a guarantee',
             'loan.guarantee_accepted' => 'agreed to guarantee a loan',
             'loan.guarantee_declined' => 'declined to guarantee a loan',
             'loan_product.created' => 'added the loan type "' . ($d['name'] ?? '') . '"',
@@ -83,6 +84,11 @@ final class Activity
             'bank_rec.completed' => 'completed a bank reconciliation',
             'bank_rec.reopened' => 'reopened a bank reconciliation',
             'bank_rec.deleted' => 'deleted a bank reconciliation in progress',
+            'year.closed' => 'closed the books for ' . ($d['year'] ?? ''),
+            'year.reopened' => 'reopened the books for ' . ($d['year'] ?? ''),
+            'budget.saved' => 'set the budget for ' . ($d['year'] ?? ''),
+            'settings.logo' => 'uploaded the SACCO\'s logo',
+            'settings.logo_removed' => 'removed the SACCO\'s logo',
             'two_step.enabled' => 'turned on two-step sign-in',
             'two_step.disabled' => 'turned off two-step sign-in',
             'user.unlocked' => 'unlocked an account',
@@ -110,8 +116,11 @@ final class Activity
         } elseif (isset($d['before'], $d['after']) && is_array($d['before']) && is_array($d['after'])) {
             foreach ($d['after'] as $k => $v) {
                 $was = $d['before'][$k] ?? null;
-                if (is_scalar($v) && (string) $was !== (string) $v && !in_array($k, ['id', 'updated_at', 'created_at'], true)) {
-                    $lines[] = ucfirst(str_replace('_', ' ', (string) $k)) . ': ' . $show($was) . ' → ' . $v;
+                // Lists (like the months a loan can be applied for) are compared and shown as text too
+                $now = is_array($v) ? implode(', ', $v) : $v;
+                $then = is_array($was) ? implode(', ', $was) : $was;
+                if ((is_scalar($now) || $now === null) && (string) $then !== (string) $now && !in_array($k, ['id', 'updated_at', 'created_at'], true)) {
+                    $lines[] = ucfirst(str_replace('_', ' ', (string) $k)) . ': ' . $show($then) . ' → ' . $show($now);
                 }
             }
         } else {

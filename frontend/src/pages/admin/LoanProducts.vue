@@ -19,8 +19,18 @@ const form = reactive({
   processing_fee_percent: '0',
   min_guarantors: '2',
   guarantee_cover_percent: '100',
+  min_amount: '',
+  max_amount: '',
+  min_member_months: '',
+  max_open: '1',
+  open_months: [] as number[],
+  allow_top_up: false,
   status: 'active',
 })
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+function toggleMonth(m: number) {
+  form.open_months = form.open_months.includes(m) ? form.open_months.filter((x) => x !== m) : [...form.open_months, m].sort((a, b) => a - b)
+}
 const errors = ref<Record<string, string>>({})
 const error = ref('')
 const busy = ref(false)
@@ -34,8 +44,8 @@ function open(p: LoanProduct | null) {
   errors.value = {}
   error.value = ''
   Object.assign(form, p
-    ? { ...p, description: p.description ?? '', max_months: String(p.max_months), min_guarantors: String(p.min_guarantors), guarantee_cover_percent: String(p.guarantee_cover_percent) }
-    : { name: '', description: '', interest_rate_monthly: '1', max_months: '12', savings_multiplier: '2', processing_fee_percent: '0', min_guarantors: '2', guarantee_cover_percent: '100', status: 'active' })
+    ? { ...p, description: p.description ?? '', max_months: String(p.max_months), min_guarantors: String(p.min_guarantors), guarantee_cover_percent: String(p.guarantee_cover_percent), min_amount: p.min_amount ?? '', max_amount: p.max_amount ?? '', min_member_months: p.min_member_months === null ? '' : String(p.min_member_months), max_open: String(p.max_open), open_months: [...p.open_months] }
+    : { name: '', description: '', interest_rate_monthly: '1', max_months: '12', savings_multiplier: '2', processing_fee_percent: '0', min_guarantors: '2', guarantee_cover_percent: '100', min_amount: '', max_amount: '', min_member_months: '', max_open: '1', open_months: [], allow_top_up: false, status: 'active' })
   editing.value = p
 }
 
@@ -88,6 +98,7 @@ const fields: { key: keyof typeof form; label: string; suffix: string }[] = [
             <th class="px-3 py-2 text-right">Limit</th>
             <th class="px-3 py-2 text-right">Fee</th>
             <th class="px-3 py-2 text-right">Guarantors</th>
+            <th class="px-3 py-2">Rules</th>
             <th class="px-3 py-2"><span class="sr-only">Actions</span></th>
           </tr>
         </thead>
@@ -103,6 +114,11 @@ const fields: { key: keyof typeof form; label: string; suffix: string }[] = [
             <td class="px-3 py-2.5 text-right tabular-nums">{{ p.savings_multiplier }}×</td>
             <td class="px-3 py-2.5 text-right tabular-nums">{{ p.processing_fee_percent }}%</td>
             <td class="px-3 py-2.5 text-right tabular-nums">{{ p.min_guarantors }} · {{ p.guarantee_cover_percent }}%</td>
+            <td class="px-3 py-2.5 text-xs text-gray-600">
+              <span v-if="p.max_amount" class="block">Up to {{ Number(p.max_amount).toLocaleString() }}</span>
+              <span v-if="p.open_months.length" class="block">{{ p.open_months.map((m) => MONTHS[m - 1]).join(', ') }} only</span>
+              <span v-if="p.allow_top_up" class="block">Top-ups allowed</span>
+            </td>
             <td class="px-3 py-2.5 text-right"><button v-if="auth.isSuperAdmin" type="button" class="btn-ghost px-2 py-1" @click="open(p)">Edit</button></td>
           </tr>
         </tbody>
@@ -126,6 +142,24 @@ const fields: { key: keyof typeof form; label: string; suffix: string }[] = [
             <p v-if="errors[f.key]" class="field-error">{{ errors[f.key] }}</p>
           </div>
         </div>
+        <fieldset class="rounded-xl border border-line p-4">
+          <legend class="px-1 text-sm font-semibold">This type's own rules</legend>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div><label for="pmin" class="label">Smallest loan</label><input id="pmin" v-model="form.min_amount" class="input tabular-nums" inputmode="decimal" placeholder="No minimum" /></div>
+            <div><label for="pmax" class="label">Largest loan</label><input id="pmax" v-model="form.max_amount" class="input tabular-nums" inputmode="decimal" placeholder="No maximum" /></div>
+            <div><label for="pmonths" class="label">Months of saving first</label><input id="pmonths" v-model="form.min_member_months" class="input tabular-nums" inputmode="numeric" placeholder="The SACCO's rule" /></div>
+            <div><label for="popen" class="label">Open at once, per member</label><input id="popen" v-model="form.max_open" class="input tabular-nums" inputmode="numeric" /><p class="mt-1 text-xs text-gray-500">0 means no limit</p></div>
+          </div>
+          <p class="label mt-4">Can be applied for in</p>
+          <div class="flex flex-wrap gap-1.5" role="group" aria-label="Months it can be applied for">
+            <button v-for="(m, i) in MONTHS" :key="m" type="button" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold" :class="form.open_months.includes(i + 1) ? 'bg-brand text-white' : 'bg-gray-100 text-gray-600'" :aria-pressed="form.open_months.includes(i + 1)" @click="toggleMonth(i + 1)">{{ m }}</button>
+          </div>
+          <p class="mt-1 text-xs text-gray-500">{{ form.open_months.length ? 'Only in the months picked, e.g. at the start of each school term.' : 'Any month. Pick months to limit it, e.g. for school fees.' }}</p>
+          <label class="mt-4 flex items-center gap-2 text-sm">
+            <input v-model="form.allow_top_up" type="checkbox" class="rounded border-line text-brand focus:ring-brand" />
+            Members can top up a running loan of this type (the new loan clears the old one)
+          </label>
+        </fieldset>
         <label v-if="editing" class="flex items-center gap-2 text-sm">
           <input v-model="form.status" type="checkbox" true-value="archived" false-value="active" class="rounded border-line text-brand focus:ring-brand" />
           Stop offering this product (existing loans aren't affected)

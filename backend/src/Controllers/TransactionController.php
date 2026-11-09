@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Sacco\Controllers;
 
+use Sacco\Support\Periods;
 use Sacco\Auth\Auth;
 use Sacco\Database;
 use Sacco\Http\Request;
@@ -279,8 +280,9 @@ final class TransactionController
             Response::error(reset($errors), 422, $errors);
         }
 
+        $moneyAccount = in_array($type, ['deposit', 'withdrawal'], true) ? Periods::moneyAccount($request) : null;
         try {
-            $row = Database::transaction(function (\PDO $db) use ($user, $account, $type, $sign, $cents, $valueDate, $narration, $request) {
+            $row = Database::transaction(function (\PDO $db) use ($user, $account, $type, $sign, $cents, $valueDate, $narration, $request, $moneyAccount) {
                 if ($type === 'opening_balance') {
                     $exists = $db->prepare('SELECT 1 FROM transactions WHERE user_id = ? AND account = ? LIMIT 1');
                     $exists->execute([$user['id'], $account]);
@@ -307,6 +309,7 @@ final class TransactionController
                 }
                 return Ledger::post($db, (int) $user['id'], $account, $type, $sign * $cents, [
                     'value_date' => $valueDate,
+                    'money_account_id' => $moneyAccount,
                     'reference' => mb_substr($request->string('reference'), 0, 80) ?: null,
                     'narration' => $narration ?: null,
                 ]);

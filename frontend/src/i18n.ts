@@ -1,0 +1,127 @@
+import { ref } from 'vue'
+
+/**
+ * The member side in English, Luganda or Kiswahili. Office screens stay in English. Wording is
+ * keyed by the English, so anything not translated yet simply shows in English.
+ *
+ * The Luganda and Kiswahili here should be checked by a native speaker before go-live.
+ */
+export type Lang = 'en' | 'lg' | 'sw'
+export const LANGS: { code: Lang; name: string }[] = [
+  { code: 'en', name: 'English' },
+  { code: 'lg', name: 'Luganda' },
+  { code: 'sw', name: 'Kiswahili' },
+]
+
+const stored = (() => {
+  try {
+    return localStorage.getItem('sacco-lang') as Lang | null
+  } catch {
+    return null
+  }
+})()
+export const lang = ref<Lang>(stored && LANGS.some((l) => l.code === stored) ? stored : 'en')
+document.documentElement.lang = lang.value
+
+export function setLang(l: Lang) {
+  lang.value = l
+  document.documentElement.lang = l
+  try {
+    localStorage.setItem('sacco-lang', l)
+  } catch {
+    // Not remembered in a private window
+  }
+}
+
+const LG: Record<string, string> = {
+  Dashboard: 'Olupapula olukulu',
+  Statement: 'Embalirira yange',
+  Receipts: 'Lisiiti',
+  Loans: 'Looni',
+  'Withdraw savings': 'Ggyayo ku nsimbi ezitereke',
+  'Profile & next of kin': "Ebikwata ku nze n'abooluganda",
+  'My account': 'Akawunti yange',
+  'Good morning': 'Wasuze otya',
+  'Good afternoon': 'Osiibye otya',
+  'Good evening': 'Osiibye otya',
+  'Apply for a loan': 'Saba looni',
+  'My statement': 'Embalirira yange',
+  'My profile': 'Ebikwata ku nze',
+  'My money in the SACCO': 'Ensimbi zange mu SACCO',
+  Savings: 'Ensimbi ezitereke',
+  'Share capital': 'Emigabo',
+  'You can withdraw': 'Osobola okuggyayo',
+  'Saved this year': 'Ezitereke omwaka guno',
+  'Dividends & profit so far': "Amagoba g'ofunye",
+  'Pledged for colleagues': "Ezisuubiziddwa ku looni z'abalala",
+  'Borrowing power': "Looni gy'osobola okufuna",
+  'You can borrow up to': 'Osobola okwewola okutuuka ku',
+  'See my loans': 'Laba looni zange',
+  'How my savings have grown': 'Ensimbi zange bwe zikuze',
+  'My loan': 'Looni yange',
+  'All loans': 'Looni zonna',
+  'Recent activity': 'Ebyakakolebwa',
+  'Full statement': 'Embalirira yonna',
+  'My saver level': "Eddaala lyange ery'okutereka",
+  'Welcome back': 'Tukwanirizza nate',
+  'Email or employee number': "Email oba ennamba y'omukozi",
+  Password: 'Ekigambo ekyekusifu',
+  'Sign in': 'Yingira',
+  'Signing in…': 'Tuyingira…',
+  'Keep me signed in on this phone': 'Sigala nga nnyingidde ku ssimu eno',
+  'Sign out': 'Fuluma',
+  'Install the app': 'Teeka app ku ssimu',
+  Language: 'Olulimi',
+  'My member card': 'Kaadi yange ey’obwammemba',
+  'Share certificate': "Satifikeeti y'emigabo",
+}
+
+const SW: Record<string, string> = {
+  Dashboard: 'Ukurasa mkuu',
+  Statement: 'Taarifa ya akaunti',
+  Receipts: 'Stakabadhi',
+  Loans: 'Mikopo',
+  'Withdraw savings': 'Toa akiba',
+  'Profile & next of kin': 'Wasifu na ndugu wa karibu',
+  'My account': 'Akaunti yangu',
+  'Good morning': 'Habari za asubuhi',
+  'Good afternoon': 'Habari za mchana',
+  'Good evening': 'Habari za jioni',
+  'Apply for a loan': 'Omba mkopo',
+  'My statement': 'Taarifa yangu',
+  'My profile': 'Wasifu wangu',
+  'My money in the SACCO': 'Pesa zangu katika SACCO',
+  Savings: 'Akiba',
+  'Share capital': 'Hisa',
+  'You can withdraw': 'Unaweza kutoa',
+  'Saved this year': 'Akiba ya mwaka huu',
+  'Dividends & profit so far': 'Gawio na faida hadi sasa',
+  'Pledged for colleagues': 'Dhamana kwa wenzako',
+  'Borrowing power': 'Uwezo wa kukopa',
+  'You can borrow up to': 'Unaweza kukopa hadi',
+  'See my loans': 'Angalia mikopo yangu',
+  'How my savings have grown': 'Akiba yangu ilivyokua',
+  'My loan': 'Mkopo wangu',
+  'All loans': 'Mikopo yote',
+  'Recent activity': 'Shughuli za karibuni',
+  'Full statement': 'Taarifa kamili',
+  'My saver level': 'Kiwango changu cha akiba',
+  'Welcome back': 'Karibu tena',
+  'Email or employee number': 'Barua pepe au namba ya mfanyakazi',
+  Password: 'Nenosiri',
+  'Sign in': 'Ingia',
+  'Signing in…': 'Inaingia…',
+  'Keep me signed in on this phone': 'Endelea kuniweka ndani kwenye simu hii',
+  'Sign out': 'Toka',
+  'Install the app': 'Sakinisha programu',
+  Language: 'Lugha',
+  'My member card': 'Kadi yangu ya uanachama',
+  'Share certificate': 'Cheti cha hisa',
+}
+
+/** The member-side wording in the chosen language */
+export function t(english: string): string {
+  if (lang.value === 'lg') return LG[english] ?? english
+  if (lang.value === 'sw') return SW[english] ?? english
+  return english
+}

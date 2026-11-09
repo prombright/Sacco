@@ -38,8 +38,8 @@ export const useAuth = defineStore('auth', () => {
   }
 
   /** Returns true when a two-step code is needed next */
-  async function login(login: string, password: string, saccoCode?: string) {
-    const res = await api.post<Session & { two_step?: boolean }>('/auth/login', { login, password, sacco: saccoCode || undefined })
+  async function login(login: string, password: string, saccoCode?: string, remember = false) {
+    const res = await api.post<Session & { two_step?: boolean }>('/auth/login', { login, password, sacco: saccoCode || undefined, remember })
     if (res.two_step) return true
     apply(res)
     return false

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { downloadMemberCard, downloadShareCertificate } from '@/documents'
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { api, ApiError } from '@/api'
@@ -98,6 +99,13 @@ watch(account, () => { page.value = 1; loadLedger() })
 watch(page, loadLedger)
 loadMember()
 loadLedger()
+
+const who = () => ({ sacco: auth.sacco, user: auth.user?.full_name ?? null })
+function certificate() {
+  const capital = Number(balances.value?.shares ?? 0)
+  const price = Number(sharePrice.value)
+  return downloadShareCertificate(member.value!, price > 0 ? Math.floor(capital / price) : 0, price, capital, who())
+}
 </script>
 
 <template>
@@ -120,6 +128,8 @@ loadLedger()
           <button v-can="'members'" type="button" class="btn-secondary" @click="editingDetails = true">Edit details</button>
           <template v-if="isMember">
             <RouterLink :to="{ name: 'member-receipts', params: { id: member.id } }" class="btn-secondary">Receipts</RouterLink>
+            <button type="button" class="btn-secondary" @click="downloadMemberCard(member, who())">Member card</button>
+            <button type="button" class="btn-secondary" @click="certificate">Share certificate</button>
             <RouterLink :to="{ name: 'member-statement', params: { id: member.id } }" class="btn-secondary">Print statement</RouterLink>
             <button v-can="'money'" v-if="!isSelf" type="button" class="btn-primary" @click="recording = true">Record an entry</button>
           </template>

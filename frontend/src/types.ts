@@ -83,8 +83,10 @@ export interface LoanGuarantor {
   amount: string
   /** What the borrower asked them for */
   requested_amount: string | null
-  status: 'pending' | 'accepted' | 'declined' | 'withdrawn'
+  status: 'pending' | 'accepted' | 'declined' | 'withdrawn' | 'released'
   responded_at: string | null
+  /** Set when this guarantor was asked to take over another's guarantee */
+  replaces_id?: number | null
 }
 
 export interface Installment {
@@ -155,6 +157,9 @@ export interface Loan {
   /** Taken off the cheque at payout (an estimate until then) */
   processing_fee: string
   settled_early_on: string | null
+  /** A top-up: the loan it cleared, and how much went to clear it */
+  replaces_loan_id?: number | null
+  settled_amount?: string | null
   charges?: LoanCharge[]
   /** Admins, before payout: does the borrower qualify under the SACCO's rules today? */
   assessment?: {
@@ -185,6 +190,12 @@ export interface LoanProduct {
   processing_fee_percent: string
   min_guarantors: number
   guarantee_cover_percent: number
+  min_amount: string | null
+  max_amount: string | null
+  min_member_months: number | null
+  max_open: number
+  open_months: number[]
+  allow_top_up: boolean
   status: 'active' | 'archived'
 }
 

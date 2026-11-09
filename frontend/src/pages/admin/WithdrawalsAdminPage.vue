@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import MoneyAccountSelect from '@/components/MoneyAccountSelect.vue'
 import { ask } from '@/confirm'
 import { onMounted, reactive, ref, watch } from 'vue'
 import { api, ApiError } from '@/api'
@@ -23,7 +24,7 @@ const error = ref('')
 
 const today = new Date().toLocaleDateString('en-CA')
 const dialog = ref<{ kind: 'reject' | 'pay'; request: Withdrawal } | null>(null)
-const form = reactive({ note: '', cheque_no: '', paid_on: today })
+const form = reactive({ note: '', cheque_no: '', paid_on: today, money_account_id: '' })
 const formError = ref('')
 const busy = ref(false)
 
@@ -132,7 +133,7 @@ async function approve(r: Withdrawal) {
     </Modal>
 
     <Modal v-if="dialog?.kind === 'pay'" title="Record cheque" @close="dialog = null">
-      <form class="space-y-4" @submit.prevent="act(`/withdrawals/${dialog.request.id}/pay`, { cheque_no: form.cheque_no, paid_on: form.paid_on })">
+      <form class="space-y-4" @submit.prevent="act(`/withdrawals/${dialog.request.id}/pay`, { cheque_no: form.cheque_no, paid_on: form.paid_on, money_account_id: form.money_account_id })">
         <div v-if="formError" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ formError }}</div>
         <p class="text-sm text-gray-700">Cheque to {{ dialog.request.full_name }}:</p>
         <dl class="grid grid-cols-2 gap-y-1 rounded-xl bg-gray-50 p-3 text-sm">
@@ -145,6 +146,7 @@ async function approve(r: Withdrawal) {
         <div class="grid gap-4 sm:grid-cols-2">
           <div><label for="cheque" class="label">Cheque number</label><input id="cheque" v-model="form.cheque_no" class="input" maxlength="80" /></div>
           <div><label for="pdate" class="label">Cheque date</label><input id="pdate" v-model="form.paid_on" type="date" :max="today" class="input" /></div>
+          <MoneyAccountSelect id="w-money" v-model="form.money_account_id" label="Paid from" class="sm:col-span-2" />
         </div>
         <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>

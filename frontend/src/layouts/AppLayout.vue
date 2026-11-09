@@ -1,7 +1,11 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
+import { canInstall, install } from '@/pwa'
+import LanguagePicker from '@/components/LanguagePicker.vue'
 import { computed, ref, watch, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
+  ArrowDownTrayIcon,
   ArrowLeftStartOnRectangleIcon,
   BanknotesIcon,
   Bars3Icon,
@@ -69,14 +73,14 @@ function toggleCollapsed() {
 const groups = computed<NavGroup[]>(() => {
   if (!auth.isAdmin) {
     return [{
-      title: 'My account',
+      title: t('My account'),
       links: [
-        { name: 'dashboard', label: 'Dashboard', icon: HomeIcon },
-        { name: 'statement', label: 'Statement', icon: DocumentTextIcon, also: ['statement-print'] },
-        { name: 'receipts-mine', label: 'Receipts', icon: ReceiptPercentIcon },
-        { name: 'loans', label: 'Loans', icon: BanknotesIcon, also: ['loan-apply', 'loan'] },
-        { name: 'withdrawals', label: 'Withdraw savings', icon: WalletIcon },
-        { name: 'profile', label: 'Profile & next of kin', icon: UserCircleIcon },
+        { name: 'dashboard', label: t('Dashboard'), icon: HomeIcon },
+        { name: 'statement', label: t('Statement'), icon: DocumentTextIcon, also: ['statement-print'] },
+        { name: 'receipts-mine', label: t('Receipts'), icon: ReceiptPercentIcon },
+        { name: 'loans', label: t('Loans'), icon: BanknotesIcon, also: ['loan-apply', 'loan'] },
+        { name: 'withdrawals', label: t('Withdraw savings'), icon: WalletIcon },
+        { name: 'profile', label: t('Profile & next of kin'), icon: UserCircleIcon },
       ],
     }]
   }
@@ -277,8 +281,12 @@ async function signOut() {
               <KeyIcon class="h-4 w-4" />Change password
             </RouterLink>
             <button type="button" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-navy-100 hover:bg-white/10 hover:text-white" role="menuitem" @click="signOut">
-              <ArrowLeftStartOnRectangleIcon class="h-4 w-4" />Sign out
+              <ArrowLeftStartOnRectangleIcon class="h-4 w-4" />{{ t('Sign out') }}
             </button>
+            <button v-if="canInstall" type="button" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-navy-100 hover:bg-white/10 hover:text-white" role="menuitem" @click="install">
+              <ArrowDownTrayIcon class="h-4 w-4" />{{ t('Install the app') }}
+            </button>
+            <div v-if="!auth.isAdmin" class="border-t border-white/10 px-3 pb-1 pt-2"><LanguagePicker dark /></div>
           </div>
         </div>
 
@@ -309,6 +317,9 @@ async function signOut() {
           {{ new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }) }}
         </span>
         <span v-if="auth.viewOnly" class="ml-2 hidden items-center gap-1 rounded-full bg-navy-50 px-2.5 py-1 text-xs font-semibold text-navy-800 md:inline-flex" title="You can see everything and download reports; changes are made by the super admin">View only</span>
+        <button v-if="canInstall && !auth.isAdmin" type="button" class="ml-auto inline-flex items-center gap-1.5 rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-white lg:hidden" @click="install">
+          <ArrowDownTrayIcon class="h-4 w-4" aria-hidden="true" />{{ t('Install the app') }}
+        </button>
         <NotificationBell :class="auth.isAdmin ? 'ml-2' : 'ml-auto xl:ml-2'" />
       </div>
       <div v-if="auth.isAdmin" class="px-4 pb-3 sm:hidden">

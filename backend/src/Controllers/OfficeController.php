@@ -133,7 +133,7 @@ final class OfficeController
             $dr += $t['d'];
             $cr += $t['c'];
         }
-        $yearTotals = \Sacco\Support\Books::totals($db, date('Y-m-d'), "$year-01-01");
+        $yearTotals = \Sacco\Support\Books::totals($db, date('Y-m-d'), "$year-01-01", false);
         $income = $expense = 0;
         foreach (\Sacco\Support\Books::chart($db) as $a) {
             if ($a['type'] === 'income') {

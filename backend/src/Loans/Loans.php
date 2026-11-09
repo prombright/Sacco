@@ -62,6 +62,12 @@ final class Loans
             'processing_fee_percent' => $trim($p['processing_fee_percent']) ?: '0',
             'min_guarantors' => (int) $p['min_guarantors'],
             'guarantee_cover_percent' => (int) $p['guarantee_cover_percent'],
+            'min_amount' => $p['min_amount'] !== null ? $trim($p['min_amount']) : null,
+            'max_amount' => $p['max_amount'] !== null ? $trim($p['max_amount']) : null,
+            'min_member_months' => $p['min_member_months'] !== null ? (int) $p['min_member_months'] : null,
+            'max_open' => (int) $p['max_open'],
+            'open_months' => $p['open_months'] ? array_map('intval', explode(',', $p['open_months'])) : [],
+            'allow_top_up' => (bool) $p['allow_top_up'],
             'status' => $p['status'],
         ];
     }
@@ -82,6 +88,12 @@ final class Loans
                     'min_guarantors' => $p['min_guarantors'],
                     'guarantee_cover_percent' => $p['guarantee_cover_percent'],
                     'processing_fee_percent' => $p['processing_fee_percent'],
+                    'min_amount' => $p['min_amount'],
+                    'max_amount' => $p['max_amount'],
+                    'min_member_months' => $p['min_member_months'] ?? self::rules()['min_member_months'],
+                    'max_open' => $p['max_open'],
+                    'open_months' => $p['open_months'],
+                    'allow_top_up' => $p['allow_top_up'],
                     'product_id' => $p['id'],
                     'product_name' => $p['name'],
                 ]);
@@ -122,9 +134,9 @@ final class Loans
     }
 
     /** Null when the member has saved long enough to borrow, else why not (for the member) */
-    public static function borrowerWaitReason(PDO $db, int $userId): ?string
+    public static function borrowerWaitReason(PDO $db, int $userId, ?int $need = null): ?string
     {
-        $need = self::rules()['min_member_months'];
+        $need ??= self::rules()['min_member_months'];
         $m = self::membership($db, $userId);
         if ($m['months'] >= $need) {
             return null;
@@ -160,6 +172,38 @@ final class Loans
         $multiplier = (int) Money::parse(self::productRules($db, $productId)['savings_multiplier']); // "2" -> 200
         $limit = max(0, intdiv($savings * $multiplier, 100) - $owed);
         return ['savings' => $savings, 'owed' => $owed, 'limit' => $limit];
+    }
+
+    /** Why a member can't apply for this type of loan now, or null */
+    public static function productBlock(PDO $db, int $userId, array $rules, ?int $replacing = null): ?string
+    {
+        if ($wait = self::borrowerWaitReason($db, $userId, (int) $rules['min_member_months'])) {
+            return $wait;
+        }
+        $months = $rules['open_months'] ?? [];
+        if ($months && !in_array((int) date('n'), $months, true)) {
+            $names = array_map(fn ($m) => date('F', mktime(0, 0, 0, $m, 1)), $months);
+            return "{$rules['product_name']} can be applied for in " . implode(', ', $names) . ' only.';
+        }
+        $open = $db->prepare("SELECT COUNT(*) FROM loans WHERE user_id = ? AND product_id = ? AND status IN ('pending_guarantors', 'pending_approval', 'approved', 'active') AND id <> ?");
+        $open->execute([$userId, $rules['product_id'], $replacing ?? 0]);
+        $max = (int) ($rules['max_open'] ?? 1);
+        if ($max > 0 && (int) $open->fetchColumn() >= $max) {
+            return "You already have the most {$rules['product_name']}s you can hold at once ($max). Repay one, or top it up if that's allowed.";
+        }
+        return null;
+    }
+
+    /** The member's active loans that a new loan of this type can top up, with what clearing each costs */
+    public static function topUps(PDO $db, int $userId, array $rules): array
+    {
+        if (empty($rules['allow_top_up'])) {
+            return [];
+        }
+        $stmt = $db->prepare("SELECT id, loan_no, amount FROM loans WHERE user_id = ? AND product_id = ? AND status = 'active' ORDER BY id");
+        $stmt->execute([$userId, $rules['product_id']]);
+        return array_map(fn ($l) => ['id' => (int) $l['id'], 'loan_no' => $l['loan_no'], 'amount' => $l['amount'],
+            'to_clear' => Money::toDecimal(self::settlementQuote($db, (int) $l['id'])['amount'])], $stmt->fetchAll());
     }
 
     /** Principal still owed on active loans, plus the full amount of loans not yet disbursed */

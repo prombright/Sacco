@@ -13,6 +13,9 @@ use Sacco\Database;
  */
 final class Auth
 {
+    /** "Keep me signed in" on a member's own phone: 30 days */
+    public const REMEMBER_SECONDS = 2592000;
+
     private static array|false|null $user = null;
 
     /** The developer portal uses its own cookie, so it never mixes with a SACCO sign-in */
@@ -23,6 +26,16 @@ final class Auth
         }
         ini_set('session.use_strict_mode', '1');
         ini_set('session.use_only_cookies', '1');
+        // Our own folder, kept as long as a remembered sign-in lasts (the server's shared folder
+        // may be cleaned much sooner); short sessions still end after SESSION_IDLE_MINUTES
+        $dir = __DIR__ . '/../../storage/sessions';
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0700, true);
+        }
+        if (is_dir($dir) && is_writable($dir)) {
+            session_save_path($dir);
+        }
+        ini_set('session.gc_maxlifetime', (string) self::REMEMBER_SECONDS);
         session_name($name);
         session_set_cookie_params([
             'lifetime' => 0,
@@ -33,8 +46,8 @@ final class Auth
         ]);
         session_start();
 
-        // Signed out after IDLE_MINUTES without activity
-        $idle = (int) Config::get('SESSION_IDLE_MINUTES', 30) * 60;
+        // Signed out after IDLE_MINUTES without activity, or REMEMBER_SECONDS on a remembered device
+        $idle = !empty($_SESSION['remember']) ? self::REMEMBER_SECONDS : (int) Config::get('SESSION_IDLE_MINUTES', 30) * 60;
         if ((isset($_SESSION['user_id']) || isset($_SESSION['dev_id'])) && isset($_SESSION['last_seen']) && time() - $_SESSION['last_seen'] > $idle) {
             self::logout();
             session_start();
@@ -74,6 +87,20 @@ final class Auth
         $_SESSION['auth_at'] = time();
         $_SESSION['csrf'] = bin2hex(random_bytes(32));
         self::$user = null;
+    }
+
+    /** Keeps this sign-in for REMEMBER_SECONDS, even after the browser closes */
+    public static function remember(): void
+    {
+        $_SESSION['remember'] = true;
+        $p = session_get_cookie_params();
+        setcookie(session_name(), session_id(), [
+            'expires' => time() + self::REMEMBER_SECONDS,
+            'path' => $p['path'],
+            'secure' => $p['secure'],
+            'httponly' => true,
+            'samesite' => $p['samesite'] ?: 'Lax',
+        ]);
     }
 
     public static function logout(): void

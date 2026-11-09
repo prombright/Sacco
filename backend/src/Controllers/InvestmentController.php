@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Sacco\Controllers;
 
+use Sacco\Support\Periods;
 use Sacco\Auth\Auth;
 use Sacco\Database;
 use Sacco\Http\Request;
@@ -300,6 +301,7 @@ final class InvestmentController
         if (!$d || $d->format('Y-m-d') !== $value || $value > date('Y-m-d')) {
             Response::error('Enter a valid date, not in the future.', 422);
         }
+        Periods::check($value);
         return $value;
     }
 }

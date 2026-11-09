@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Sacco\Controllers;
 
+use Sacco\Support\Periods;
 use Sacco\Auth\Auth;
 use Sacco\Database;
 use Sacco\Http\Request;
@@ -43,6 +44,7 @@ final class CashbookController
             'income' => Money::toDecimal($income),
             'expenses' => Money::toDecimal($expense),
             'categories' => ['income' => self::INCOME_CATEGORIES, 'expense' => self::EXPENSE_CATEGORIES],
+            'money_accounts' => Periods::moneyAccounts(Database::tenant()),
             'accounts' => Database::tenant()->query("SELECT id, code, name, type FROM gl_accounts WHERE type IN ('income', 'expense') AND status = 'active' AND (system_key IS NULL OR system_key IN ('other_income', 'other_expense')) ORDER BY code")->fetchAll(),
             'loan_income' => self::loanIncome($from, $to),
         ]);
@@ -76,8 +78,9 @@ final class CashbookController
         if ($description === '') {
             Response::error('Describe the entry, e.g. "Receipt books for the office".', 422, ['description' => 'Required']);
         }
-        $db->prepare('INSERT INTO cashbook (kind, category, account_id, amount, entry_date, description, reference, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-            ->execute([$kind, $category, $account['id'], Money::toDecimal($cents), $date, $description, mb_substr($request->string('reference'), 0, 80) ?: null, Auth::id()]);
+        Periods::check($date);
+        $db->prepare('INSERT INTO cashbook (kind, category, account_id, money_account_id, amount, entry_date, description, reference, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+            ->execute([$kind, $category, $account['id'], Periods::moneyAccount($request), Money::toDecimal($cents), $date, $description, mb_substr($request->string('reference'), 0, 80) ?: null, Auth::id()]);
         $id = (int) $db->lastInsertId();
         Audit::log('cashbook.recorded', 'cashbook', $id, ['kind' => $kind, 'amount' => Money::toDecimal($cents), 'type' => $kind]);
         Response::ok(['id' => $id], 201);
@@ -97,8 +100,8 @@ final class CashbookController
         if ($reason === '') {
             Response::error('Say why this entry is being reversed.', 422, ['reason' => 'Required']);
         }
-        $db->prepare('INSERT INTO cashbook (kind, category, account_id, amount, entry_date, description, reference, reversal_of, created_by) VALUES (?, ?, ?, ?, CURDATE(), ?, ?, ?, ?)')
-            ->execute([$entry['kind'], $entry['category'], $entry['account_id'], Money::toDecimal(-Money::fromDecimal($entry['amount'])), "Reversed: $reason", $entry['reference'], $entry['id'], Auth::id()]);
+        $db->prepare('INSERT INTO cashbook (kind, category, account_id, money_account_id, amount, entry_date, description, reference, reversal_of, created_by) VALUES (?, ?, ?, ?, ?, CURDATE(), ?, ?, ?, ?)')
+            ->execute([$entry['kind'], $entry['category'], $entry['account_id'], $entry['money_account_id'], Money::toDecimal(-Money::fromDecimal($entry['amount'])), "Reversed: $reason", $entry['reference'], $entry['id'], Auth::id()]);
         Audit::log('cashbook.reversed', 'cashbook', (int) $entry['id'], ['reason' => $reason]);
         Response::ok();
     }

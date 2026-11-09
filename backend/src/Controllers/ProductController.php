@@ -30,8 +30,9 @@ final class ProductController
         $data = $this->validated($request);
         $db = Database::tenant();
         $db->prepare(
-            'INSERT INTO loan_products (name, description, interest_rate_monthly, max_months, savings_multiplier, processing_fee_percent, min_guarantors, guarantee_cover_percent)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO loan_products (name, description, interest_rate_monthly, max_months, savings_multiplier, processing_fee_percent, min_guarantors, guarantee_cover_percent,
+                min_amount, max_amount, min_member_months, max_open, open_months, allow_top_up)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         )->execute(array_values($data));
         $id = (int) $db->lastInsertId();
         Audit::log('loan_product.created', 'loan_product', $id, $data);
@@ -47,7 +48,8 @@ final class ProductController
         $status = in_array($request->string('status'), ['active', 'archived'], true) ? $request->string('status') : $before['status'];
         Database::tenant()->prepare(
             'UPDATE loan_products SET name = ?, description = ?, interest_rate_monthly = ?, max_months = ?, savings_multiplier = ?,
-                processing_fee_percent = ?, min_guarantors = ?, guarantee_cover_percent = ?, status = ? WHERE id = ?'
+                processing_fee_percent = ?, min_guarantors = ?, guarantee_cover_percent = ?,
+                min_amount = ?, max_amount = ?, min_member_months = ?, max_open = ?, open_months = ?, allow_top_up = ?, status = ? WHERE id = ?'
         )->execute([...array_values($data), $status, $id]);
         Audit::log('loan_product.updated', 'loan_product', $id, ['before' => $before, 'after' => $data + ['status' => $status]]);
         Response::ok(['product' => $this->find($id)]);
@@ -94,6 +96,31 @@ final class ProductController
             'min_guarantors' => $int('min_guarantors', 0, 10, 'Between 0 and 10 guarantors.'),
             'guarantee_cover_percent' => $int('guarantee_cover_percent', 0, 300, 'Between 0% and 300%.'),
         ];
+        // The type's own limits; empty means none (or the SACCO's general rule)
+        $optionalMoney = function (string $field) use ($request, &$errors): ?string {
+            $v = trim((string) $request->input($field, ''));
+            if ($v === '') {
+                return null;
+            }
+            $c = Money::parse($v);
+            if ($c === null || $c <= 0) {
+                $errors[$field] = 'Enter an amount, or leave it empty.';
+                return null;
+            }
+            return Money::toDecimal($c);
+        };
+        $data['min_amount'] = $optionalMoney('min_amount');
+        $data['max_amount'] = $optionalMoney('max_amount');
+        if ($data['min_amount'] !== null && $data['max_amount'] !== null && Money::fromDecimal($data['min_amount']) > Money::fromDecimal($data['max_amount'])) {
+            $errors['max_amount'] = 'The most must be more than the least.';
+        }
+        $months = trim((string) $request->input('min_member_months', ''));
+        $data['min_member_months'] = $months === '' ? null : $int('min_member_months', 0, 120, 'Between 0 and 120 months, or empty for the SACCO\'s rule.');
+        $data['max_open'] = $int('max_open', 0, 10, 'Between 0 (no limit) and 10.');
+        $open = array_values(array_unique(array_filter(array_map('intval', (array) $request->input('open_months', [])), fn ($m) => $m >= 1 && $m <= 12)));
+        sort($open);
+        $data['open_months'] = $open && count($open) < 12 ? implode(',', $open) : null;
+        $data['allow_top_up'] = $request->input('allow_top_up') ? 1 : 0;
         if ($errors) {
             Response::error(reset($errors), 422, $errors);
         }

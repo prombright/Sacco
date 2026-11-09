@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import MoneyAccountSelect from '@/components/MoneyAccountSelect.vue'
 import { ask } from '@/confirm'
 import { computed, onMounted, ref, watch } from 'vue'
 import { ArrowDownLeftIcon, BanknotesIcon, CheckCircleIcon, ExclamationTriangleIcon, PlusIcon } from '@heroicons/vue/24/outline'
@@ -108,10 +109,11 @@ const acting = ref<{ fee: Fee; kind: 'pay' | 'waive' | 'undo' } | null>(null)
 const reference = ref('')
 const paidOn = ref(new Date().toLocaleDateString('en-CA'))
 const reason = ref('')
+const moneyAccount = ref('')
 async function single() {
   const a = acting.value!
   await act(async () => {
-    if (a.kind === 'pay') await api.post(`/membership-fees/${a.fee.id}/pay`, { reference: reference.value, paid_on: paidOn.value })
+    if (a.kind === 'pay') await api.post(`/membership-fees/${a.fee.id}/pay`, { reference: reference.value, paid_on: paidOn.value, money_account_id: moneyAccount.value })
     if (a.kind === 'waive') await api.post(`/membership-fees/${a.fee.id}/waive`, { reason: reason.value })
     if (a.kind === 'undo') await api.post(`/membership-fees/${a.fee.id}/undo`, { reason: reason.value })
     return a.kind === 'pay' ? `${a.fee.full_name}'s fee recorded as paid.` : a.kind === 'waive' ? `${a.fee.full_name}'s fee waived.` : `${a.fee.full_name}'s payment undone.`
@@ -200,6 +202,7 @@ const thisYear = new Date().getFullYear()
             <div><label for="f-date" class="label">Paid on</label><input id="f-date" v-model="paidOn" type="date" class="input" /></div>
             <div><label for="f-ref" class="label">Receipt no.</label><input id="f-ref" v-model="reference" class="input" /></div>
           </div>
+          <MoneyAccountSelect id="f-money" v-model="moneyAccount" label="Received into" />
         </template>
         <div v-else><label for="f-reason" class="label">Why</label><input id="f-reason" v-model="reason" class="input" /></div>
         <p v-if="acting.kind === 'undo' && acting.fee.method === 'savings'" class="text-xs text-gray-500">The fee goes back into their savings.</p>

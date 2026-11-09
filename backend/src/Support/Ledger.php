@@ -34,6 +34,7 @@ final class Ledger
         if (!$db->inTransaction()) {
             throw new \LogicException('Ledger::post must run inside a transaction');
         }
+        Periods::assertOpen($meta['value_date'] ?? date('Y-m-d'));
 
         $db->prepare('SELECT id FROM users WHERE id = ? FOR UPDATE')->execute([$userId]);
         $balance = self::balance($db, $userId, $account) + $cents;
@@ -45,8 +46,8 @@ final class Ledger
         }
 
         $db->prepare(
-            'INSERT INTO transactions (user_id, account, type, amount, balance_after, value_date, reference, narration, reversal_of, batch_id, dividend_run_id, transfer_id, created_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO transactions (user_id, account, type, amount, balance_after, value_date, reference, narration, reversal_of, batch_id, dividend_run_id, transfer_id, money_account_id, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         )->execute([
             $userId, $account, $type, Money::toDecimal($cents), Money::toDecimal($balance),
             $meta['value_date'] ?? date('Y-m-d'),
@@ -56,6 +57,7 @@ final class Ledger
             $meta['batch_id'] ?? null,
             $meta['dividend_run_id'] ?? null,
             $meta['transfer_id'] ?? null,
+            $meta['money_account_id'] ?? null,
             $meta['created_by'] ?? Auth::id(),
         ]);
         return self::find($db, (int) $db->lastInsertId());

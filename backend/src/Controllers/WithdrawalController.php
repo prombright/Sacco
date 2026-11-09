@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Sacco\Controllers;
 
+use Sacco\Support\Periods;
 use Sacco\Auth\Auth;
 use Sacco\Auth\Roles;
 use Sacco\Database;
@@ -175,7 +176,8 @@ final class WithdrawalController
             Response::error('Enter a valid date, not in the future.', 422, ['paid_on' => 'Invalid']);
         }
 
-        Database::transaction(function (\PDO $db) use ($w, $cheque, $paidOn) {
+        $moneyAccount = Periods::moneyAccount($request);
+        Database::transaction(function (\PDO $db) use ($w, $cheque, $paidOn, $moneyAccount) {
             $db->prepare('SELECT id FROM users WHERE id = ? FOR UPDATE')->execute([$w['user_id']]);
             $cents = Money::fromDecimal($w['amount']);
             $fee = Money::fromDecimal($w['fee']);
@@ -184,7 +186,7 @@ final class WithdrawalController
             if ($leaving > $room) {
                 throw new LedgerException('The member can now withdraw only ' . number_format($room / 100) . '. Reject this request and ask them to make a new one.');
             }
-            $meta = ['value_date' => $paidOn, 'reference' => 'Cheque ' . $cheque];
+            $meta = ['value_date' => $paidOn, 'reference' => 'Cheque ' . $cheque, 'money_account_id' => $moneyAccount];
             // The whole amount leaves savings; the fee is either part of it (smaller cheque) or charged as well
             $row = Ledger::post($db, $w['user_id'], 'savings', 'withdrawal', -$cents, $meta + [
                 'narration' => 'Withdrawal ' . $w['request_no'] . ($fee && !$w['fee_on_top'] ? ' (cheque ' . number_format(($cents - $fee) / 100) . ' after the ' . number_format($fee / 100) . ' fee)' : ''),

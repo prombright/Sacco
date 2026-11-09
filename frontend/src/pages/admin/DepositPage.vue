@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import MoneyAccountSelect from '@/components/MoneyAccountSelect.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { XMarkIcon } from '@heroicons/vue/24/outline'
 import { api, ApiError } from '@/api'
@@ -15,7 +16,7 @@ import ReportView from '@/components/ReportView.vue'
 const member = ref<PickedMember | null>(null)
 const balances = ref<Balances | null>(null)
 const today = new Date().toLocaleDateString('en-CA')
-const form = reactive({ account: 'savings', amount: '', value_date: today, reference: '', narration: '' })
+const form = reactive({ account: 'savings', amount: '', value_date: today, reference: '', narration: '', money_account_id: '' })
 const error = ref('')
 const done = ref('')
 const busy = ref(false)
@@ -99,6 +100,7 @@ const report = computed<Report>(() => ({
       </fieldset>
       <div><label for="d-amount" class="label">Amount</label><input id="d-amount" v-model="form.amount" inputmode="decimal" class="input text-lg tabular-nums" placeholder="50000" /></div>
       <div><label for="d-date" class="label">Date received</label><input id="d-date" v-model="form.value_date" type="date" :max="today" class="input" /></div>
+      <MoneyAccountSelect id="d-money" v-model="form.money_account_id" label="Received into" />
       <div><label for="d-ref" class="label">Receipt or bank slip no.</label><input id="d-ref" v-model="form.reference" class="input" /></div>
       <div class="lg:col-span-2"><label for="d-note" class="label">Note <span class="font-normal text-gray-500">(optional)</span></label><input id="d-note" v-model="form.narration" class="input" /></div>
       <div class="flex flex-wrap items-center gap-3 lg:col-span-2">

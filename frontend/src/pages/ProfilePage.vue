@@ -1,4 +1,10 @@
 <script setup lang="ts">
+import { DevicePhoneMobileIcon, DocumentCheckIcon, IdentificationIcon } from '@heroicons/vue/24/outline'
+import { useAuth } from '@/stores/auth'
+import { t } from '@/i18n'
+import { canInstall, install, installed, isIos } from '@/pwa'
+import { downloadMemberCard, downloadShareCertificate } from '@/documents'
+import LanguagePicker from '@/components/LanguagePicker.vue'
 import { onMounted, ref } from 'vue'
 import { api, ApiError } from '@/api'
 import type { NextOfKin, User } from '@/types'
@@ -10,6 +16,29 @@ import TwoStepCard from '@/components/TwoStepCard.vue'
 const user = ref<User | null>(null)
 const kin = ref<NextOfKin[]>([])
 const error = ref('')
+
+const auth = useAuth()
+const making = ref(false)
+const who = () => ({ sacco: auth.sacco, user: auth.user?.full_name ?? null })
+async function card() {
+  making.value = true
+  try {
+    await downloadMemberCard(user.value!, who())
+  } finally {
+    making.value = false
+  }
+}
+async function certificate() {
+  making.value = true
+  try {
+    const s = await api.get<{ balances: { shares: string }; share_price: string }>('/me/summary')
+    const capital = Number(s.balances.shares)
+    const price = Number(s.share_price)
+    await downloadShareCertificate(user.value!, price > 0 ? Math.floor(capital / price) : 0, price, capital, who())
+  } finally {
+    making.value = false
+  }
+}
 
 onMounted(async () => {
   try {
@@ -24,7 +53,13 @@ onMounted(async () => {
 
 <template>
   <div class="max-w-4xl">
-    <h1 class="text-2xl font-bold">My profile</h1>
+    <div class="flex flex-wrap items-end justify-between gap-3">
+      <h1 class="text-2xl font-bold">{{ t('My profile') }}</h1>
+      <div class="flex flex-wrap gap-2">
+        <button type="button" class="btn-secondary" :disabled="!user || making" @click="card"><IdentificationIcon class="h-4 w-4" />{{ t('My member card') }}</button>
+        <button type="button" class="btn-secondary" :disabled="!user || making" @click="certificate"><DocumentCheckIcon class="h-4 w-4" />{{ t('Share certificate') }}</button>
+      </div>
+    </div>
     <p class="mt-1 text-sm text-gray-600">Your details as the SACCO has them. If something is wrong, tell the SACCO office.</p>
     <div v-if="error" class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
     <div v-if="user" class="mt-6 grid gap-6 lg:grid-cols-2">
@@ -32,5 +67,18 @@ onMounted(async () => {
       <NextOfKinEditor :people="kin" save-url="/me/next-of-kin" @saved="kin = $event" />
     </div>
     <TwoStepCard class="mt-6" />
+    <section v-if="!installed" class="card mt-6 flex flex-wrap items-center gap-4 p-5">
+      <DevicePhoneMobileIcon class="h-8 w-8 text-brand" aria-hidden="true" />
+      <div class="min-w-[14rem] flex-1">
+        <h2 class="font-semibold">The app on your phone</h2>
+        <p class="text-sm text-gray-600">
+          <template v-if="canInstall">Add it to your home screen: it opens straight away, like any other app.</template>
+          <template v-else-if="isIos">In Safari, tap the Share button, then "Add to Home Screen".</template>
+          <template v-else>Open this page in Chrome on your phone and choose "Install app" or "Add to Home screen" from the menu.</template>
+        </p>
+      </div>
+      <button v-if="canInstall" type="button" class="btn-primary" @click="install">{{ t('Install the app') }}</button>
+      <LanguagePicker />
+    </section>
   </div>
 </template>

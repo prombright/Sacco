@@ -1,5 +1,6 @@
 import type { Report, ReportColumn, ReportRow } from '@/reports'
 import type { Sacco } from '@/types'
+import { drawMark, loadLogo } from '@/documents'
 
 /**
  * Report downloads that look like the SACCO's own documents: Excel workbooks with the SACCO's
@@ -224,18 +225,11 @@ export async function downloadPdfBook(reports: Report[], who: Who, title: string
   const doc = new jsPDF({ orientation: landscapeAny ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' })
   const M = 14
   const name = who.sacco?.name ?? 'SACCO'
-  const initials = (who.sacco?.short_name || name).replace(/sacco/i, '').trim().slice(0, 2).toUpperCase() || 'S'
   const W = () => doc.internal.pageSize.getWidth()
   const H = () => doc.internal.pageSize.getHeight()
 
-  const mark = (x: number, y: number, size: number) => {
-    doc.setFillColor(...brand)
-    doc.roundedRect(x, y, size, size, size * 0.19, size * 0.19, 'F')
-    doc.setTextColor(255, 255, 255)
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(size * 0.85)
-    doc.text(initials, x + size / 2, y + size * 0.64, { align: 'center' })
-  }
+  const logo = await loadLogo(who)
+  const mark = (x: number, y: number, size: number) => drawMark(doc, who, logo, x, y, size)
 
   /** The letterhead: band, mark, name, slogan. Returns where the content starts. */
   const letterhead = () => {
@@ -296,12 +290,7 @@ export async function downloadPdfBook(reports: Report[], who: Who, title: string
     doc.setDrawColor(255, 255, 255)
     doc.setLineWidth(0.3)
     doc.circle(w - 30, h * 0.5, 30, 'S')
-    doc.setFillColor(255, 255, 255)
-    doc.roundedRect(M + 2, 30, 22, 22, 4, 4, 'F')
-    doc.setTextColor(...brand)
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(18)
-    doc.text(initials, M + 13, 44, { align: 'center' })
+    drawMark(doc, who, logo, M + 4, 32, 18, true)
     doc.setTextColor(255, 255, 255)
     doc.setFontSize(13)
     doc.text(name.toUpperCase(), M + 2, 68)
