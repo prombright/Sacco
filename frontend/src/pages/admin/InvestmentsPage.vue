@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ask } from '@/confirm'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { ArrowTrendingUpIcon, BanknotesIcon, PlusIcon, SparklesIcon } from '@heroicons/vue/24/outline'
+import { PlusIcon } from '@heroicons/vue/24/outline'
 import { api, ApiError } from '@/api'
 import { useAuth } from '@/stores/auth'
 import { formatDate, formatMoney } from '@/money'
@@ -186,18 +186,18 @@ const progress = computed(() => {
           <p class="mt-1 text-xs text-navy-200">{{ book.investments.filter((i) => i.status === 'active').length }} active investment(s)</p>
         </div>
         <div class="card p-5">
-          <p class="eyebrow flex items-center gap-1.5"><ArrowTrendingUpIcon class="h-4 w-4" />Expected profit {{ book.year }}</p>
+          <p class="eyebrow">Expected profit {{ book.year }}</p>
           <p class="figure mt-2 text-2xl">{{ formatMoney(book.summary.expected_profit) }}</p>
           <p class="mt-1 text-xs text-gray-500">{{ formatMoney(book.summary.expected_so_far) }} earned so far, by the expected returns</p>
         </div>
         <div class="card p-5">
-          <p class="eyebrow flex items-center gap-1.5"><BanknotesIcon class="h-4 w-4" />Profit received {{ book.year }}</p>
+          <p class="eyebrow">Profit received {{ book.year }}</p>
           <p class="figure mt-2 text-2xl">{{ formatMoney(book.summary.actual_profit) }}</p>
           <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100"><div class="h-full rounded-full bg-saffron-500" :style="{ width: progress + '%' }" /></div>
           <p class="mt-1 text-xs text-gray-500">{{ Math.round(progress) }}% of the year's expected profit</p>
         </div>
         <div class="card p-5">
-          <p class="eyebrow flex items-center gap-1.5"><SparklesIcon class="h-4 w-4" />Shared with members</p>
+          <p class="eyebrow">Shared with members</p>
           <template v-if="book.profit_share_posted">
             <p class="figure mt-2 text-2xl">{{ formatMoney(book.profit_share_posted.total_dividend) }}</p>
             <p class="mt-1 text-xs text-gray-500">Paid to {{ book.profit_share_posted.member_count }} members</p>

@@ -4,15 +4,12 @@ import {
   ArrowRightIcon,
   ArrowUpTrayIcon,
   BanknotesIcon,
-  CheckBadgeIcon,
   CheckCircleIcon,
   DocumentTextIcon,
   EyeIcon,
   EyeSlashIcon,
   IdentificationIcon,
   LockClosedIcon,
-  SparklesIcon,
-  TrophyIcon,
   UserCircleIcon,
   UserGroupIcon,
 } from '@heroicons/vue/24/outline'
@@ -25,7 +22,6 @@ import NoticeBoard from '@/components/NoticeBoard.vue'
 import EarningsCard from '@/components/EarningsCard.vue'
 import MonthChart from '@/components/MonthChart.vue'
 import CountUp from '@/components/CountUp.vue'
-import HeroParticles from '@/components/HeroParticles.vue'
 import Sparkline from '@/components/Sparkline.vue'
 import { formatDate, formatMoney } from '@/money'
 
@@ -137,12 +133,12 @@ const levelProgress = computed(() => (nextLevel.value ? Math.min(100, ((total.va
 const badges = computed(() => {
   const d = data.value!
   return [
-    { label: 'First savings', icon: BanknotesIcon, earned: savings.value > 0 },
-    { label: 'Full shareholder', icon: CheckBadgeIcon, earned: d.share_position.min_shares > 0 && Number(d.share_position.still_needed) <= 0 },
-    { label: 'Dividend earner', icon: SparklesIcon, earned: Number(d.dividends_total) > 0 },
-    { label: 'Colleague\'s guarantor', icon: UserGroupIcon, earned: Number(d.pledged) > 0 },
-    { label: 'Loan on track', icon: CheckCircleIcon, earned: d.loans.length > 0 && d.loans.every((l) => Number(l.overdue) <= 0) },
-    { label: 'Fee paid', icon: IdentificationIcon, earned: d.membership_fee?.status === 'paid' },
+    { label: 'First savings', earned: savings.value > 0 },
+    { label: 'Full shareholder', earned: d.share_position.min_shares > 0 && Number(d.share_position.still_needed) <= 0 },
+    { label: 'Dividend earner', earned: Number(d.dividends_total) > 0 },
+    { label: 'Colleague\'s guarantor', earned: Number(d.pledged) > 0 },
+    { label: 'Loan on track', earned: d.loans.length > 0 && d.loans.every((l) => Number(l.overdue) <= 0) },
+    { label: 'Fee paid', earned: d.membership_fee?.status === 'paid' },
   ]
 })
 
@@ -197,7 +193,6 @@ const actions = [
       <!-- What I have, and what I can borrow -->
       <section class="mt-6 grid gap-4 lg:grid-cols-3" aria-label="Balances">
         <div class="bg-gradient-to-br from-navy-800 via-navy-900 to-navy-950 reveal relative min-w-0 overflow-hidden rounded-3xl p-6 text-white shadow-lift lg:col-span-2">
-          <HeroParticles />
           <div class="relative flex items-start justify-between gap-4">
             <div>
               <p class="text-sm text-navy-100/80">My money in the SACCO</p>
@@ -288,7 +283,6 @@ const actions = [
       <!-- Saver level and achievements -->
       <section class="reveal mt-4 rounded-2xl border border-line bg-surface p-5 shadow-card" style="--i: 2">
         <div class="flex flex-wrap items-center gap-5">
-          <span class="medal inline-flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-lift" :class="level.tone"><TrophyIcon class="relative z-10 h-8 w-8" aria-hidden="true" /></span>
           <div class="min-w-[14rem] flex-1">
             <p class="eyebrow">My saver level</p>
             <p class="text-xl font-bold">{{ level.name }}</p>
@@ -300,7 +294,7 @@ const actions = [
           </div>
           <ul class="flex flex-wrap gap-2" aria-label="Achievements">
             <li v-for="(b, n) in badges" :key="b.label" class="badge-pop inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold" :style="{ '--i': n }" :class="b.earned ? 'bg-saffron-100 text-saffron-700' : 'bg-gray-100 text-gray-400'" :title="b.earned ? 'Earned' : 'Not yet'">
-              <component :is="b.icon" class="h-4 w-4" aria-hidden="true" />{{ b.label }}
+              {{ b.label }}
             </li>
           </ul>
         </div>

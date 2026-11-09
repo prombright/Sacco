@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ask } from '@/confirm'
 import { onMounted, reactive, ref } from 'vue'
-import { MegaphoneIcon } from '@heroicons/vue/24/outline'
 import { api, ApiError } from '@/api'
 import { formatDate } from '@/money'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -60,7 +59,7 @@ async function end(n: Notice) {
     <p class="mt-1 text-sm text-gray-600">Tell every member something: AGM dates, rule changes, when payroll goes in. Notices show on members' dashboards.</p>
 
     <form v-can="'notices'" class="card mt-6 space-y-4 p-5" novalidate @submit.prevent="post">
-      <h2 class="flex items-center gap-2 font-semibold"><MegaphoneIcon class="h-5 w-5 text-saffron-600" />New notice</h2>
+      <h2 class="font-semibold">New notice</h2>
       <div v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
       <div><label for="ntitle" class="label">Title</label><input id="ntitle" v-model="form.title" class="input" maxlength="120" placeholder="e.g. Annual General Meeting on 20 December" /></div>
       <div><label for="nbody" class="label">Message</label><textarea id="nbody" v-model="form.body" class="input min-h-[7rem]" maxlength="5000" /></div>

@@ -4,11 +4,10 @@ import {
   ArrowRightIcon,
   BanknotesIcon,
   BuildingLibraryIcon,
-  CalculatorIcon,
   ChartPieIcon,
   CheckIcon,
   DevicePhoneMobileIcon,
-  SparklesIcon,
+  ReceiptPercentIcon,
   UserGroupIcon,
 } from '@heroicons/vue/24/outline'
 import { api } from '@/api'
@@ -155,7 +154,7 @@ const loginTo = computed(() => (auth.user ? (auth.isAdmin ? '/office' : '/') : '
       <div class="mx-auto max-w-7xl px-4 pb-32 pt-36 sm:px-6 sm:pt-44 lg:px-8 lg:pb-44">
         <div class="max-w-2xl text-white">
           <p class="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-sm font-semibold text-saffron-300 backdrop-blur">
-            <SparklesIcon class="h-4 w-4" aria-hidden="true" />Savings &amp; credit cooperative
+            Savings &amp; credit cooperative
           </p>
           <h1 class="mt-5 text-4xl font-bold leading-[1.1] sm:text-6xl">{{ terms?.sacco.slogan ?? 'Save together. Grow together.' }}</h1>
           <p class="mt-5 max-w-xl text-lg text-navy-100/90">{{ terms?.sacco.about ?? 'Save a little every month, borrow at fair rates, and share in what we earn together.' }}</p>
@@ -204,7 +203,7 @@ const loginTo = computed(() => (auth.user ? (auth.isAdmin ? '/office' : '/') : '
         <article v-for="b in [
           { icon: BuildingLibraryIcon, title: 'Save without thinking about it', text: 'Your savings and shares come straight from your payroll every month, and you can see every shilling online.' },
           { icon: BanknotesIcon, title: 'Borrow at a fair rate', text: `${main?.interest_rate_monthly ?? 1}% a month on a reducing balance, with equal monthly payments and the full schedule before you apply.` },
-          { icon: SparklesIcon, title: 'A dividend every year', text: `${terms?.dividend_rate_percent ?? 40}% of your share capital, paid into your shares at the end of the year.` },
+          { icon: ReceiptPercentIcon, title: 'A dividend every year', text: `${terms?.dividend_rate_percent ?? 40}% of your share capital, paid into your shares at the end of the year.` },
           { icon: ChartPieIcon, title: 'Share in our investments', text: 'The SACCO invests members\' money. The profit is shared every year in proportion to what each member saves.' },
           { icon: UserGroupIcon, title: 'Colleagues have your back', text: 'Ask colleagues to guarantee your loan in the app; they agree with a tap, for the amount they choose.' },
           { icon: DevicePhoneMobileIcon, title: 'Everything on your phone', text: 'Balances, statements, loan applications, withdrawals and messages from the office, any time.' },
@@ -247,7 +246,7 @@ const loginTo = computed(() => (auth.user ? (auth.isAdmin ? '/office' : '/') : '
       </div>
       <div class="mt-10 grid gap-6 lg:grid-cols-5">
         <div class="card p-6 lg:col-span-3">
-          <h3 class="flex items-center gap-2 font-semibold"><CalculatorIcon class="h-5 w-5 text-brand" aria-hidden="true" />Loan calculator</h3>
+          <h3 class="font-semibold">Loan calculator</h3>
           <div v-if="terms && terms.loan_products.length > 1" class="mt-4 flex flex-wrap gap-2" role="radiogroup" aria-label="Type of loan">
             <button
               v-for="(p, i) in terms.loan_products"
@@ -294,7 +293,7 @@ const loginTo = computed(() => (auth.user ? (auth.isAdmin ? '/office' : '/') : '
       <!-- What shares earn -->
       <div class="card mt-6 grid gap-6 p-6 md:grid-cols-2 md:items-center">
         <div>
-          <h3 class="flex items-center gap-2 font-semibold"><SparklesIcon class="h-5 w-5 text-saffron-600" aria-hidden="true" />What your shares earn</h3>
+          <h3 class="font-semibold">What your shares earn</h3>
           <div class="mt-4 flex justify-between text-sm"><label for="c-sh" class="font-medium text-gray-700">Shares you hold</label><span class="font-semibold">{{ shares }} × {{ money(Number(terms?.share_price ?? 40000)) }}</span></div>
           <input id="c-sh" v-model.number="shares" type="range" :min="terms?.min_shares ?? 5" max="100" class="mt-2 w-full accent-saffron-500" />
         </div>

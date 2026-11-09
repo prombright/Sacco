@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { SparklesIcon } from '@heroicons/vue/24/outline'
 import { api } from '@/api'
 import { formatMoney } from '@/money'
 import CountUp from '@/components/CountUp.vue'
@@ -35,7 +34,7 @@ onMounted(async () => {
 <template>
   <section v-if="data" class="card overflow-hidden" aria-labelledby="earnings-title">
     <div class="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-gradient-to-r from-saffron-50 to-transparent px-5 py-4">
-      <h2 id="earnings-title" class="flex items-center gap-2 font-semibold"><SparklesIcon class="h-5 w-5 text-saffron-600" aria-hidden="true" />What you can expect for {{ data.year }}</h2>
+      <h2 id="earnings-title" class="font-semibold">What you can expect for {{ data.year }}</h2>
       <p class="text-sm text-gray-600">About <strong class="text-lg font-bold text-ink"><CountUp :value="data.total_estimate" /></strong> at the end of the year</p>
     </div>
     <div class="grid gap-px bg-line sm:grid-cols-2">

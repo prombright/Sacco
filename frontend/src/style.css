@@ -245,22 +245,6 @@ th {
   animation: fade-in 0.55s ease-out both;
   animation-delay: calc(var(--i, 0) * 130ms + 200ms);
 }
-/* A slow glint across a medal */
-.medal {
-  position: relative;
-  overflow: hidden;
-}
-.medal::after {
-  content: '';
-  position: absolute;
-  inset: -20%;
-  background: linear-gradient(115deg, transparent 40%, rgb(255 255 255 / 0.65) 50%, transparent 60%);
-  animation: glint 3.6s ease-in-out infinite;
-}
-@keyframes glint {
-  0%, 55% { transform: translateX(-90%); }
-  100% { transform: translateX(90%); }
-}
 @keyframes badge-pop {
   from { transform: scale(0.4); opacity: 0; }
 }

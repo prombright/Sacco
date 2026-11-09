@@ -8,7 +8,6 @@ import {
   ChevronRightIcon,
   ExclamationTriangleIcon,
   MegaphoneIcon,
-  ShieldCheckIcon,
   UserPlusIcon,
 } from '@heroicons/vue/24/outline'
 import { api, ApiError } from '@/api'
@@ -20,7 +19,6 @@ import type { LoanStatus } from '@/types'
 import MonthChart from '@/components/MonthChart.vue'
 import CountUp from '@/components/CountUp.vue'
 import DonutChart from '@/components/DonutChart.vue'
-import HeroParticles from '@/components/HeroParticles.vue'
 import Sparkline from '@/components/Sparkline.vue'
 import { useTheme } from '@/stores/theme'
 
@@ -169,7 +167,6 @@ const money = (v: number) => formatMoney(String(v))
 <template>
   <div>
     <div class="bg-gradient-to-br from-navy-800 via-navy-900 to-navy-950 relative overflow-hidden rounded-3xl p-6 text-white shadow-lift sm:p-8">
-      <HeroParticles />
       <div class="relative grid gap-6 lg:grid-cols-[1.25fr_1fr] lg:items-center">
         <div class="min-w-0">
           <p class="text-xs font-semibold uppercase tracking-wider text-saffron-300">SACCO office · <span class="tabular-nums">{{ clock }}</span></p>
@@ -181,7 +178,7 @@ const money = (v: number) => formatMoney(String(v))
             </template>
           </p>
           <p v-if="auth.isSuperAdmin" class="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-navy-100 backdrop-blur">
-            <ShieldCheckIcon class="h-4 w-4 text-saffron-300" aria-hidden="true" />Every change you make is sent to the other office accounts
+            Every change you make is sent to the other office accounts
           </p>
           <div class="mt-5 flex flex-wrap gap-2">
             <RouterLink v-can="'money'" :to="{ name: 'payroll' }" class="btn-accent"><ArrowUpTrayIcon class="h-4 w-4" />Post this month's payroll</RouterLink>

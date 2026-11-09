@@ -11,7 +11,6 @@ import {
   ExclamationCircleIcon,
   InboxArrowDownIcon,
   ShieldCheckIcon,
-  SparklesIcon,
   UserCircleIcon,
   UserGroupIcon,
 } from '@heroicons/vue/24/outline'
@@ -77,7 +76,7 @@ function icon(kind: string) {
   if (kind === 'money_in' || kind === 'loan_repayment') return { c: ArrowDownLeftIcon, style: 'bg-emerald-50 text-emerald-700' }
   if (kind === 'money_out') return { c: ArrowUpRightIcon, style: 'bg-red-50 text-red-700' }
   if (kind === 'money_reversed') return { c: ArrowUturnLeftIcon, style: 'bg-amber-50 text-amber-800' }
-  if (kind === 'dividend' || kind === 'profit_paid') return { c: SparklesIcon, style: 'bg-saffron-100 text-saffron-700' }
+  if (kind === 'dividend' || kind === 'profit_paid') return { c: BanknotesIcon, style: 'bg-saffron-100 text-saffron-700' }
   if (kind === 'loan_penalty') return { c: ExclamationCircleIcon, style: 'bg-red-50 text-red-700' }
   if (kind === 'account_update') return { c: UserCircleIcon, style: 'bg-navy-50 text-navy-800' }
   if (kind === 'loan_disbursed' || kind === 'withdrawal_paid') return { c: BanknotesIcon, style: 'bg-emerald-50 text-emerald-700' }

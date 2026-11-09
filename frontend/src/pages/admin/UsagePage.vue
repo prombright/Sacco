@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { CheckCircleIcon, ComputerDesktopIcon, DevicePhoneMobileIcon, DeviceTabletIcon, ExclamationTriangleIcon, LockClosedIcon, ShieldCheckIcon } from '@heroicons/vue/24/outline'
+import {
+  CheckCircleIcon,
+  ComputerDesktopIcon,
+  DevicePhoneMobileIcon,
+  DeviceTabletIcon,
+  ExclamationTriangleIcon,
+} from '@heroicons/vue/24/outline'
 import { api, ApiError } from '@/api'
 import { useAuth } from '@/stores/auth'
 import { useTheme } from '@/stores/theme'
 import { formatDate } from '@/money'
 import CountUp from '@/components/CountUp.vue'
-import HeroParticles from '@/components/HeroParticles.vue'
 import TwoStepCard from '@/components/TwoStepCard.vue'
 
 interface Usage {
@@ -78,7 +83,6 @@ async function unlock(u: { id: number }) {
 <template>
   <div>
     <div class="bg-gradient-to-br from-navy-800 via-navy-900 to-navy-950 relative overflow-hidden rounded-3xl p-6 text-white shadow-lift sm:p-8">
-      <HeroParticles />
       <div class="relative flex flex-wrap items-center justify-between gap-6">
         <div class="min-w-0">
           <p class="text-xs font-semibold uppercase tracking-wider text-saffron-300">Settings</p>
@@ -169,7 +173,7 @@ async function unlock(u: { id: number }) {
 
       <section class="mt-4 grid gap-4 xl:grid-cols-2">
         <div class="card p-5">
-          <div class="flex items-center justify-between"><h2 class="flex items-center gap-2 font-semibold"><ShieldCheckIcon class="h-5 w-5 text-brand" aria-hidden="true" />Security check</h2><span class="rounded-full bg-navy-50 px-2.5 py-0.5 text-xs font-semibold text-navy-800">{{ score }} of {{ data.checks.length }}</span></div>
+          <div class="flex items-center justify-between"><h2 class="font-semibold">Security check</h2><span class="rounded-full bg-navy-50 px-2.5 py-0.5 text-xs font-semibold text-navy-800">{{ score }} of {{ data.checks.length }}</span></div>
           <ul class="mt-3 divide-y divide-line">
             <li v-for="c in data.checks" :key="c.label" class="flex gap-3 py-2.5 text-sm">
               <component :is="c.ok ? CheckCircleIcon : ExclamationTriangleIcon" class="h-5 w-5 shrink-0" :class="c.ok ? 'text-emerald-600' : 'text-amber-600'" aria-hidden="true" />
@@ -179,7 +183,7 @@ async function unlock(u: { id: number }) {
         </div>
         <div class="space-y-4">
           <div v-if="data.locked.length" class="card p-5">
-            <h2 class="flex items-center gap-2 font-semibold"><LockClosedIcon class="h-5 w-5 text-red-700" aria-hidden="true" />Locked accounts</h2>
+            <h2 class="font-semibold">Locked accounts</h2>
             <ul class="mt-3 divide-y divide-line">
               <li v-for="u in data.locked" :key="u.id" class="flex items-center justify-between py-2 text-sm"><span>{{ u.full_name }}</span><button v-can="'members'" type="button" class="btn-secondary" @click="unlock(u)">Unlock</button></li>
             </ul>
