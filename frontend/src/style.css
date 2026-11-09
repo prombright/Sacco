@@ -241,11 +241,6 @@ th {
   transform: translateY(-8px) scale(0.995);
 }
 
-/* The big panels at the top of the dashboards: the SACCO's own blue, plain */
-.hero-panel {
-  isolation: isolate;
-  background-color: rgb(var(--brand));
-}
 .donut-slice {
   animation: fade-in 0.55s ease-out both;
   animation-delay: calc(var(--i, 0) * 130ms + 200ms);

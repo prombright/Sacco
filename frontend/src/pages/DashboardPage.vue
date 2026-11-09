@@ -196,7 +196,7 @@ const actions = [
     <template v-if="data">
       <!-- What I have, and what I can borrow -->
       <section class="mt-6 grid gap-4 lg:grid-cols-3" aria-label="Balances">
-        <div class="hero-panel reveal relative min-w-0 overflow-hidden rounded-3xl p-6 text-white shadow-lift lg:col-span-2">
+        <div class="bg-gradient-to-br from-navy-800 via-navy-900 to-navy-950 reveal relative min-w-0 overflow-hidden rounded-3xl p-6 text-white shadow-lift lg:col-span-2">
           <HeroParticles />
           <div class="relative flex items-start justify-between gap-4">
             <div>

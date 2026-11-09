@@ -102,15 +102,13 @@ const totalOut = computed(() => moneyOut.value.reduce((s, r) => s + Number(r.val
 const statusOrder: LoanStatus[] = ['pending_guarantors', 'pending_approval', 'approved', 'active', 'closed']
 const loanCount = computed(() => statusOrder.reduce((s, k) => s + (data.value?.loans_by_status[k]?.count ?? 0), 0))
 const hoverStatus = ref<LoanStatus | null>(null)
-// Four open stages, in an order that keeps neighbouring colours distinguishable; validated per theme
-const pieColors = computed<Partial<Record<LoanStatus, string>>>(() => theme.dark
-  ? { active: '#1fa883', pending_guarantors: '#b8800c', pending_approval: '#c8549f', approved: '#6b78ec' }
-  : { active: '#0e8f6e', pending_guarantors: '#c98a08', pending_approval: '#b4408f', approved: '#3a46c4' })
+// The same colours as each status's dot across the app; labels below name every slice
+const pieColors: Partial<Record<LoanStatus, string>> = { active: '#059669', pending_guarantors: '#fbbf24', pending_approval: '#3a46c4', approved: '#eea90f' }
 const slices = computed(() => (['active', 'pending_guarantors', 'pending_approval', 'approved'] as LoanStatus[]).map((k) => ({
   key: k,
   label: loanStatus[k].label,
   value: data.value?.loans_by_status[k]?.count ?? 0,
-  color: pieColors.value[k]!,
+  color: pieColors[k]!,
 })))
 const openLoans = computed(() => slices.value.reduce((n, s) => n + s.value, 0))
 
@@ -170,7 +168,7 @@ const money = (v: number) => formatMoney(String(v))
 
 <template>
   <div>
-    <div class="hero-panel relative overflow-hidden rounded-3xl p-6 text-white shadow-lift sm:p-8">
+    <div class="bg-gradient-to-br from-navy-800 via-navy-900 to-navy-950 relative overflow-hidden rounded-3xl p-6 text-white shadow-lift sm:p-8">
       <HeroParticles />
       <div class="relative grid gap-6 lg:grid-cols-[1.25fr_1fr] lg:items-center">
         <div class="min-w-0">
@@ -339,7 +337,7 @@ const money = (v: number) => formatMoney(String(v))
               @pointerleave="hoverStatus = null"
             >
               <span class="flex items-center gap-2">
-                <span class="inline-block h-2.5 w-2.5 rounded-sm" :style="{ background: pieColors[s] ?? '#a8a29e' }" aria-hidden="true" />
+                <span class="inline-block h-2 w-2 rounded-full" :class="loanStatus[s].dot" aria-hidden="true" />
                 {{ loanStatus[s].label }}
               </span>
               <span class="text-right">

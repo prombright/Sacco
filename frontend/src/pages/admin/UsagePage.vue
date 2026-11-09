@@ -77,7 +77,7 @@ async function unlock(u: { id: number }) {
 
 <template>
   <div>
-    <div class="hero-panel relative overflow-hidden rounded-3xl p-6 text-white shadow-lift sm:p-8">
+    <div class="bg-gradient-to-br from-navy-800 via-navy-900 to-navy-950 relative overflow-hidden rounded-3xl p-6 text-white shadow-lift sm:p-8">
       <HeroParticles />
       <div class="relative flex flex-wrap items-center justify-between gap-6">
         <div class="min-w-0">
