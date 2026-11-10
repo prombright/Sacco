@@ -17,6 +17,8 @@ use Sacco\Controllers\MemberExitController;
 use Sacco\Controllers\NoticeController;
 use Sacco\Controllers\NotificationController;
 use Sacco\Controllers\ProductController;
+use Sacco\Controllers\CommitteeController;
+use Sacco\Controllers\PasswordResetController;
 use Sacco\Controllers\PhotoController;
 use Sacco\Controllers\PublicController;
 use Sacco\Controllers\LoanController;
@@ -47,6 +49,10 @@ $members = ['members_only' => true];
 $router->get('/api/sacco', [AuthController::class, 'sacco'], ['auth' => false]);
 $router->get('/api/auth/me', [AuthController::class, 'me'], ['auth' => false]);
 $router->post('/api/auth/login', [AuthController::class, 'login'], ['auth' => false]);
+// Forgot password: a link by email
+$router->post('/api/auth/forgot', [PasswordResetController::class, 'forgot'], ['auth' => false]);
+$router->get('/api/auth/reset', [PasswordResetController::class, 'check'], ['auth' => false]);
+$router->post('/api/auth/reset', [PasswordResetController::class, 'reset'], ['auth' => false]);
 $router->get('/api/public/terms', [PublicController::class, 'terms'], ['auth' => false]);
 $router->get('/api/public/manifest', [PublicController::class, 'manifest'], ['auth' => false]);
 $router->get('/api/public/logo', [PublicController::class, 'logo'], ['auth' => false]);
@@ -179,6 +185,8 @@ $router->delete('/api/notices/{id}', [NoticeController::class, 'end'], $edit('no
 // Messages to members (the bell)
 $router->get('/api/me/notifications', [NotificationController::class, 'index']);
 $router->post('/api/me/notifications/read', [NotificationController::class, 'read']);
+$router->get('/api/me/message-settings', [NotificationController::class, 'settings']);
+$router->patch('/api/me/message-settings', [NotificationController::class, 'saveSettings']);
 
 // The developer portal: every SACCO on this installation
 $dev = ['dev' => true];
@@ -260,6 +268,14 @@ $router->patch('/api/finance/budget', [FinanceController::class, 'saveBudget'], 
 // The SACCO's rules
 $router->get('/api/settings', [SettingsController::class, 'index'], $admins);
 $router->patch('/api/settings', [SettingsController::class, 'update'], ['roles' => [Roles::SUPER_ADMIN]]);
+// Questions for the committee: the office sees them, the super admin keeps them
+$router->get('/api/committee', [CommitteeController::class, 'index'], $admins);
+$router->post('/api/committee', [CommitteeController::class, 'store'], $super);
+$router->patch('/api/committee/{id}', [CommitteeController::class, 'update'], $super);
+$router->post('/api/committee/{id}/decide', [CommitteeController::class, 'decide'], $super);
+$router->post('/api/committee/{id}/reopen', [CommitteeController::class, 'reopen'], $super);
+$router->delete('/api/committee/{id}', [CommitteeController::class, 'destroy'], $super);
+
 // Profile photos: anyone signed in sets their own; members see their own, the office sees all
 $router->post('/api/me/photo', [PhotoController::class, 'upload']);
 $router->delete('/api/me/photo', [PhotoController::class, 'remove']);

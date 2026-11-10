@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useMessages, type Message } from '@/stores/messages'
 import { useRouter } from 'vue-router'
 import {
   ArrowDownLeftIcon,
@@ -21,15 +23,7 @@ import {
 import { api } from '@/api'
 import { useAuth } from '@/stores/auth'
 
-interface Notification {
-  id: number
-  title: string
-  body: string
-  link: string | null
-  kind: string
-  read_at: string | null
-  created_at: string
-}
+type Notification = Message
 
 /**
  * Messages in the app. Members hear about their own money (deposits, withdrawals, repayments,
@@ -38,28 +32,13 @@ interface Notification {
  */
 const auth = useAuth()
 const router = useRouter()
-const items = ref<Notification[]>([])
-const unread = ref(0)
+const store = useMessages()
+const { items, unread } = storeToRefs(store)
+const load = () => store.load()
 const open = ref(false)
 const onlyUnread = ref(false)
 const shown = computed(() => (onlyUnread.value ? items.value.filter((n) => !n.read_at) : items.value))
 
-async function load() {
-  try {
-    const res = await api.get<{ notifications: Notification[]; unread: number }>('/me/notifications')
-    items.value = res.notifications
-    unread.value = res.unread
-  } catch {
-    // The bell is extra; pages work without it
-  }
-}
-
-let timer: ReturnType<typeof setInterval> | undefined
-onMounted(() => {
-  load()
-  timer = setInterval(load, 60_000)
-})
-onBeforeUnmount(() => clearInterval(timer))
 
 async function go(n: Notification) {
   open.value = false
@@ -86,6 +65,7 @@ function icon(kind: string) {
   if (kind === 'loan_disbursed' || kind === 'withdrawal_paid') return { c: BanknotesIcon, style: 'bg-emerald-50 text-emerald-700' }
   if (kind.endsWith('approved')) return { c: CheckCircleIcon, style: 'bg-emerald-50 text-emerald-700' }
   if (kind.endsWith('rejected')) return { c: ExclamationCircleIcon, style: 'bg-red-50 text-red-700' }
+  if (kind === 'loan_applied') return { c: InboxArrowDownIcon, style: 'bg-navy-50 text-navy-800' }
   if (kind === 'loan_due') return { c: CalendarDaysIcon, style: 'bg-navy-50 text-navy-800' }
   if (kind === 'loan_late') return { c: ExclamationCircleIcon, style: 'bg-red-50 text-red-700' }
   if (kind === 'slow_payer') return { c: ExclamationTriangleIcon, style: 'bg-amber-50 text-amber-800' }
@@ -150,8 +130,9 @@ function ago(at: string) {
           <template v-else>No messages yet. Money in and out of your account, and news from the office, will show here.</template>
         </li>
       </ul>
-      <div v-if="unread" class="border-t border-line px-4 py-2.5 text-right">
-        <button type="button" class="text-xs font-semibold text-brand hover:underline" @click="readAll">Mark all as read</button>
+      <div class="flex items-center justify-between border-t border-line px-4 py-2.5">
+        <RouterLink :to="{ name: 'messages' }" class="text-xs font-semibold text-brand hover:underline" @click="open = false">See all messages</RouterLink>
+        <button v-if="unread" type="button" class="text-xs font-semibold text-brand hover:underline" @click="readAll">Mark all as read</button>
       </div>
     </div>
   </div>

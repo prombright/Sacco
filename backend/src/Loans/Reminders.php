@@ -80,6 +80,7 @@ final class Reminders
             foreach ($borrowers as $id) {
                 Credit::refresh($db, (int) $id);
             }
+            \Sacco\Support\Outbox::flush($db, 50);
             return ['due_soon' => count($soon), 'overdue' => count($late), 'borrowers' => count($borrowers)];
         } finally {
             Notify::$system = false;

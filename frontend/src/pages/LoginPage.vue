@@ -161,7 +161,10 @@ async function submit() {
             <button v-if="canInstall" type="button" class="btn-secondary" @click="install">{{ t('Install the app') }}</button>
           </div>
 
-          <p class="mt-6 text-sm text-gray-600">Forgot your password? Ask your SACCO office to reset it.</p>
+          <p class="mt-6 text-sm text-gray-600">
+            <RouterLink :to="{ name: 'forgot-password', query: otherSacco && saccoCode ? { sacco: saccoCode } : {} }" class="font-semibold text-brand hover:underline">{{ t('Forgot your password?') }}</RouterLink>
+            We'll email you a link, or ask your SACCO office.
+          </p>
           <RouterLink :to="{ name: 'home' }" class="mt-2 inline-block text-sm font-semibold text-brand hover:underline">About the SACCO, rates and loan calculator</RouterLink>
         </div>
       </div>

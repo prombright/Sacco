@@ -190,6 +190,7 @@ export const sections: Section[] = [
     items: [
       { name: 'usage', label: 'Usage & security', description: 'Who uses the system, failed sign-ins, two-step', icon: ShieldCheckIcon },
       { name: 'settings', label: 'Setup & rules', description: 'Rates, fees, shares, loan types', icon: Cog6ToothIcon },
+      { name: 'committee', label: 'Committee decisions', description: 'Rules waiting for the committee, and what it decided', icon: ScaleIcon },
       { name: 'backup', label: 'Download backup', description: 'A copy of everything to keep safe', icon: CircleStackIcon, superOnly: true, figure: (s) => (s.last_backup ? `Last: ${new Date(s.last_backup.replace(' ', 'T')).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : 'Never downloaded') },
     ],
   },

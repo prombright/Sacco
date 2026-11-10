@@ -23,9 +23,28 @@ final class Notify
 
     public static function member(int $userId, string $kind, string $title, string $body, ?string $link = null): void
     {
+        // A copy goes to their email when they have one and haven't turned the copies off
+        $email = self::emailOn($userId) && Mailer::enabled();
         Database::tenant()->prepare(
-            'INSERT INTO notifications (user_id, title, body, link, kind, created_by) VALUES (?, ?, ?, ?, ?, ?)'
-        )->execute([$userId, mb_substr($title, 0, 160), $body, $link, $kind, self::$system ? null : Auth::id()]);
+            'INSERT INTO notifications (user_id, title, body, link, kind, created_by, email_status) VALUES (?, ?, ?, ?, ?, ?, ?)'
+        )->execute([$userId, mb_substr($title, 0, 160), $body, $link, $kind, self::$system ? null : Auth::id(), $email ? 'queued' : 'none']);
+        if ($email) {
+            Outbox::afterReply();
+        }
+    }
+
+    /** @var array<int, bool> */
+    private static array $emailOn = [];
+
+    private static function emailOn(int $userId): bool
+    {
+        if (!isset(self::$emailOn[$userId])) {
+            $stmt = Database::tenant()->prepare("SELECT email, email_alerts, status FROM users WHERE id = ?");
+            $stmt->execute([$userId]);
+            $u = $stmt->fetch();
+            self::$emailOn[$userId] = $u && $u['status'] === 'active' && $u['email_alerts'] && filter_var($u['email'], FILTER_VALIDATE_EMAIL);
+        }
+        return self::$emailOn[$userId];
     }
 
     /** Every active super admin: things they act on, such as slow payers and repayments falling due */

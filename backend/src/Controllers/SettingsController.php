@@ -29,7 +29,9 @@ final class SettingsController
             'loan_min_member_months' => ['Months of saving before a loan', $int(0, 120)],
             'guarantor_min_member_months' => ['Months of membership to be a guarantor', $int(0, 120)],
             'loan_penalty_percent' => ['Late-payment penalty, % of what is late (0 = none)', $decimal(0, 50)],
-            'slow_payer_limit_percent' => ['A slow payer can borrow this % of their usual limit (100 = no cut)', $int(0, 100)],
+            'credit_limit_rule' => ['How late repayments lower the borrowing limit', fn ($v) => in_array($v, ['sliding', 'fixed'], true) ? $v : null,
+                ['sliding' => 'Step by step as the repayment score falls below 80', 'fixed' => 'Only for slow payers (score under 50), straight to the lowest limit']],
+            'slow_payer_limit_percent' => ['Lowest borrowing limit for the worst payers, % of the usual limit (100 = no cut)', $int(0, 100)],
             'loan_reminder_days' => ['Remind members this many days before an instalment is due', $int(1, 14)],
             'withdrawal_fee_percent' => ['Withdrawal fee, % of the amount withdrawn', $decimal(0, 50)],
             'withdrawal_fee_mode' => ['How the withdrawal fee is taken', fn ($v) => in_array($v, ['from_amount', 'on_top'], true) ? $v : null,
@@ -69,10 +71,35 @@ final class SettingsController
     /** PATCH /api/settings { key: value, ... } (super admin) */
     public function update(Request $request): never
     {
+        $errors = self::apply($request->json());
+        if ($errors) {
+            Response::error('Some values aren\'t valid.', 422, $errors);
+        }
+        $this->index($request);
+    }
+
+    /** Whether a rule with this key exists */
+    public static function has(string $key): bool
+    {
+        return isset(self::fields()[$key]);
+    }
+
+    /** The choices for a rule that has them (value => words), else null */
+    public static function options(string $key): ?array
+    {
+        return self::fields()[$key][2] ?? null;
+    }
+
+    /**
+     * Checks and saves rule values (the Setup page, or a committee decision); returns errors by
+     * key, and saves nothing when there are any.
+     */
+    public static function apply(array $values): array
+    {
         $fields = self::fields();
         $changes = [];
         $errors = [];
-        foreach ($request->json() as $key => $value) {
+        foreach ($values as $key => $value) {
             if (!isset($fields[$key])) {
                 continue;
             }
@@ -84,7 +111,7 @@ final class SettingsController
             }
         }
         if ($errors) {
-            Response::error('Some values aren\'t valid.', 422, $errors);
+            return $errors;
         }
         $stmt = Database::tenant()->prepare(
             'INSERT INTO settings (`key`, `value`, updated_by) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), updated_by = VALUES(updated_by)'
@@ -96,6 +123,6 @@ final class SettingsController
             Audit::log('settings.changed', null, null, $changes);
         }
         Settings::forget();
-        $this->index($request);
+        return [];
     }
 }

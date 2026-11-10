@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import SmsToast from '@/components/SmsToast.vue'
+import { useMessages } from '@/stores/messages'
 import UserAvatar from '@/components/UserAvatar.vue'
 import { t } from '@/i18n'
 import { canInstall, install } from '@/pwa'
@@ -8,6 +10,7 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   ArrowDownTrayIcon,
   ArrowLeftStartOnRectangleIcon,
+  ChatBubbleLeftRightIcon,
   BanknotesIcon,
   Bars3Icon,
   ChevronDoubleLeftIcon,
@@ -44,6 +47,8 @@ interface NavGroup {
 }
 
 const auth = useAuth()
+const messages = useMessages()
+messages.start()
 const office = useOffice()
 const route = useRoute()
 const router = useRouter()
@@ -77,6 +82,7 @@ const groups = computed<NavGroup[]>(() => {
       title: t('My account'),
       links: [
         { name: 'dashboard', label: t('Dashboard'), icon: HomeIcon },
+        { name: 'messages', label: t('Messages'), icon: ChatBubbleLeftRightIcon, badge: messages.unread },
         { name: 'statement', label: t('Statement'), icon: DocumentTextIcon, also: ['statement-print'] },
         { name: 'receipts-mine', label: t('Receipts'), icon: ReceiptPercentIcon },
         { name: 'loans', label: t('Loans'), icon: BanknotesIcon, also: ['loan-apply', 'loan'] },
@@ -125,6 +131,7 @@ watch(
 )
 
 async function signOut() {
+  messages.stop()
   await auth.logout()
   await router.replace({ name: 'login' })
 }
@@ -277,6 +284,9 @@ async function signOut() {
             <RouterLink v-if="!auth.isAdmin" :to="{ name: 'profile' }" class="flex items-center gap-2 rounded-lg px-3 py-2 text-navy-100 hover:bg-white/10 hover:text-white" role="menuitem">
               <UserCircleIcon class="h-4 w-4" />My profile
             </RouterLink>
+            <RouterLink v-if="auth.isAdmin" :to="{ name: 'messages' }" class="flex items-center gap-2 rounded-lg px-3 py-2 text-navy-100 hover:bg-white/10 hover:text-white" role="menuitem">
+              <ChatBubbleLeftRightIcon class="h-4 w-4" />Messages
+            </RouterLink>
             <RouterLink to="/change-password" class="flex items-center gap-2 rounded-lg px-3 py-2 text-navy-100 hover:bg-white/10 hover:text-white" role="menuitem">
               <KeyIcon class="h-4 w-4" />Change password
             </RouterLink>
@@ -328,6 +338,7 @@ async function signOut() {
     </header>
 
     <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+      <SmsToast />
       <RouterView v-slot="{ Component, route: page }">
         <Transition name="page" mode="out-in">
           <component :is="Component" :key="page.path" />

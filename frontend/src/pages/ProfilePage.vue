@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CameraIcon, DevicePhoneMobileIcon, DocumentCheckIcon, IdentificationIcon } from '@heroicons/vue/24/outline'
+import { CameraIcon, ChatBubbleLeftRightIcon, DevicePhoneMobileIcon, DocumentCheckIcon, IdentificationIcon } from '@heroicons/vue/24/outline'
 import UserAvatar from '@/components/UserAvatar.vue'
 import { removePhoto, uploadPhoto } from '@/photos'
 import { useAuth } from '@/stores/auth'
@@ -41,6 +41,19 @@ async function certificate() {
     making.value = false
   }
 }
+
+// Messages by email
+const msgSettings = ref<{ email: string | null; email_alerts: boolean } | null>(null)
+const savingMsg = ref(false)
+async function toggleEmail(e: Event) {
+  savingMsg.value = true
+  try {
+    msgSettings.value = await api.patch('/me/message-settings', { email_alerts: (e.target as HTMLInputElement).checked })
+  } finally {
+    savingMsg.value = false
+  }
+}
+api.get<{ email: string | null; email_alerts: boolean }>('/me/message-settings').then((s) => (msgSettings.value = s)).catch(() => {})
 
 // The profile photo
 const photoBusy = ref(false)
@@ -112,6 +125,22 @@ onMounted(async () => {
       <MemberDetails :user="user" />
       <NextOfKinEditor :people="kin" save-url="/me/next-of-kin" @saved="kin = $event" />
     </div>
+    <section class="card mt-6 p-5">
+      <div class="flex flex-wrap items-start gap-4">
+        <ChatBubbleLeftRightIcon class="h-8 w-8 shrink-0 text-brand" aria-hidden="true" />
+        <div class="min-w-[14rem] flex-1">
+          <h2 class="font-semibold">{{ t('My messages') }}</h2>
+          <p class="text-sm text-gray-600">Every change to your account, loan news and payment reminders come to <RouterLink :to="{ name: 'messages' }" class="font-semibold text-brand hover:underline">{{ t('Messages') }}</RouterLink>, like text messages.</p>
+          <template v-if="msgSettings">
+            <label v-if="msgSettings.email" class="mt-3 flex items-start gap-2 text-sm">
+              <input type="checkbox" class="mt-0.5 accent-brand" :checked="msgSettings.email_alerts" :disabled="savingMsg" @change="toggleEmail" />
+              <span>Also send each one to <span class="font-medium">{{ msgSettings.email }}</span></span>
+            </label>
+            <p v-else class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">There's no email on your account. Ask the SACCO office to add one, to get your messages by email and to reset your password yourself.</p>
+          </template>
+        </div>
+      </div>
+    </section>
     <TwoStepCard class="mt-6" />
     <section v-if="!installed" class="card mt-6 flex flex-wrap items-center gap-4 p-5">
       <DevicePhoneMobileIcon class="h-8 w-8 text-brand" aria-hidden="true" />

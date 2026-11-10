@@ -37,7 +37,26 @@ DB_PASS=<the password from step 1>
 PLATFORM_DB_NAME=smacon_saccoplat
 DEFAULT_SACCO_CODE=smacon
 MYSQLDUMP_PATH=mysqldump
+APP_URL=https://sacco.stmark.sc.ug
 ```
+
+**Email** (copies of members' messages, and "forgot password" links): in cPanel → Email Accounts,
+create a mailbox such as `no-reply@stmark.sc.ug`; "Connect Devices" shows its outgoing server.
+Then add to `.env`:
+
+```
+MAIL_DRIVER=smtp
+MAIL_HOST=<outgoing server, e.g. mail.stmark.sc.ug>
+MAIL_PORT=465
+MAIL_ENCRYPTION=ssl
+MAIL_USERNAME=no-reply@stmark.sc.ug
+MAIL_PASSWORD=<the mailbox password>
+MAIL_FROM_ADDRESS=no-reply@stmark.sc.ug
+MAIL_FROM_NAME=SMACON SACCO
+```
+
+(`MAIL_DRIVER=mail` also works on most cPanel servers with no other settings, but those emails
+land in spam more often. Without email, messages still reach members inside the app.)
 
 Then create SMACON with its first super admin (prints a temporary password, once):
 

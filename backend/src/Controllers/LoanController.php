@@ -162,6 +162,11 @@ final class LoanController
         });
         Audit::log('loan.applied', 'loan', $loanId, ['amount' => Money::toDecimal($amount), 'months' => $months]);
         $borrower = Auth::user()['full_name'];
+        $loanNo = 'L' . str_pad((string) $loanId, 5, '0', STR_PAD_LEFT);
+        Notify::member($me, 'loan_applied', 'We received your loan application',
+            "Your application $loanNo for " . Notify::money(Money::toDecimal($amount)) . " over $months months has been received. "
+                . ($guarantors ? 'Your guarantors have been asked; once enough agree, the office will assess it.' : 'The office will assess it.')
+                . ' You will get a message at each step.', '/loans/' . $loanId);
         foreach ($guarantors as $g) {
             Notify::member($g['user_id'], 'guarantee_request', "$borrower asks you to guarantee a loan",
                 "$borrower has applied for a loan of " . Notify::money(Money::toDecimal($amount)) . " and asks you to guarantee " . Notify::money(Money::toDecimal($g['amount'])) . '. Open Loans to agree or decline.', '/loans');

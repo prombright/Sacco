@@ -27,6 +27,8 @@ const router = createRouter({
     // The SACCO's public homepage: anyone can read it, signed in or not
     { path: '/welcome', name: 'home', component: () => import('@/pages/HomePage.vue'), meta: { public: true, title: 'Welcome' } },
     { path: '/login', name: 'login', component: () => import('@/pages/LoginPage.vue'), meta: { public: true } },
+    { path: '/forgot-password', name: 'forgot-password', component: () => import('@/pages/ForgotPasswordPage.vue'), meta: { public: true, title: 'Forgot password' } },
+    { path: '/reset-password', name: 'reset-password', component: () => import('@/pages/ResetPasswordPage.vue'), meta: { public: true, title: 'Choose a new password' } },
     { path: '/change-password', name: 'change-password', component: () => import('@/pages/ChangePasswordPage.vue') },
     // Printable, so outside the app's header and menus
     { path: '/withdrawals/:id(\\d+)/slip', name: 'withdrawal-slip', component: () => import('@/pages/withdrawals/WithdrawalSlip.vue') },
@@ -39,6 +41,8 @@ const router = createRouter({
         { path: '', name: 'dashboard', component: () => import('@/pages/DashboardPage.vue'), meta: { member: true, title: 'My dashboard' } },
         { path: 'office', name: 'overview', component: () => import('@/pages/admin/OverviewPage.vue'), meta: { admin: true, title: 'Dashboard' } },
         { path: 'members/import', name: 'member-import', component: () => import('@/pages/admin/MemberImportPage.vue'), meta: { admin: true, title: 'Import members' } },
+        { path: 'messages', name: 'messages', component: () => import('@/pages/MessagesPage.vue'), meta: { title: 'Messages' } },
+        { path: 'admin/committee', name: 'committee', component: () => import('@/pages/admin/CommitteePage.vue'), meta: { admin: true, title: 'Committee decisions' } },
         { path: 'profile', name: 'profile', component: () => import('@/pages/ProfilePage.vue'), meta: { member: true, title: 'My profile' } },
         { path: 'admin/cashbook', name: 'cashbook', redirect: { name: 'payments' } },
         { path: 'admin/notices', name: 'notices', component: () => import('@/pages/admin/NoticesPage.vue'), meta: { admin: true, title: 'Notices' } },
