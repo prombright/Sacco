@@ -16,18 +16,34 @@
     <div id="splash" role="status" aria-label="Loading">
       <style>
         #splash { position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; background: radial-gradient(circle at 30% 20%, #1f2788, #0d1240 70%); color: #fff; font-family: system-ui, sans-serif; }
-        #splash .jar { position: relative; width: 92px; height: 74px; }
-        #splash .coin { position: absolute; left: 21px; width: 50px; height: 16px; border-radius: 50%; background: linear-gradient(#f7cd63, #eea90f); box-shadow: inset 0 -3px 0 #c98a08; animation: splash-drop 1.5s cubic-bezier(.3, 1.3, .6, 1) infinite both; }
-        #splash .coin:nth-child(1) { bottom: 0; animation-delay: 0s; }
-        #splash .coin:nth-child(2) { bottom: 12px; animation-delay: .16s; }
-        #splash .coin:nth-child(3) { bottom: 24px; animation-delay: .32s; }
-        #splash .coin:nth-child(4) { bottom: 36px; animation-delay: .48s; }
-        #splash .coin:nth-child(5) { bottom: 48px; animation-delay: .64s; }
+        /* Shilling notes pile up, then two 500 coins land on top (drawn in a simple style, not copies of real money) */
+        #splash .pile { position: relative; width: 132px; height: 96px; transform: scale(1.3); margin: 14px 0; }
+        #splash .note, #splash .coin { position: absolute; animation: splash-drop 2.2s cubic-bezier(.3, 1.25, .6, 1) infinite both; }
+        #splash .note { left: 14px; width: 104px; height: 48px; box-sizing: border-box; border-radius: 5px; border: 1.5px solid rgba(255, 255, 255, .45); box-shadow: 0 4px 10px rgba(0, 0, 0, .35); display: flex; align-items: center; justify-content: space-between; padding: 0 9px; font: 700 13px/1 system-ui, sans-serif; color: #fff; text-shadow: 0 1px 1px rgba(0, 0, 0, .3); }
+        #splash .note::before { content: ''; width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid rgba(255, 255, 255, .55); background: rgba(255, 255, 255, .14); }
+        #splash .note small { display: block; font-size: 8px; font-weight: 600; letter-spacing: .08em; opacity: .85; text-align: right; }
+        #splash .n50 { background: linear-gradient(135deg, #8f1f2b, #c8452f 55%, #e2803a); }
+        #splash .n20 { background: linear-gradient(135deg, #4b2a7a, #8a3f8f 60%, #c0607f); }
+        #splash .n10 { background: linear-gradient(135deg, #1d5d3a, #3f8b4f 60%, #b5713a); }
+        #splash .note:nth-child(1) { bottom: 0; --r: -5deg; animation-delay: 0s; }
+        #splash .note:nth-child(2) { bottom: 9px; --r: 4deg; animation-delay: .2s; }
+        #splash .note:nth-child(3) { bottom: 18px; --r: -2deg; animation-delay: .4s; }
+        #splash .note:nth-child(4) { bottom: 27px; --r: 3deg; animation-delay: .6s; }
+        #splash .coin { bottom: 48px; width: 30px; height: 30px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fbfcfd, #c3c8d0 55%, #8a919c); box-shadow: inset 0 0 0 2px #a4aab4, inset 0 0 0 4px #dde1e6, 0 3px 6px rgba(0, 0, 0, .4); display: flex; align-items: center; justify-content: center; font: 800 9px/1 system-ui, sans-serif; color: #4a515c; }
+        #splash .coin:nth-child(5) { left: 16px; --r: -12deg; animation-delay: .85s; }
+        #splash .coin:nth-child(6) { left: 40px; bottom: 56px; --r: 10deg; animation-delay: 1s; }
         #splash p { margin: 0; font-size: 15px; letter-spacing: .02em; color: #dfe2f9; min-height: 1.3em; }
-        @keyframes splash-drop { 0% { transform: translateY(-90px); opacity: 0; } 30%, 80% { transform: none; opacity: 1; } 100% { transform: none; opacity: 0; } }
-        @media (prefers-reduced-motion: reduce) { #splash .coin { animation: none; } }
+        @keyframes splash-drop { 0% { transform: translateY(-110px) rotate(calc(var(--r) * 4)); opacity: 0; } 25%, 82% { transform: rotate(var(--r)); opacity: 1; } 100% { transform: rotate(var(--r)); opacity: 0; } }
+        @media (prefers-reduced-motion: reduce) { #splash .note, #splash .coin { animation: none; transform: rotate(var(--r)); } }
       </style>
-      <div class="jar" aria-hidden="true"><i class="coin"></i><i class="coin"></i><i class="coin"></i><i class="coin"></i><i class="coin"></i></div>
+      <div class="pile" aria-hidden="true">
+        <i class="note n10"><span>10,000<small>UGX</small></span></i>
+        <i class="note n20"><span>20,000<small>UGX</small></span></i>
+        <i class="note n50"><span>50,000<small>UGX</small></span></i>
+        <i class="note n50"><span>50,000<small>UGX</small></span></i>
+        <i class="coin">500</i>
+        <i class="coin">500</i>
+      </div>
       <p id="splash-text">Counting the shillings…</p>
     </div>
     <div id="app"></div>
