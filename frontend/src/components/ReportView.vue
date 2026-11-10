@@ -165,6 +165,6 @@ const printedAt = computed(() => new Date().toLocaleString('en-GB', { day: 'nume
     </div>
     <p v-if="report && report.rows.length > SHOWN" class="border-t border-line px-4 py-2 text-xs text-gray-500 print:hidden">Showing the first {{ SHOWN }} rows. Excel and the printout have all {{ report.rows.length }}.</p>
 
-    <p class="hidden pt-4 text-[10px] text-gray-500 print:block">Printed {{ printedAt }} by {{ auth.user?.full_name }} · {{ auth.sacco?.name }}</p>
+    <p class="hidden pt-4 text-[11px] text-gray-500 print:block">Printed {{ printedAt }} by {{ auth.user?.full_name }} · {{ auth.sacco?.name }}</p>
   </section>
 </template>

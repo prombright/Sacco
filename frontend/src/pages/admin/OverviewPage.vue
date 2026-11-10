@@ -368,7 +368,7 @@ const money = (v: number) => formatMoney(String(v))
                 <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full" :class="r.actor_role === 'super_admin' ? 'bg-saffron-500' : 'bg-navy-200'" aria-hidden="true" />
                 <span class="flex-1">
                   <span class="font-semibold">{{ r.actor }}</span>
-                  <span v-if="r.actor_role === 'super_admin'" class="ml-1 whitespace-nowrap rounded bg-saffron-100 px-1 py-px text-[10px] font-semibold uppercase tracking-wide text-saffron-700">Super admin</span>&#32;<span class="text-gray-700">{{ r.text }}</span>
+                  <span v-if="r.actor_role === 'super_admin'" class="ml-1 whitespace-nowrap rounded bg-saffron-100 px-1 py-px text-[11px] font-semibold uppercase tracking-wide text-saffron-700">Super admin</span>&#32;<span class="text-gray-700">{{ r.text }}</span>
                   <span class="block text-xs text-gray-500">{{ ago(r.at) }}</span>
                 </span>
               </component>

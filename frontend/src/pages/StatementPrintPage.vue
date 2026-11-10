@@ -126,7 +126,7 @@ async function download(kind: 'pdf' | 'excel') {
 
     <div v-if="error" class="mx-auto max-w-4xl rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{{ error }}</div>
 
-    <article v-if="data" class="mx-auto max-w-4xl rounded-2xl bg-surface p-8 shadow-card print:max-w-none print:rounded-none print:p-0 print:shadow-none">
+    <article v-if="data" class="mx-auto max-w-4xl rounded-2xl bg-surface p-5 shadow-card sm:p-8 print:max-w-none print:rounded-none print:p-0 print:shadow-none">
       <header class="flex flex-wrap items-start gap-4 border-b-2 border-navy-900 pb-5">
         <SaccoMark :sacco="auth.sacco" size="lg" />
         <div>
@@ -139,7 +139,7 @@ async function download(kind: 'pdf' | 'excel') {
         </div>
       </header>
 
-      <dl class="mt-5 grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4">
+      <dl class="mt-5 grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4 [&>div]:min-w-0 [&_dd]:break-words">
         <div><dt class="text-gray-500">Member</dt><dd class="font-semibold">{{ data.member.full_name }}</dd></div>
         <div><dt class="text-gray-500">Account no.</dt><dd class="font-mono">{{ data.member.account_no }}</dd></div>
         <div v-if="data.member.employee_no"><dt class="text-gray-500">Employee no.</dt><dd>{{ data.member.employee_no }}</dd></div>

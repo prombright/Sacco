@@ -209,7 +209,7 @@ async function signOut() {
                 :class="isItemCurrent(i) ? 'bg-white/10 font-semibold text-white' : 'text-navy-100/60 hover:bg-white/[0.05] hover:text-white'"
               >
                 <span class="flex-1 truncate">{{ i.label }}</span>
-                <span v-if="itemBadge(i)" class="rounded-full bg-saffron-400 px-1.5 py-0.5 text-[10px] font-bold leading-none text-navy-950">{{ itemBadge(i) }}</span>
+                <span v-if="itemBadge(i)" class="rounded-full bg-saffron-400 px-1.5 py-0.5 text-[11px] font-bold leading-none text-navy-950">{{ itemBadge(i) }}</span>
               </RouterLink>
             </div>
           </div>
@@ -327,10 +327,10 @@ async function signOut() {
           {{ new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }) }}
         </span>
         <span v-if="auth.viewOnly" class="ml-2 hidden items-center gap-1 rounded-full bg-navy-50 px-2.5 py-1 text-xs font-semibold text-navy-800 md:inline-flex" title="You can see everything and download reports; changes are made by the super admin">View only</span>
-        <button v-if="canInstall && !auth.isAdmin" type="button" class="ml-auto inline-flex items-center gap-1.5 rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-white lg:hidden" @click="install">
+        <button v-if="canInstall && !auth.isAdmin" type="button" class="tap ml-auto inline-flex items-center gap-1.5 rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-white lg:hidden" @click="install">
           <ArrowDownTrayIcon class="h-4 w-4" aria-hidden="true" />{{ t('Install the app') }}
         </button>
-        <NotificationBell :class="auth.isAdmin ? 'ml-2' : 'ml-auto xl:ml-2'" />
+        <NotificationBell :class="auth.isAdmin ? 'ml-auto sm:ml-2' : 'ml-auto xl:ml-2'" />
       </div>
       <div v-if="auth.isAdmin" class="px-4 pb-3 sm:hidden">
         <MemberSearch />

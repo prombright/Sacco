@@ -60,10 +60,12 @@ async function download(r: Receipt) {
           <component :is="r.direction === 'in' ? ArrowDownLeftIcon : ArrowUpRightIcon" class="h-5 w-5" aria-hidden="true" />
         </span>
         <div class="min-w-0 flex-1">
-          <p class="truncate font-semibold">{{ r.title }} <span class="font-normal text-gray-500">· {{ r.account }}</span></p>
-          <p class="truncate text-sm text-gray-500">{{ formatDate(r.date) }} · <span class="font-mono text-xs">{{ r.no }}</span><template v-if="r.reversed"> · reversed</template></p>
+          <p class="break-words font-semibold sm:truncate">{{ r.title }} <span class="font-normal text-gray-500">· {{ r.account }}</span></p>
+          <p class="break-words text-sm text-gray-500 sm:truncate">{{ formatDate(r.date) }} · <span class="font-mono text-xs">{{ r.no }}</span><template v-if="r.reversed"> · reversed</template></p>
+          <!-- Phones: the amount under the words, so they get the width -->
+          <p class="mt-0.5 font-semibold tabular-nums sm:hidden" :class="r.direction === 'in' ? 'text-emerald-700' : 'text-ink'">{{ r.direction === 'in' ? '+' : '−' }}{{ formatMoney(r.amount) }}</p>
         </div>
-        <p class="whitespace-nowrap font-semibold tabular-nums" :class="r.direction === 'in' ? 'text-emerald-700' : 'text-ink'">{{ r.direction === 'in' ? '+' : '−' }}{{ formatMoney(r.amount) }}</p>
+        <p class="hidden whitespace-nowrap font-semibold tabular-nums sm:block" :class="r.direction === 'in' ? 'text-emerald-700' : 'text-ink'">{{ r.direction === 'in' ? '+' : '−' }}{{ formatMoney(r.amount) }}</p>
         <button type="button" class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-red-700 transition hover:bg-red-50 disabled:opacity-40 sm:w-auto sm:gap-1.5 sm:px-3 sm:text-sm sm:font-semibold" :disabled="making === r.no" :aria-label="`Download receipt ${r.no}`" @click="download(r)">
           <DocumentArrowDownIcon class="h-5 w-5" :class="{ 'animate-pulse': making === r.no }" aria-hidden="true" /><span class="hidden sm:inline">PDF</span>
         </button>

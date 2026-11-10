@@ -61,8 +61,8 @@ async function change() {
         </div>
       </div>
       <nav class="flex gap-1 px-4 pb-2 text-sm font-medium sm:hidden" aria-label="Developer portal">
-        <RouterLink :to="{ name: 'dev-home' }" class="rounded-lg px-3 py-1.5 text-navy-100/80" exact-active-class="!bg-white/10 !text-white">All SACCOs</RouterLink>
-        <RouterLink :to="{ name: 'dev-log' }" class="rounded-lg px-3 py-1.5 text-navy-100/80" active-class="!bg-white/10 !text-white">Portal log</RouterLink>
+        <RouterLink :to="{ name: 'dev-home' }" class="tap inline-flex items-center rounded-lg px-3 py-1.5 text-navy-100/80" exact-active-class="!bg-white/10 !text-white">All SACCOs</RouterLink>
+        <RouterLink :to="{ name: 'dev-log' }" class="tap inline-flex items-center rounded-lg px-3 py-1.5 text-navy-100/80" active-class="!bg-white/10 !text-white">Portal log</RouterLink>
       </nav>
     </header>
 

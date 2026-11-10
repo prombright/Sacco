@@ -69,6 +69,24 @@ h3 {
   @apply tracking-tight;
 }
 
+/* Touch screens and phones: every toggle, tab and dropdown is at least 40px tall, so a thumb
+   hits it (the "tap" class does the same for anything else small) */
+@media (pointer: coarse), (max-width: 640px) {
+  [role='radio'],
+  [role='tab'],
+  select,
+  .tap,
+  main button,
+  [role='dialog'] button {
+    min-height: 2.5rem;
+  }
+  /* Icon-only buttons (edit, close) get room sideways too */
+  main button,
+  [role='dialog'] button {
+    min-width: 2.5rem;
+  }
+}
+
 @layer components {
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-400 focus-visible:ring-offset-2 focus-visible:ring-offset-paper disabled:cursor-not-allowed disabled:opacity-50;
