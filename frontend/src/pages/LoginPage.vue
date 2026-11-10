@@ -6,8 +6,10 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ApiError } from '@/api'
 import { useAuth } from '@/stores/auth'
+import { ArrowDownTrayIcon, ArrowRightIcon } from '@heroicons/vue/24/outline'
 import SaccoMark from '@/components/SaccoMark.vue'
 import PasswordInput from '@/components/PasswordInput.vue'
+import ThemeSwitch from '@/components/ThemeSwitch.vue'
 
 const auth = useAuth()
 const route = useRoute()
@@ -55,8 +57,16 @@ async function submitCode() {
   }
 }
 
-async function submit() {
+async function submit(e: Event) {
+  // A browser that filled the fields in by itself only hands the values over now, on the click
+  const form = e.target as HTMLFormElement
+  login.value ||= (form.elements.namedItem('login') as HTMLInputElement | null)?.value ?? ''
+  password.value ||= (form.elements.namedItem('password') as HTMLInputElement | null)?.value ?? ''
   error.value = ''
+  if (!login.value.trim() || !password.value) {
+    error.value = t('Enter your email or employee number, and your password.')
+    return
+  }
   busy.value = true
   try {
     needCode.value = await auth.login(login.value.trim(), password.value, otherSacco.value ? saccoCode.value.trim() : undefined, remember.value)
@@ -99,7 +109,14 @@ async function submit() {
     </section>
 
     <!-- Sign in -->
-    <section class="flex flex-col">
+    <section class="relative flex flex-col">
+      <!-- Language and light/dark, top right (over the photo band on phones) -->
+      <div class="absolute right-3 top-3 z-10 flex items-center gap-0.5 rounded-xl border border-line bg-surface/90 p-1 shadow-sm backdrop-blur sm:right-5 sm:top-5">
+        <LanguagePicker compact />
+        <span class="h-5 w-px bg-line" aria-hidden="true" />
+        <ThemeSwitch tone="light" />
+      </div>
+
       <!-- Phones: the photo as a band at the top -->
       <div class="relative h-48 overflow-hidden bg-navy-950 sm:h-60 lg:hidden">
         <img v-if="photo" :src="photo" alt="" class="absolute inset-0 h-full w-full object-cover object-[50%_35%]" />
@@ -113,10 +130,10 @@ async function submit() {
         </div>
       </div>
 
-      <div class="flex flex-1 items-start justify-center px-4 py-8 sm:py-12 lg:items-center">
+      <div class="flex flex-1 items-start justify-center px-4 pb-10 pt-8 sm:pt-12 lg:items-center lg:pt-16">
         <div class="w-full max-w-sm">
           <h1 class="text-3xl font-bold">{{ t('Welcome back') }}</h1>
-          <p class="mt-1 text-gray-600">Sign in to {{ auth.sacco?.name ?? 'your SACCO' }}.</p>
+          <p class="mt-1.5 text-gray-600">Sign in to {{ auth.sacco?.name ?? 'your SACCO' }}.</p>
 
           <form v-if="needCode" class="mt-8 space-y-4" novalidate @submit.prevent="submitCode">
             <div v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
@@ -129,43 +146,52 @@ async function submit() {
             <button type="button" class="w-full text-sm font-semibold text-gray-600 hover:text-ink" @click="needCode = false; code = ''; error = ''">Back</button>
           </form>
 
-          <form v-else class="mt-8 space-y-4" novalidate @submit.prevent="submit">
+          <form v-else class="mt-8 space-y-5" novalidate @submit.prevent="submit">
             <div v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
 
             <div v-if="otherSacco">
               <label for="sacco" class="label">SACCO code</label>
-              <input id="sacco" v-model="saccoCode" class="input" autocomplete="organization" placeholder="e.g. smacon" />
+              <input id="sacco" v-model="saccoCode" class="input py-2.5" autocomplete="organization" placeholder="e.g. smacon" />
             </div>
 
             <div>
               <label for="login" class="label">{{ t('Email or employee number') }}</label>
-              <input id="login" v-model="login" class="input py-2.5" autocomplete="username" autocapitalize="none" spellcheck="false" />
+              <input id="login" v-model="login" name="login" class="input py-2.5" autocomplete="username" autocapitalize="none" spellcheck="false" />
             </div>
 
             <div>
-              <label for="password" class="label">{{ t('Password') }}</label>
+              <div class="mb-1.5 flex items-baseline justify-between gap-3">
+                <label for="password" class="text-sm font-medium text-gray-700">{{ t('Password') }}</label>
+                <RouterLink
+                  :to="{ name: 'forgot-password', query: otherSacco && saccoCode ? { sacco: saccoCode } : {} }"
+                  class="text-sm font-semibold text-brand hover:underline"
+                >{{ t('Forgot password?') }}</RouterLink>
+              </div>
               <PasswordInput id="password" v-model="password" autocomplete="current-password" />
             </div>
 
-            <label class="flex items-start gap-2 text-sm text-gray-700">
-              <input v-model="remember" type="checkbox" class="mt-0.5 accent-brand" />
-              <span>{{ t('Keep me signed in on this phone') }}<span class="block text-xs text-gray-500">Members only, on your own phone. Office accounts always sign out after a while.</span></span>
+            <label class="flex cursor-pointer items-start gap-2.5 text-sm text-gray-700">
+              <input v-model="remember" type="checkbox" class="mt-0.5 h-4 w-4 accent-brand" />
+              <span>
+                {{ t('Keep me signed in on this phone') }}
+                <span class="block text-xs text-gray-500">On your own phone only. Office accounts always sign out after a while.</span>
+              </span>
             </label>
-            <button type="submit" class="btn-primary w-full py-3 text-base" :disabled="busy || !login || !password">
+
+            <button type="submit" class="btn-primary w-full py-3 text-base" :disabled="busy">
               {{ busy ? t('Signing in…') : t('Sign in') }}
             </button>
           </form>
 
-          <div class="mt-6 flex flex-wrap items-center gap-3">
-            <LanguagePicker />
-            <button v-if="canInstall" type="button" class="btn-secondary" @click="install">{{ t('Install the app') }}</button>
+          <div class="mt-8 border-t border-line pt-6">
+            <button v-if="canInstall" type="button" class="btn-secondary mb-4 w-full" @click="install">
+              <ArrowDownTrayIcon class="h-4 w-4" aria-hidden="true" />{{ t('Install the app') }}
+            </button>
+            <RouterLink :to="{ name: 'home' }" class="group inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-brand">
+              About the SACCO, rates and loan calculator
+              <ArrowRightIcon class="h-3.5 w-3.5 transition group-hover:translate-x-0.5" aria-hidden="true" />
+            </RouterLink>
           </div>
-
-          <p class="mt-6 text-sm text-gray-600">
-            <RouterLink :to="{ name: 'forgot-password', query: otherSacco && saccoCode ? { sacco: saccoCode } : {} }" class="font-semibold text-brand hover:underline">{{ t('Forgot your password?') }}</RouterLink>
-            We'll email you a link, or ask your SACCO office.
-          </p>
-          <RouterLink :to="{ name: 'home' }" class="mt-2 inline-block text-sm font-semibold text-brand hover:underline">About the SACCO, rates and loan calculator</RouterLink>
         </div>
       </div>
     </section>

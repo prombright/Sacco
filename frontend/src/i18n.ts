@@ -113,6 +113,8 @@ const LG: Record<string, string> = {
   'Save my new password': 'Tereka ekigambo kyange ekipya',
   'Password changed': 'Ekigambo ekyekusifu kikyusiddwa',
   'Send me a new link': 'Nsindikira link empya',
+  'Forgot password?': 'Weerabidde ekigambo ekyekusifu?',
+  'Enter your email or employee number, and your password.': "Wandiika email oba ennamba y'omukozi, n'ekigambo ekyekusifu.",
 }
 
 const SW: Record<string, string> = {
@@ -195,6 +197,8 @@ const SW: Record<string, string> = {
   'Save my new password': 'Hifadhi nenosiri langu jipya',
   'Password changed': 'Nenosiri limebadilishwa',
   'Send me a new link': 'Nitumie kiungo kipya',
+  'Forgot password?': 'Umesahau nenosiri?',
+  'Enter your email or employee number, and your password.': 'Andika barua pepe au namba ya mfanyakazi, na nenosiri lako.',
 }
 
 /** The member-side wording in the chosen language */

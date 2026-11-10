@@ -359,7 +359,7 @@ const loginTo = computed(() => (auth.user ? (auth.isAdmin ? '/office' : '/') : '
         <SaccoMark :sacco="auth.sacco" />
         <p>{{ name }} · {{ terms?.sacco.slogan }}</p>
         <p class="ml-auto">To join, visit the SACCO office.</p>
-        <div class="w-56"><ThemeSwitch class="!bg-navy-950" /></div>
+        <ThemeSwitch tone="light" label class="!w-auto" />
       </div>
     </footer>
   </div>

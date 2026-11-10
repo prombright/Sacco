@@ -255,8 +255,8 @@ async function signOut() {
 
       <!-- Theme, account, shrink -->
       <div class="shrink-0 space-y-2 border-t border-white/[0.07] p-3">
-        <ThemeSwitch v-if="wide" />
-        <ThemeSwitch v-else compact class="mx-auto flex" />
+        <ThemeSwitch v-if="wide" label />
+        <ThemeSwitch v-else class="mx-auto flex" />
 
         <div class="relative">
           <button

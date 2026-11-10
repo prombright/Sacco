@@ -50,7 +50,7 @@ async function change() {
           <RouterLink :to="{ name: 'dev-log' }" class="rounded-lg px-3 py-2 text-navy-100/80 hover:bg-white/10 hover:text-white" active-class="!bg-white/10 !text-white">Portal log</RouterLink>
         </nav>
         <div class="ml-auto flex items-center gap-1">
-          <ThemeSwitch compact />
+          <ThemeSwitch />
           <button type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-navy-100/80 hover:bg-white/10 hover:text-white" title="Change my password" aria-label="Change my password" @click="changing = true; done = false">
             <KeyIcon class="h-5 w-5" />
           </button>
