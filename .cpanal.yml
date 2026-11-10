@@ -1,0 +1,9 @@
+# cPanel Git Version Control: "Deploy HEAD Commit" runs these tasks on the live server.
+# The deploy script lives on the server (~/bin/deploy-staffsacco.sh): it builds the frontend,
+# copies backend/ and frontend/dist into https://staffsacco.stmark.sc.ug, keeps the server's own
+# files (backend/.env, backend/storage, .htaccess parts), backs up the databases and runs the
+# migrations. cPanel has already pulled, so the script does not pull again.
+---
+deployment:
+  tasks:
+    - /bin/bash "$HOME/bin/deploy-staffsacco.sh"
