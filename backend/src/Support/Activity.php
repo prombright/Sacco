@@ -91,6 +91,7 @@ final class Activity
             'settings.logo_removed' => 'removed the SACCO\'s logo',
             'password.reset_requested' => 'asked for a password reset link',
             'password.reset' => 'chose a new password with a reset link',
+            'password.reset_on_server' => 'had their password reset on the server (bin/reset-password.php)',
             'committee.added' => 'added a question for the committee: ' . ($d['topic'] ?? ''),
             'committee.changed' => 'changed the committee question "' . ($d['topic'] ?? '') . '"',
             'committee.decided' => 'recorded the committee\'s decision on ' . ($d['topic'] ?? '') . ': ' . ($d['decision'] ?? '')
