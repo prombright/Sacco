@@ -246,7 +246,7 @@ async function submit() {
           </li>
         </ul>
 
-        <MemberPicker :exclude="guarantors.map((g) => g.id)" placeholder="Add a guarantor: search by name or account number" @pick="addGuarantor" />
+        <MemberPicker :exclude="guarantors.map((g) => g.id)" placeholder="Type a name, or tap to pick" @pick="addGuarantor" />
 
         <div v-if="amountNumber > 0" class="text-sm">
           <div class="h-2 overflow-hidden rounded-full bg-gray-100" role="progressbar" :aria-valuenow="Math.min(100, Math.round((covered / (coverNeeded || 1)) * 100))" aria-valuemin="0" aria-valuemax="100">

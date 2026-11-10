@@ -818,10 +818,20 @@ final class LoanController
         Response::ok();
     }
 
-    /** GET /api/members/search?q= - active members to pick as guarantors (names only, never balances) */
+    /**
+     * GET /api/members/search?q= - active members to pick as guarantors (names only, never balances).
+     * ?all=1 lists every active member, A to Z, for someone who'd rather scroll and tap than type.
+     */
     public function searchMembers(Request $request): never
     {
         $q = $request->string('q');
+        if ($request->string('all') === '1') {
+            $stmt = Database::tenant()->prepare(
+                "SELECT id, full_name, account_no FROM users WHERE status = 'active' AND role = 'member' AND id <> ? ORDER BY full_name LIMIT 2000"
+            );
+            $stmt->execute([Auth::id()]);
+            Response::ok(['members' => array_map(fn ($m) => ['id' => (int) $m['id'], 'full_name' => $m['full_name'], 'account_no' => $m['account_no']], $stmt->fetchAll())]);
+        }
         if (mb_strlen($q) < 2) {
             Response::ok(['members' => []]);
         }
