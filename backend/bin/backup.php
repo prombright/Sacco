@@ -33,6 +33,8 @@ $databases = [(string) Config::get('PLATFORM_DB_NAME', 'sacco_platform')];
 foreach (Database::platform()->query('SELECT db_name FROM saccos') as $row) {
     $databases[] = $row['db_name'];
 }
+// With one database for everything, it's backed up once
+$databases = array_values(array_unique($databases));
 
 // The password goes in the environment, never on the command line where other users could see it
 putenv('MYSQL_PWD=' . Config::get('DB_PASS', ''));

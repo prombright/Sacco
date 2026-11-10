@@ -140,7 +140,7 @@ Never edit a SQL file that has been committed. Add a new numbered file
 
 ## Deploying (cPanel)
 
-1. Create the databases in cPanel (MySQL user with access to both), then set `backend/.env` on
+1. Create the database in cPanel (one is enough; see docs/DEPLOY.md), then set `backend/.env` on
    the server with `APP_ENV=production` and `APP_DEBUG=false`.
 2. Run `npm run build` (or `build:local` for a `/sacco/` subfolder) and upload `frontend/dist`.
 3. Run `php backend/bin/migrate.php` on the server.

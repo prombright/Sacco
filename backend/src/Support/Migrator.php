@@ -42,6 +42,7 @@ final class Migrator
      */
     public static function run(string $dbName, string $kind, ?callable $say = null): array
     {
+        self::assertUniqueNames();
         $db = Database::connect($dbName);
         $db->exec('CREATE TABLE IF NOT EXISTS schema_migrations (
             filename VARCHAR(190) NOT NULL PRIMARY KEY,
@@ -71,6 +72,31 @@ final class Migrator
             $say && $say("  applied $name");
         }
         return $applied;
+    }
+
+    /**
+     * The platform's own tables. With one database for everything (PLATFORM_DB_NAME is the
+     * SACCO's database too), these sit beside the SACCO's tables and stay out of its backups.
+     */
+    public const PLATFORM_TABLES = ['saccos', 'developers', 'platform_audit', 'login_throttle'];
+
+    /** True when the platform and this SACCO share one database */
+    public static function sharesPlatform(string $dbName): bool
+    {
+        return $dbName === (string) \Sacco\Config::get('PLATFORM_DB_NAME', 'sacco_platform');
+    }
+
+    /**
+     * Both kinds of update record their file name in schema_migrations, which one database can
+     * hold for both; so no platform file may share a name with a SACCO file.
+     */
+    private static function assertUniqueNames(): void
+    {
+        $platform = array_map('basename', glob(self::DIR . '/platform/*.sql'));
+        $tenant = array_map('basename', glob(self::DIR . '/tenant/*.sql'));
+        if ($same = array_intersect($platform, $tenant)) {
+            throw new \RuntimeException('These update files have the same name in database/platform and database/tenant: ' . implode(', ', $same) . '. Rename one of each.');
+        }
     }
 
     /** The update files a database hasn't had yet */

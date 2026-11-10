@@ -9,10 +9,10 @@ This puts SACCO on the St Mark's cPanel server (account `smacon`) at its own add
    `/home/smacon/sacco` (the repository folder itself; its `.htaccess` sends `/api` to PHP and
    everything else to the app, and keeps `backend/` private).
 2. **SSL**: SSL/TLS Status → run AutoSSL for the new subdomain. The site forces HTTPS.
-3. **MySQL databases** (MySQL Databases):
-   - create `smacon_saccoplat` (the list of SACCOs) and `smacon_saccosm` (SMACON's own data)
-   - create a user, e.g. `smacon_sacco`, with a long random password
-   - add the user to **both** databases with **All privileges**
+3. **MySQL database** (MySQL Databases): everything lives in **one** database.
+   - create `smacon_sacco`
+   - create a user, e.g. `smacon_saccouser`, with a long random password
+   - add the user to the database with **All privileges**
 4. **PHP version** (MultiPHP Manager): 8.2 or newer for the subdomain.
 
 ## 2. The code (over SSH, from the laptop)
@@ -32,9 +32,9 @@ Set in `.env`:
 APP_ENV=production
 APP_DEBUG=false
 DB_HOST=localhost
-DB_USER=smacon_sacco
+DB_USER=smacon_saccouser
 DB_PASS=<the password from step 1>
-PLATFORM_DB_NAME=smacon_saccoplat
+PLATFORM_DB_NAME=smacon_sacco
 DEFAULT_SACCO_CODE=smacon
 MYSQLDUMP_PATH=mysqldump
 APP_URL=https://sacco.stmark.sc.ug
@@ -58,11 +58,12 @@ MAIL_FROM_NAME=SMACON SACCO
 (`MAIL_DRIVER=mail` also works on most cPanel servers with no other settings, but those emails
 land in spam more often. Without email, messages still reach members inside the app.)
 
-Then create SMACON with its first super admin (prints a temporary password, once):
+Then create SMACON with its first super admin (prints a temporary password, once). `--db` is the
+same database as `PLATFORM_DB_NAME`, so the list of SACCOs and SMACON's data share it:
 
 ```
 php bin/create-sacco.php --code=smacon --name="SMACON SACCO" --short=SMACON \
-    --admin-name="<treasurer's name>" --admin-email=<their email> --db=smacon_saccosm
+    --admin-name="<treasurer's name>" --admin-email=<their email> --db=smacon_sacco
 php bin/migrate.php
 ```
 
