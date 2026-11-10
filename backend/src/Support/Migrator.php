@@ -83,7 +83,7 @@ final class Migrator
     /** True when the platform and this SACCO share one database */
     public static function sharesPlatform(string $dbName): bool
     {
-        return $dbName === (string) \Sacco\Config::get('PLATFORM_DB_NAME', 'sacco_platform');
+        return $dbName === (string) \Sacco\Config::get('PLATFORM_DB_NAME', 'sacco');
     }
 
     /**

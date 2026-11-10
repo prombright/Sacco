@@ -7,7 +7,7 @@ declare(strict_types=1);
  * first super admin (who gets a temporary password, printed once, to change at first login).
  *
  *   php backend/bin/create-sacco.php --code=smacon --name="SMACON SACCO" --short=SMACON \
- *       --admin-name="Jane Doe" --admin-email=jane@example.com [--db=sacco_smacon] [--domain=]
+ *       --admin-name="Jane Doe" --admin-email=jane@example.com [--db=sacco] [--domain=]
  *
  * On cPanel, create the database (and give the MySQL user access to it) in cPanel first and pass
  * its full name with --db.
@@ -36,7 +36,7 @@ try {
 } catch (\InvalidArgumentException $e) {
     exit($e->getMessage() . "
 
-Usage: php backend/bin/create-sacco.php --code=smacon --name=\"SMACON SACCO\" --admin-name=\"Jane Doe\" --admin-email=jane@example.com [--short=SMACON] [--db=sacco_smacon] [--domain=host] [--currency=UGX]
+Usage: php backend/bin/create-sacco.php --code=smacon --name=\"SMACON SACCO\" --admin-name=\"Jane Doe\" --admin-email=jane@example.com [--short=SMACON] [--db=sacco] [--domain=host] [--currency=UGX]
 ");
 }
 

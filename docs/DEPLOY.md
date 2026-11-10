@@ -58,12 +58,12 @@ MAIL_FROM_NAME=SMACON SACCO
 (`MAIL_DRIVER=mail` also works on most cPanel servers with no other settings, but those emails
 land in spam more often. Without email, messages still reach members inside the app.)
 
-Then create SMACON with its first super admin (prints a temporary password, once). `--db` is the
-same database as `PLATFORM_DB_NAME`, so the list of SACCOs and SMACON's data share it:
+Then create SMACON with its first super admin (prints a temporary password, once). Everything
+goes into the one database named in `PLATFORM_DB_NAME`:
 
 ```
 php bin/create-sacco.php --code=smacon --name="SMACON SACCO" --short=SMACON \
-    --admin-name="<treasurer's name>" --admin-email=<their email> --db=smacon_sacco
+    --admin-name="<treasurer's name>" --admin-email=<their email>
 php bin/migrate.php
 ```
 

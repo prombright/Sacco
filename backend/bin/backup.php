@@ -29,7 +29,7 @@ if (!is_dir($dir) && !mkdir($dir, 0700, true)) {
     exit("Can't create $dir\n");
 }
 
-$databases = [(string) Config::get('PLATFORM_DB_NAME', 'sacco_platform')];
+$databases = [(string) Config::get('PLATFORM_DB_NAME', 'sacco')];
 foreach (Database::platform()->query('SELECT db_name FROM saccos') as $row) {
     $databases[] = $row['db_name'];
 }

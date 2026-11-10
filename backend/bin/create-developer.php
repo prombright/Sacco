@@ -31,7 +31,7 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
 ");
 }
 
-$platform = (string) Config::get('PLATFORM_DB_NAME', 'sacco_platform');
+$platform = (string) Config::get('PLATFORM_DB_NAME', 'sacco');
 Migrator::ensureDatabase($platform);
 Migrator::run($platform, 'platform');
 

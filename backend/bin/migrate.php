@@ -22,7 +22,7 @@ use Sacco\Support\Migrator;
 
 $say = fn (string $line) => print($line . PHP_EOL);
 
-$platform = (string) Config::get('PLATFORM_DB_NAME', 'sacco_platform');
+$platform = (string) Config::get('PLATFORM_DB_NAME', 'sacco');
 Migrator::ensureDatabase($platform);
 $say("Platform ($platform)");
 Migrator::run($platform, 'platform', $say) ?: $say('  up to date');

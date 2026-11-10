@@ -44,7 +44,7 @@ final class Database
 
     public static function platform(): PDO
     {
-        return self::$platform ??= self::connect((string) Config::get('PLATFORM_DB_NAME', 'sacco_platform'));
+        return self::$platform ??= self::connect((string) Config::get('PLATFORM_DB_NAME', 'sacco'));
     }
 
     /** The current SACCO's database */

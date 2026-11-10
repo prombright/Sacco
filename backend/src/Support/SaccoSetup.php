@@ -33,15 +33,19 @@ final class SaccoSetup
         if ($name === '' || $adminName === '' || !filter_var($adminEmail, FILTER_VALIDATE_EMAIL)) {
             throw new \InvalidArgumentException('Give the SACCO a name, and its first super admin a name and a valid email.');
         }
-        $dbName = trim((string) ($o['db_name'] ?? '')) ?: 'sacco_' . str_replace('-', '_', $code);
+        // The platform database first, so the saccos table exists
+        $platform = (string) Config::get('PLATFORM_DB_NAME', 'sacco');
+        Migrator::ensureDatabase($platform);
+        Migrator::run($platform, 'platform');
+
+        // Everything in one database: the first SACCO shares the platform's; any later one gets
+        // its own unless a name is given
+        $taken = Database::platform()->prepare('SELECT 1 FROM saccos WHERE db_name = ?');
+        $taken->execute([$platform]);
+        $dbName = trim((string) ($o['db_name'] ?? '')) ?: ($taken->fetchColumn() ? 'sacco_' . str_replace('-', '_', $code) : $platform);
         if (!preg_match('/^[A-Za-z0-9_]{1,64}$/', $dbName)) {
             throw new \InvalidArgumentException('The database name may only use letters, digits and underscores.');
         }
-
-        // The platform database first, so the saccos table exists
-        $platform = (string) Config::get('PLATFORM_DB_NAME', 'sacco_platform');
-        Migrator::ensureDatabase($platform);
-        Migrator::run($platform, 'platform');
 
         $exists = Database::platform()->prepare('SELECT 1 FROM saccos WHERE code = ? OR db_name = ?');
         $exists->execute([$code, $dbName]);

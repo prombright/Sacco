@@ -149,7 +149,7 @@ final class DevController
             'saccos' => $rows,
             'totals' => $totals + ['saccos' => count($saccos), 'active_saccos' => count(array_filter($saccos, fn ($s) => $s['status'] === 'active'))],
             'funds' => array_map(fn ($p) => ['month' => $p['month'], 'value' => Money::toDecimal($p['value'])], array_values($trend)),
-            'pending_platform_updates' => count(Migrator::pending((string) Config::get('PLATFORM_DB_NAME', 'sacco_platform'), 'platform')),
+            'pending_platform_updates' => count(Migrator::pending((string) Config::get('PLATFORM_DB_NAME', 'sacco'), 'platform')),
             'recent' => $this->platformLog(null, 12),
         ]);
     }
