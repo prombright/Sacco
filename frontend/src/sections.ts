@@ -34,6 +34,7 @@ import {
   UserPlusIcon,
   UsersIcon,
   WalletIcon,
+  DocumentArrowUpIcon,
 } from '@heroicons/vue/24/outline'
 import type { Waiting } from '@/stores/office'
 import { formatMoney } from '@/money'
@@ -123,6 +124,7 @@ export const sections: Section[] = [
     items: [
       { name: 'deposit', label: 'Deposit', description: 'Cash or bank slips into savings or shares', icon: BanknotesIcon, needs: 'money', figure: (s) => `${formatMoney(s.deposits_month)} in ${month}` },
       { name: 'payroll', label: 'Payroll deductions', description: 'Upload the month\'s payroll file', icon: ArrowUpTrayIcon, also: ['payroll-batch'], figure: (s) => (s.last_payroll ? `Last: ${new Date(s.last_payroll + '-01').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}` : 'None posted yet') },
+      { name: 'transaction-import', label: 'Import transactions', description: 'Dated deposits, withdrawals and repayments from Excel', icon: DocumentArrowUpIcon, superOnly: true },
       { name: 'transfers', label: 'Internal transfers', description: 'Savings to shares, to a colleague, or to a loan', icon: ArrowsRightLeftIcon, figure: (s) => `${s.transfers_month} in ${month}` },
       { name: 'admin-withdrawals', label: 'Withdrawals', description: 'Requests to approve and cheques to issue', icon: InboxStackIcon, badge: (w) => w.withdrawals_to_approve + w.withdrawals_to_pay },
       { name: 'transactions', label: 'Transactions & reversals', description: 'Every entry, and putting mistakes right', icon: ArrowUturnLeftIcon, figure: (s) => `${s.transactions_month} entries in ${month}` },

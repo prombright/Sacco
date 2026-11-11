@@ -18,6 +18,7 @@ import { loanStatus } from '@/loans'
 import type { LoanStatus } from '@/types'
 import MonthChart from '@/components/MonthChart.vue'
 import CountUp from '@/components/CountUp.vue'
+import GoLiveCard from '@/components/GoLiveCard.vue'
 import DonutChart from '@/components/DonutChart.vue'
 import Sparkline from '@/components/Sparkline.vue'
 import { useTheme } from '@/stores/theme'
@@ -199,6 +200,8 @@ const money = (v: number) => formatMoney(String(v))
     </div>
 
     <div v-if="error" class="mt-6 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
+
+    <GoLiveCard v-if="auth.isSuperAdmin" class="mt-6" />
 
     <template v-if="data">
       <!-- Needs your attention -->

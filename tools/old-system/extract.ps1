@@ -3,6 +3,7 @@
 #
 #   $env:SMACON_MDB_PASSWORD = '...'
 #   .\extract.ps1 -Mdb 'C:\path\Accounts.mdb' -CutOff 2026-08-31 -OutDir 'C:\somewhere\data'
+#   then: node build.mjs (the opening files) and/or node catch-up.mjs (everything after the cut-off)
 param(
   [Parameter(Mandatory)] [string] $Mdb,
   [Parameter(Mandatory)] [string] $CutOff,
@@ -43,4 +44,7 @@ Save 'ledger' "SELECT MemberId, [Date] AS d, paydet, vno, [Cr OptSave]-[Db OptSa
 Save 'plan' 'SELECT MemberId, MLoan FROM mondata'
 Save 'loans' "SELECT MEMBERID, LOANID, TDATE, InterestRate, CurrentLoan FROM LoanInfo WHERE TDATE<=$cut"
 Save 'gl' "SELECT t.ACODE, MAX(i.ANAME) AS name, MAX(i.ATYPECD) AS type, SUM(IIF(t.TTYPE='D',t.AMOUNT,-t.AMOUNT)) AS net FROM TRANS t LEFT JOIN INIT i ON t.ACODE=i.ACODE WHERE t.[DATE]<=$cut GROUP BY t.ACODE"
+# After the cut-off: what happened since, for catch-up.mjs (Import transactions)
+Save 'since' "SELECT MemberId, [Date] AS d, paydet, vno, [Cr OptSave]-[Db OptSave] AS sv, [Cr share]-[Db share] AS sh, [Db Loan]-[Cr Loan] AS ln, [Db LoanInt]-[Cr LoanInt] AS li, [Cr SavingsInt]-[Db SavingsInt] AS si, ([Cr LPF]-[Db LPF])+([Cr Pension]-[Db Pension])+([Cr Penalty]-[Db Penalty]) AS ot, [Cr AnnualSub]-[Db AnnualSub] AS sb FROM transloan WHERE [Date]>$cut"
+Save 'loans_since' "SELECT MEMBERID, LOANID, TDATE, InterestRate, CurrentLoan FROM LoanInfo WHERE TDATE>$cut"
 $c.Close()

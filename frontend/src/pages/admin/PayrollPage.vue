@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ask } from '@/confirm'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import MoneyAccountSelect from '@/components/MoneyAccountSelect.vue'
 import { useRouter } from 'vue-router'
 import { api, ApiError } from '@/api'
 import { formatDate, formatMoney } from '@/money'
@@ -49,6 +50,16 @@ const router = useRouter()
 const today = new Date()
 const period = ref(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`)
 const valueDate = ref(today.toLocaleDateString('en-CA'))
+/** Where the deducted money sits: the bank, or Funds in transit until the employer pays it in */
+const moneyAccount = ref('')
+/** Catching up a past month: members aren't messaged about it */
+const quiet = ref(false)
+const thisMonth = period.value
+watch(period, (p) => {
+  quiet.value = p < thisMonth
+  // A past month is dated at its end, so repayments land on time
+  if (p < thisMonth) valueDate.value = new Date(Number(p.slice(0, 4)), Number(p.slice(5, 7)), 0).toLocaleDateString('en-CA')
+})
 
 const batches = ref<Batch[]>([])
 const fileName = ref('')
@@ -108,7 +119,7 @@ async function post() {
     if (!await ask(`A payroll for ${period.value} has already been posted. Post this one as well?`)) return
     confirmDuplicate = true
   }
-  if (!await ask(`Post ${report.value.posted_rows} members' deductions for ${period.value}?`)) return
+  if (!await ask(`Post ${report.value.posted_rows} members' deductions for ${period.value}, dated ${valueDate.value}${quiet.value ? ', without messaging members' : ''}?`)) return
   error.value = ''
   busy.value = true
   try {
@@ -118,6 +129,8 @@ async function post() {
       file_name: fileName.value,
       rows: rows.value,
       confirm_duplicate: confirmDuplicate,
+      money_account_id: moneyAccount.value || undefined,
+      quiet: quiet.value,
     })
     await router.push({ name: 'payroll-batch', params: { id: res.batch.id } })
   } catch (e) {
@@ -150,6 +163,11 @@ function reset() {
           <label for="vdate" class="label">Posting date</label>
           <input id="vdate" v-model="valueDate" type="date" :max="today.toLocaleDateString('en-CA')" class="input" />
         </div>
+        <MoneyAccountSelect id="p-money" v-model="moneyAccount" label="The money goes to" />
+        <label class="flex items-start gap-2 text-sm sm:col-span-3">
+          <input v-model="quiet" type="checkbox" class="mt-0.5 h-4 w-4 accent-brand" />
+          <span><span class="font-medium">Don't message members</span> <span class="text-gray-600">(for catching up a past month: their balances change, but nobody gets a message)</span></span>
+        </label>
       </div>
 
       <ol class="mt-5 space-y-3 text-sm">

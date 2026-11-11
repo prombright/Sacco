@@ -156,7 +156,7 @@ final class OfficeController
             'fees_not_charged' => (int) $one("SELECT COUNT(*) FROM users u WHERE u.role = 'member' AND u.status = 'active' AND NOT EXISTS (SELECT 1 FROM membership_fees f WHERE f.user_id = u.id AND f.kind = 'subscription' AND f.year = ?)", [$year]),
             'fee_set' => (float) Settings::get('subscription_fee_annual', '0') > 0,
             'members' => (int) $one("SELECT COUNT(*) FROM users WHERE role = 'member' AND status = 'active'"),
-            'last_payroll' => $one("SELECT period FROM payroll_batches WHERE status = 'posted' ORDER BY period DESC LIMIT 1") ?: null,
+            'last_payroll' => $one("SELECT period FROM payroll_batches WHERE kind = 'payroll' AND status = 'posted' ORDER BY period DESC LIMIT 1") ?: null,
             'active_loans' => (int) $one("SELECT COUNT(*) FROM loans WHERE status = 'active'"),
             'loans_outstanding' => Money::toDecimal($outstanding),
             'interest_month' => $money($one("SELECT COALESCE(SUM(interest), 0) FROM loan_installments i JOIN loans l ON l.id = i.loan_id WHERE l.status IN ('active', 'closed') AND i.due_date BETWEEN ? AND LAST_DAY(?)", [$month, $month])),

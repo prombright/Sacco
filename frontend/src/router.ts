@@ -54,6 +54,7 @@ const router = createRouter({
         { path: 'admin/loans', name: 'admin-loans', component: () => import('@/pages/admin/LoansAdminPage.vue'), meta: { admin: true, title: 'Loan applications' } },
         { path: 'withdrawals', name: 'withdrawals', component: () => import('@/pages/withdrawals/WithdrawalsPage.vue'), meta: { member: true, title: 'Withdraw savings' } },
         { path: 'admin/withdrawals', name: 'admin-withdrawals', component: () => import('@/pages/admin/WithdrawalsAdminPage.vue'), meta: { admin: true, title: 'Withdrawal requests' } },
+        { path: 'admin/transaction-import', name: 'transaction-import', component: () => import('@/pages/admin/TransactionImportPage.vue'), meta: { admin: true, title: 'Import transactions' } },
         { path: 'admin/payroll', name: 'payroll', component: () => import('@/pages/admin/PayrollPage.vue'), meta: { admin: true, title: 'Payroll uploads' } },
         { path: 'admin/payroll/:id(\\d+)', name: 'payroll-batch', component: () => import('@/pages/admin/PayrollBatchPage.vue'), meta: { admin: true, title: 'Payroll upload' } },
         { path: 'admin/investments', name: 'investments', component: () => import('@/pages/admin/InvestmentsPage.vue'), meta: { admin: true, title: 'Investments' } },

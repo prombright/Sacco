@@ -32,7 +32,7 @@ final class PayrollController
     public function members(Request $request): never
     {
         $db = Database::tenant();
-        $last = $db->query("SELECT id FROM payroll_batches WHERE status = 'posted' ORDER BY id DESC LIMIT 1")->fetchColumn() ?: 0;
+        $last = $db->query("SELECT id FROM payroll_batches WHERE kind = 'payroll' AND status = 'posted' ORDER BY id DESC LIMIT 1")->fetchColumn() ?: 0;
         $stmt = $db->prepare(
             "SELECT u.id, u.account_no, u.full_name, u.employee_no,
                     (SELECT SUM(t.amount) FROM transactions t WHERE t.batch_id = ? AND t.user_id = u.id AND t.account = 'savings' AND t.type = 'deposit') AS last_savings,
@@ -79,10 +79,17 @@ final class PayrollController
         Periods::check($valueDate);
         $fileName = mb_substr($request->string('file_name'), 0, 190) ?: null;
         $input = $this->rows($request);
+        // Bank by default; Funds in transit while the employer hasn't paid the deductions in yet
+        $moneyAccount = Periods::moneyAccount($request);
+        // Catching up old months: members aren't messaged
+        $quiet = (bool) $request->input('quiet', false);
+        @set_time_limit(300);
 
         $started = microtime(true);
         $posted = [];
-        $batchId = Database::transaction(function (\PDO $db) use ($period, $valueDate, $fileName, $input, $request, &$posted) {
+        Notify::$muted = $quiet;
+        try {
+        $batchId = Database::transaction(function (\PDO $db) use ($period, $valueDate, $fileName, $input, $request, $moneyAccount, $quiet, &$posted) {
             // Checked again inside the transaction: balances may have moved since the preview
             $rows = $this->check($input, $period);
             $posted = $rows;
@@ -94,12 +101,12 @@ final class PayrollController
                 Response::error("A payroll for $period has already been posted.", 409, ['report' => $report]);
             }
 
-            $db->prepare('INSERT INTO payroll_batches (period, file_name, row_count, total_savings, total_shares, total_loans, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)')
-                ->execute([$period, $fileName, $report['posted_rows'], $report['totals']['savings'], $report['totals']['shares'], $report['totals']['loan'], Auth::id()]);
+            $db->prepare('INSERT INTO payroll_batches (period, file_name, row_count, total_savings, total_shares, total_loans, money_account_id, quiet, first_date, last_date, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+                ->execute([$period, $fileName, $report['posted_rows'], $report['totals']['savings'], $report['totals']['shares'], $report['totals']['loan'], $moneyAccount, $quiet ? 1 : 0, $valueDate, $valueDate, Auth::id()]);
             $batchId = (int) $db->lastInsertId();
-            $meta = ['value_date' => $valueDate, 'reference' => "Payroll $period", 'batch_id' => $batchId];
+            $meta = ['value_date' => $valueDate, 'reference' => "Payroll $period", 'batch_id' => $batchId, 'money_account_id' => $moneyAccount];
 
-            $payment = $db->prepare('INSERT INTO loan_payments (loan_id, amount, paid_on, reference, batch_id, created_by) VALUES (?, ?, ?, ?, ?, ?)');
+            $payment = $db->prepare('INSERT INTO loan_payments (loan_id, amount, paid_on, reference, batch_id, money_account_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)');
             foreach ($rows as $r) {
                 if ($r['savings'] > 0) {
                     Ledger::post($db, $r['member_id'], 'savings', 'deposit', $r['savings'], $meta);
@@ -109,16 +116,19 @@ final class PayrollController
                 }
                 if ($r['loan'] > 0) {
                     $db->prepare('SELECT id FROM loans WHERE id = ? FOR UPDATE')->execute([$r['loan_id']]);
-                    $payment->execute([$r['loan_id'], Money::toDecimal($r['loan']), $valueDate, "Payroll $period", $batchId, Auth::id()]);
+                    $payment->execute([$r['loan_id'], Money::toDecimal($r['loan']), $valueDate, "Payroll $period", $batchId, $moneyAccount, Auth::id()]);
                     Loans::applyPayments($db, $r['loan_id']);
                 }
             }
             return $batchId;
         });
-        Audit::log('payroll.posted', 'payroll_batch', $batchId, ['period' => $period, 'seconds' => round(microtime(true) - $started, 2)]);
+        } finally {
+            Notify::$muted = false;
+        }
+        Audit::log('payroll.posted', 'payroll_batch', $batchId, ['period' => $period, 'quiet' => $quiet, 'seconds' => round(microtime(true) - $started, 2)]);
         // Each member hears what came off their pay and where it went
         $month = date('F Y', strtotime("$period-01"));
-        foreach ($posted as $r) {
+        foreach ($quiet ? [] : $posted as $r) {
             $parts = [];
             $r['savings'] > 0 && $parts[] = Notify::cents($r['savings']) . ' to your savings';
             $r['shares'] > 0 && $parts[] = Notify::cents($r['shares']) . ' to your shares';
@@ -136,7 +146,7 @@ final class PayrollController
     /** GET /api/payroll/batches */
     public function index(Request $request): never
     {
-        $ids = Database::tenant()->query('SELECT id FROM payroll_batches ORDER BY id DESC LIMIT 100')->fetchAll(\PDO::FETCH_COLUMN);
+        $ids = Database::tenant()->query("SELECT id FROM payroll_batches WHERE kind = 'payroll' ORDER BY id DESC LIMIT 100")->fetchAll(\PDO::FETCH_COLUMN);
         Response::ok(['batches' => array_map(fn ($id) => $this->batch((int) $id), $ids)]);
     }
 
@@ -188,9 +198,13 @@ final class PayrollController
             Response::error('Say why this upload is being reversed.', 422, ['reason' => 'Required']);
         }
 
-        Database::transaction(function (\PDO $db) use ($id, $reason) {
+        $quiet = (bool) ($batch['quiet'] ?? false);
+        $label = ($batch['kind'] ?? 'payroll') === 'transactions' ? 'Upload U' . str_pad((string) $id, 5, '0', STR_PAD_LEFT) : 'Payroll upload';
+        Notify::$muted = $quiet;
+        try {
+        Database::transaction(function (\PDO $db) use ($id, $reason, $label) {
             $db->prepare('SELECT id FROM payroll_batches WHERE id = ? FOR UPDATE')->execute([$id]);
-            $narration = "Payroll upload reversed: $reason";
+            $narration = "$label reversed: $reason";
 
             // Savings and shares entries (skipping any an admin already reversed one by one)
             $stmt = $db->prepare(
@@ -225,7 +239,13 @@ final class PayrollController
             $db->prepare("UPDATE payroll_batches SET status = 'reversed', reversed_by = ?, reversed_at = NOW(), reversal_reason = ? WHERE id = ?")
                 ->execute([Auth::id(), $reason, $id]);
         });
+        } finally {
+            Notify::$muted = false;
+        }
         Audit::log('payroll.reversed', 'payroll_batch', $id, ['reason' => $reason]);
+        if ($quiet) {
+            Response::ok(['batch' => $this->batch($id)]);
+        }
         $who = Database::tenant()->prepare(
             'SELECT user_id FROM transactions WHERE batch_id = ? UNION SELECT l.user_id FROM loan_payments p JOIN loans l ON l.id = p.loan_id WHERE p.batch_id = ?'
         );
@@ -406,7 +426,7 @@ final class PayrollController
                 $posted += ($r['savings'] + $r['shares'] + $r['loan']) > 0 ? 1 : 0;
             }
         }
-        $dup = Database::tenant()->prepare("SELECT COUNT(*) FROM payroll_batches WHERE period = ? AND status = 'posted'");
+        $dup = Database::tenant()->prepare("SELECT COUNT(*) FROM payroll_batches WHERE kind = 'payroll' AND period = ? AND status = 'posted'");
         $dup->execute([$period]);
 
         return [

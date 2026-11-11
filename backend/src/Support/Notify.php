@@ -21,8 +21,14 @@ final class Notify
     /** True while the system itself sends messages (the daily run), so none is signed by a person */
     public static bool $system = false;
 
+    /** True while catching up old records (a quiet upload): nobody is messaged about them */
+    public static bool $muted = false;
+
     public static function member(int $userId, string $kind, string $title, string $body, ?string $link = null): void
     {
+        if (self::$muted) {
+            return;
+        }
         // A copy goes to their email when they have one and haven't turned the copies off
         $email = self::emailOn($userId) && Mailer::enabled();
         Database::tenant()->prepare(
