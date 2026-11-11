@@ -1,4 +1,4 @@
-import type { CreditStanding } from '@/types'
+import type { CreditStanding, Loan } from '@/types'
 import type { LoanStatus } from '@/types'
 
 export const loanStatus: Record<LoanStatus, { label: string; style: string; dot: string; explain: string }> = {
@@ -41,4 +41,21 @@ export function creditSummary(c: CreditStanding): string {
   if (c.late) text += `, the longest delay ${c.worst_days} days`
   if (c.overdue_now) text += `; ${c.overdue_now} unpaid now`
   return text + '.'
+}
+
+/**
+ * A loan's money at a glance: what was borrowed, the interest on it, the total to repay, what's
+ * been paid and what's left. Before payout the interest comes from the expected schedule.
+ */
+export function loanFigures(loan: Loan) {
+  const p = loan.position
+  const borrowed = Number(loan.amount)
+  const interest = p ? Number(p.total_interest) : (loan.projected ?? []).reduce((sum, i) => sum + Number(i.interest), 0)
+  const total = borrowed + interest
+  const paid = p ? Number(p.paid) : 0
+  const left = p ? Number(p.total_left) : total
+  // Penalties still owed sit inside "left" but not in "total"
+  const penalties = p ? Number(p.charges_left) : 0
+  const percentPaid = total > 0 ? Math.min(100, Math.round((paid / total) * 100)) : 0
+  return { borrowed, interest, total, paid, left, penalties, percentPaid, known: !!p || !!loan.projected?.length }
 }

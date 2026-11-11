@@ -251,7 +251,6 @@ export interface LetterLoan {
   borrower_account_no: string | null
   guarantors?: { full_name: string; amount: string; status: string }[]
   installments?: { total?: string; principal: string; interest: string }[]
-  processing_fee_percent?: string
   /** A top-up: what went to clear the earlier loan */
   settled_amount?: string | null
 }
@@ -267,7 +266,7 @@ export async function downloadLoanLetter(l: LetterLoan, who: Who) {
   const first = l.installments?.[0]
   const instalment = first ? Number(first.principal) + Number(first.interest) : rate ? (amount * rate) / (1 - (1 + rate) ** -l.months) : amount / l.months
   const cleared = Number(l.settled_amount ?? 0)
-  const fee = Number(l.processing_fee) || Math.round((amount * Number(l.processing_fee_percent ?? 0)) / 100)
+  const fee = Number(l.processing_fee)
 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(10)

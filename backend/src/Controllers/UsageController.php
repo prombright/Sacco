@@ -17,7 +17,7 @@ final class UsageController
     private const AREAS = [
         'loan' => 'Loans', 'loan_product' => 'Loans', 'withdrawal' => 'Withdrawals', 'transaction' => 'Deposits & entries', 'payroll' => 'Payroll',
         'dividend' => 'Dividends', 'profit_share' => 'Dividends', 'investment' => 'Investments', 'cashbook' => 'Income & expenses', 'journal' => 'Journal entries',
-        'transfer' => 'Transfers', 'membership_fee' => 'Membership fees', 'bank_rec' => 'Bank reconciliation', 'user' => 'Member records', 'users' => 'Member records',
+        'transfer' => 'Transfers', 'membership_fee' => 'Membership and subscription', 'bank_rec' => 'Bank reconciliation', 'user' => 'Member records', 'users' => 'Member records',
         'next_of_kin' => 'Member records', 'member' => 'Member records', 'notice' => 'Notices', 'settings' => 'Rules', 'account' => 'Chart of accounts', 'password' => 'Passwords', 'two_step' => 'Two-step sign-in',
     ];
 

@@ -8,7 +8,7 @@ import type { NextOfKin } from '@/types'
  * Who receives a member's savings and shares if they die. Used by members on their profile and
  * by admins on a member's page. The shares must add up to 100%.
  */
-const props = defineProps<{ people: NextOfKin[]; saveUrl: string }>()
+const props = withDefaults(defineProps<{ people: NextOfKin[]; saveUrl: string; editable?: boolean }>(), { editable: true })
 const emit = defineEmits<{ saved: [people: NextOfKin[]] }>()
 
 const editing = ref(false)
@@ -53,9 +53,9 @@ function cancel() {
     <div class="flex items-start justify-between gap-3">
       <div>
         <h2 class="font-semibold">Next of kin</h2>
-        <p class="mt-1 text-sm text-gray-600">Who receives the savings and shares if the member dies.</p>
+        <p class="mt-1 text-sm text-gray-600">Who receives the savings and shares if anything happens to the member, and what share each gets. Add as many people as needed; the shares must add up to 100%.</p>
       </div>
-      <button v-can="'members'" v-if="!editing" type="button" class="btn-secondary px-3 py-1.5" @click="editing = true; rows.length || add()">{{ people.length ? 'Change' : 'Add' }}</button>
+      <button v-if="editable && !editing" type="button" class="btn-secondary px-3 py-1.5" @click="editing = true; rows.length || add()">{{ people.length ? 'Change' : 'Add' }}</button>
     </div>
 
     <template v-if="!editing">

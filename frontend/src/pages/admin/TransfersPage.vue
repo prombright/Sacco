@@ -32,6 +32,7 @@ const kinds = [
   { key: 'own_shares', label: 'Savings → own shares', hint: 'Buy shares with savings', from: 'savings', to: 'shares', other: false },
   { key: 'member', label: 'Savings → another member', hint: 'Into a colleague\'s savings or shares', from: 'savings', to: 'savings', other: true },
   { key: 'shares', label: 'Shares → another member', hint: 'Sell shares to a colleague', from: 'shares', to: 'shares', other: true },
+  { key: 'shares_savings', label: 'Shares → own savings', hint: 'Turn shares above the minimum back into savings', from: 'shares', to: 'savings', other: false },
   { key: 'loan', label: 'Savings → a loan', hint: 'Repay a loan from savings', from: 'savings', to: 'loan', other: false },
 ] as const
 const kind = ref<(typeof kinds)[number]['key']>('own_shares')
@@ -143,7 +144,7 @@ const byId = (id: unknown) => list.value?.transfers.find((t) => t.id === id)
     <p class="mt-1 max-w-3xl text-gray-600">Move money between accounts without cash. The same rules as a withdrawal apply: the minimum savings stay, pledged savings stay, and members keep their minimum shares.</p>
 
     <section v-can="'money'" class="card mt-5 p-5">
-      <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-4" role="radiogroup" aria-label="Kind of transfer">
+      <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-5" role="radiogroup" aria-label="Kind of transfer">
         <button
           v-for="k in kinds"
           :key="k.key"
@@ -185,7 +186,7 @@ const byId = (id: unknown) => list.value?.transfers.find((t) => t.id === id)
             </div>
             <MemberPicker v-else placeholder="Search the member receiving it" :exclude="from ? [from.id] : []" @pick="(m) => (to = m)" />
           </template>
-          <p v-else-if="kind === 'own_shares'" class="rounded-xl border border-dashed border-line p-3 text-sm text-gray-600">Into {{ from ? from.full_name + '\'s' : 'the same member\'s' }} shares</p>
+          <p v-else-if="kind === 'own_shares' || kind === 'shares_savings'" class="rounded-xl border border-dashed border-line p-3 text-sm text-gray-600">Into {{ from ? from.full_name + '\'s' : 'the same member\'s' }} {{ chosen.to }}</p>
           <div v-if="kind === 'member'" class="flex gap-2 text-sm">
             <label v-for="a in ['savings', 'shares']" :key="a" class="flex items-center gap-1.5"><input v-model="form.to_account" type="radio" :value="a" class="accent-brand" />Their {{ a }}</label>
           </div>

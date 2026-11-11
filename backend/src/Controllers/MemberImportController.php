@@ -12,13 +12,14 @@ use Sacco\Http\Response;
 use Sacco\Support\Audit;
 use Sacco\Support\Ledger;
 use Sacco\Support\Money;
+use Sacco\Support\Settings;
 
 /**
  * Bringing in many members at once from Excel, usually when the SACCO starts on this system:
  * each row becomes a member with a temporary password, and their savings and share balances
  * from the old records become opening balances. Checked first; saved all together or not at all.
  *
- * Rows: { row, full_name, email, employee_no, account_no, phone, joined_on, savings, shares }
+ * Rows: { row, full_name, email, employee_no, account_no, phone, gender, joined_on, balances_on, savings, shares, membership_paid, subscription_paid }
  */
 final class MemberImportController
 {
@@ -33,6 +34,8 @@ final class MemberImportController
     /** POST /api/members/import { rows } - returns each new member's login and temporary password, once */
     public function import(Request $request): never
     {
+        // A whole SACCO arrives at once: give it time on a slower server
+        @set_time_limit(300);
         $input = $this->rows($request);
         $created = Database::transaction(function (\PDO $db) use ($input) {
             $rows = $this->check($input);
@@ -41,19 +44,20 @@ final class MemberImportController
                 Response::error('Some rows have problems. Fix them in the file and upload it again.', 422, ['report' => $report]);
             }
             $insert = $db->prepare(
-                "INSERT INTO users (full_name, email, employee_no, account_no, joined_on, phone, role, status, source, password_hash, must_change_password, created_by)
-                 VALUES (?, ?, ?, ?, ?, ?, 'member', 'active', 'manual', ?, 1, ?)"
+                "INSERT INTO users (full_name, email, employee_no, account_no, joined_on, phone, gender, role, status, source, password_hash, must_change_password, created_by)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, 'member', 'active', 'manual', ?, 1, ?)"
             );
             $created = [];
             foreach ($rows as $r) {
                 $temporary = Passwords::temporary();
-                $insert->execute([$r['full_name'], $r['email'], $r['employee_no'], $r['account_no'], $r['joined_on'], $r['phone'], Passwords::hash($temporary), Auth::id()]);
+                $insert->execute([$r['full_name'], $r['email'], $r['employee_no'], $r['account_no'], $r['joined_on'], $r['phone'], $r['gender'], Passwords::hashTemporary($temporary), Auth::id()]);
                 $id = (int) $db->lastInsertId();
                 if ($r['account_no'] === null) {
                     $r['account_no'] = 'M' . str_pad((string) $id, 5, '0', STR_PAD_LEFT);
                     $db->prepare('UPDATE users SET account_no = ? WHERE id = ?')->execute([$r['account_no'], $id]);
                 }
-                $meta = ['value_date' => $r['joined_on'] ?? date('Y-m-d'), 'reference' => 'Opening balance', 'narration' => 'Brought in from the old records'];
+                $meta = ['value_date' => $r['balances_on'] ?? $r['joined_on'] ?? date('Y-m-d'), 'reference' => 'Opening balance', 'narration' => 'Brought in from the old records'];
+                $this->paidBefore($db, $id, $r);
                 foreach (['savings', 'shares'] as $account) {
                     if ($r[$account] > 0) {
                         Ledger::post($db, $id, $account, 'opening_balance', $r[$account], $meta);
@@ -111,7 +115,11 @@ final class MemberImportController
                 'employee_no' => $text('employee_no'),
                 'account_no' => $text('account_no'),
                 'phone' => $text('phone'),
+                'gender' => match (strtolower(substr($text('gender') ?? '', 0, 1))) { 'f' => 'female', 'm' => 'male', default => null },
                 'joined_on' => null,
+                'balances_on' => null,
+                'membership_paid' => in_array(strtolower($text('membership_paid') ?? ''), ['yes', 'y', '1', 'paid'], true),
+                'subscription_paid' => (int) ($text('subscription_paid') ?? 0),
                 'savings' => 0,
                 'shares' => 0,
                 'errors' => [],
@@ -151,6 +159,15 @@ final class MemberImportController
                     $r['joined_on'] = $date;
                 }
             }
+            $balancesOn = $text('balances_on');
+            if ($balancesOn) {
+                $date = self::date($balancesOn);
+                if (!$date || $date > date('Y-m-d')) {
+                    $r['errors'][] = "\"$balancesOn\" isn't a date we can use for the balances.";
+                } else {
+                    $r['balances_on'] = $date;
+                }
+            }
             foreach (['savings', 'shares'] as $k) {
                 $v = $text($k);
                 if ($v === null) {
@@ -166,6 +183,19 @@ final class MemberImportController
             $out[] = $r;
         }
         return $out;
+    }
+
+    /** Fees the old records show as already paid, so nobody is charged them twice. Not new income: the old books hold it. */
+    private function paidBefore(\PDO $db, int $id, array $r): void
+    {
+        $on = $r['balances_on'] ?? date('Y-m-d');
+        $insert = $db->prepare("INSERT INTO membership_fees (user_id, kind, year, amount, status, method, paid_on, note, created_by) VALUES (?, ?, ?, ?, 'paid', 'old_system', ?, 'Paid before this system', ?)");
+        if ($r['membership_paid']) {
+            $insert->execute([$id, 'membership', (int) substr($on, 0, 4), Settings::get('membership_fee_once', '0'), $on, Auth::id()]);
+        }
+        if ($r['subscription_paid'] >= 2000) {
+            $insert->execute([$id, 'subscription', $r['subscription_paid'], Settings::get('subscription_fee_annual', '0'), $on, Auth::id()]);
+        }
     }
 
     /** Dates as Excel or people write them: 2019-02-01, 01/02/2019 (day first), 1 Feb 2019 */

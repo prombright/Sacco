@@ -22,7 +22,9 @@ use Sacco\Controllers\PasswordResetController;
 use Sacco\Controllers\PhotoController;
 use Sacco\Controllers\PublicController;
 use Sacco\Controllers\LoanController;
+use Sacco\Controllers\LoanSecurityController;
 use Sacco\Controllers\MemberImportController;
+use Sacco\Controllers\OldSystemImportController;
 use Sacco\Controllers\MembershipFeeController;
 use Sacco\Controllers\OfficeController;
 use Sacco\Controllers\ReceiptController;
@@ -97,6 +99,9 @@ $router->get('/api/loans', [LoanController::class, 'index'], $admins);
 $router->post('/api/loans/{id}/approve', [LoanController::class, 'approve'], $edit('loans'));
 $router->post('/api/loans/{id}/reject', [LoanController::class, 'reject'], $edit('loans'));
 $router->post('/api/loans/{id}/disburse', [LoanController::class, 'disburse'], $edit('loans'));
+$router->post('/api/loans/{id}/securities', [LoanSecurityController::class, 'store'], $edit('loans'));
+$router->post('/api/loans/{id}/securities/{sid}/return', [LoanSecurityController::class, 'markReturned'], $edit('loans'));
+$router->delete('/api/loans/{id}/securities/{sid}', [LoanSecurityController::class, 'destroy'], $edit('loans'));
 $router->post('/api/loans/{id}/payments', [LoanController::class, 'recordPayment'], $edit('loans'));
 $router->get('/api/loans/{id}/payment-preview', [LoanController::class, 'previewPayment'], $admins);
 $router->post('/api/loan-payments/{id}/reverse', [LoanController::class, 'reversePayment'], $edit('loans'));
@@ -133,6 +138,13 @@ $router->post('/api/members/import', [MemberImportController::class, 'import'], 
 
 // Dividends on share capital; payouts are made by the super admin
 $super = ['roles' => [Roles::SUPER_ADMIN]];
+
+// Bringing a SACCO in from its old accounting system
+$router->post('/api/old-system/history', [OldSystemImportController::class, 'history'], $super);
+$router->post('/api/old-system/{kind}/preview', [OldSystemImportController::class, 'preview'], $super);
+$router->post('/api/old-system/{kind}', [OldSystemImportController::class, 'import'], $super);
+$router->get('/api/me/old-history', [OldSystemImportController::class, 'myHistory'], $members);
+$router->get('/api/members/{id}/old-history', [OldSystemImportController::class, 'memberHistory'], $admins);
 $router->post('/api/dividends/preview', [DividendController::class, 'preview'], $admins);
 $router->get('/api/dividends', [DividendController::class, 'index'], $admins);
 $router->post('/api/dividends', [DividendController::class, 'post'], $super);

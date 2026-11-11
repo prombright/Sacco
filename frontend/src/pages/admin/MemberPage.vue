@@ -11,6 +11,7 @@ import { useAuth } from '@/stores/auth'
 import type { Account, Balances, NextOfKin, Page, Transaction, User } from '@/types'
 import { formatMoney } from '@/money'
 import MemberDetails from '@/components/MemberDetails.vue'
+import OldHistory from '@/components/OldHistory.vue'
 import NextOfKinEditor from '@/components/NextOfKinEditor.vue'
 import Modal from '@/components/Modal.vue'
 import UserForm from './UserForm.vue'
@@ -174,7 +175,7 @@ function certificate() {
 
       <div class="mt-8 grid gap-6 lg:grid-cols-2">
         <MemberDetails :user="member" />
-        <NextOfKinEditor :people="kin" :save-url="`/members/${member.id}/next-of-kin`" @saved="kin = $event" />
+        <NextOfKinEditor :people="kin" :save-url="`/members/${member.id}/next-of-kin`" :editable="auth.can('members')" @saved="kin = $event" />
       </div>
 
       <section v-if="member.status !== 'left' && !isSelf" class="mt-8 rounded-2xl border border-red-200 bg-red-50/40 p-5">
@@ -182,6 +183,7 @@ function certificate() {
         <p class="mt-1 text-sm text-gray-700">When a member leaves the SACCO: pays out their savings and shares by cheque and marks them as left. They must owe nothing and guarantee nobody first.</p>
         <button type="button" class="btn-secondary mt-3" @click="openExit">Close membership…</button>
       </section>
+      <OldHistory :url="`/members/${member.id}/old-history`" />
       </template>
     </template>
 

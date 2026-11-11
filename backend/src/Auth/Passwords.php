@@ -39,6 +39,15 @@ final class Passwords
     }
 
     /**
+     * A one-time temporary password, hashed more cheaply so a bulk import of hundreds of members
+     * finishes in seconds (it is random, and replaced at first sign-in with a fully hashed one).
+     */
+    public static function hashTemporary(string $password): string
+    {
+        return password_hash($password, PASSWORD_BCRYPT, ['cost' => 8]);
+    }
+
+    /**
      * What's wrong with a new password, or null if it's fine.
      *
      * @param string[] $previousHashes this user's current and recent password hashes

@@ -68,7 +68,7 @@ final class TransactionController
              AND NOT EXISTS (SELECT 1 FROM transactions r WHERE r.reversal_of = t.id)"
         );
         $savedThisYear->execute([$id, date('Y-01-01')]);
-        $fee = $db->prepare('SELECT year, amount, status, method, paid_on FROM membership_fees WHERE user_id = ? AND year = ?');
+        $fee = $db->prepare('SELECT year, amount, status, method, paid_on FROM membership_fees WHERE user_id = ? AND kind = \'subscription\' AND year = ?');
         $fee->execute([$id, (int) date('Y')]);
         $requests = $db->prepare("SELECT COUNT(*) FROM loan_guarantors g JOIN loans l ON l.id = g.loan_id WHERE g.guarantor_id = ? AND g.status = 'pending' AND l.status = 'pending_guarantors'");
         $requests->execute([$id]);
@@ -103,6 +103,11 @@ final class TransactionController
             'loan_wait_reason' => Loans::borrowerWaitReason($db, $id),
             'saved_this_year' => Money::toDecimal(Money::fromDecimal($savedThisYear->fetchColumn())),
             'membership_fee' => $fee->fetch() ?: null,
+            'joining_fee' => (function () use ($db, $id) {
+                $once = $db->prepare("SELECT amount, status FROM membership_fees WHERE user_id = ? AND kind = 'membership' ORDER BY id DESC LIMIT 1");
+                $once->execute([$id]);
+                return $once->fetch() ?: null;
+            })(),
             'trend' => [
                 'savings' => OfficeController::fundsTrend($db, $id, 'savings'),
                 'shares' => OfficeController::fundsTrend($db, $id, 'shares'),

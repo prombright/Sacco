@@ -5,6 +5,7 @@ import type { Account, Page, Transaction } from '@/types'
 import AccountTabs from '@/components/AccountTabs.vue'
 import TransactionList from '@/components/TransactionList.vue'
 import Pager from '@/components/Pager.vue'
+import OldHistory from '@/components/OldHistory.vue'
 
 const account = ref<Account>('savings')
 const page = ref(1)
@@ -42,5 +43,6 @@ load()
       <TransactionList :transactions="data?.transactions ?? []" />
     </div>
     <Pager v-if="data" :page="data.page" :per-page="data.per_page" :total="data.total" @go="page = $event" />
+    <OldHistory url="/me/old-history" />
   </div>
 </template>

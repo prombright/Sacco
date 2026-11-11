@@ -40,6 +40,7 @@ const router = createRouter({
       children: [
         { path: '', name: 'dashboard', component: () => import('@/pages/DashboardPage.vue'), meta: { member: true, title: 'My dashboard' } },
         { path: 'office', name: 'overview', component: () => import('@/pages/admin/OverviewPage.vue'), meta: { admin: true, title: 'Dashboard' } },
+        { path: 'members/import-old', name: 'old-system-import', component: () => import('@/pages/admin/OldSystemImportPage.vue'), meta: { admin: true, title: 'Bring in the old system' } },
         { path: 'members/import', name: 'member-import', component: () => import('@/pages/admin/MemberImportPage.vue'), meta: { admin: true, title: 'Import members' } },
         { path: 'messages', name: 'messages', component: () => import('@/pages/MessagesPage.vue'), meta: { title: 'Messages' } },
         { path: 'admin/committee', name: 'committee', component: () => import('@/pages/admin/CommitteePage.vue'), meta: { admin: true, title: 'Committee decisions' } },

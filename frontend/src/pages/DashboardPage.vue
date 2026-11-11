@@ -57,6 +57,7 @@ interface Summary {
   loan_wait_reason: string | null
   saved_this_year: string
   membership_fee: { year: number; amount: string; status: 'unpaid' | 'paid' | 'waived'; method: string | null; paid_on: string | null } | null
+  joining_fee: { amount: string; status: 'unpaid' | 'paid' | 'waived' } | null
   trend: { savings: { month: string; value: string }[]; shares: { month: string; value: string }[] }
 }
 
@@ -189,8 +190,12 @@ const actions = computed(() => [
     >
       <span class="flex items-center gap-3">
         <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-white"><IdentificationIcon class="h-5 w-5" aria-hidden="true" /></span>
-        <span>Your <strong class="font-semibold">{{ data.membership_fee.year }} membership fee</strong> of {{ formatMoney(data.membership_fee.amount) }} is due. The office can take it from your savings, or pay it at the office.</span>
+        <span>Your <strong class="font-semibold">{{ data.membership_fee.year }} subscription</strong> of {{ formatMoney(data.membership_fee.amount) }} is due. The office can take it from your savings, or pay it at the office.</span>
       </span>
+    </div>
+
+    <div v-if="data?.joining_fee?.status === 'unpaid'" class="mt-3 rounded-2xl border border-navy-100 bg-navy-50/60 px-4 py-3 text-sm">
+      Your <strong class="font-semibold">membership fee</strong> of {{ formatMoney(data.joining_fee.amount) }} is due. It is paid once. The office can take it from your savings, or pay it at the office.
     </div>
 
     <template v-if="data">

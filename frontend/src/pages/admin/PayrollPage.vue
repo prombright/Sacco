@@ -15,6 +15,9 @@ interface CheckedRow {
   savings: string
   shares: string
   loan: string
+  principal: string
+  interest: string
+  total: string
   loan_no: string | null
   errors: string[]
   warnings: string[]
@@ -26,7 +29,7 @@ interface Report {
   posted_rows: number
   error_count: number
   warning_count: number
-  totals: { savings: string; shares: string; loan: string }
+  totals: { savings: string; shares: string; loan: string; principal: string; interest: string; total: string }
   duplicate_period: boolean
 }
 interface Batch {
@@ -134,7 +137,7 @@ function reset() {
 <template>
   <div>
     <h1 class="text-xl font-semibold">Payroll uploads</h1>
-    <p class="mt-1 text-sm text-gray-600">Post the month's savings, shares and loan deductions for everyone at once.</p>
+    <p class="mt-1 text-sm text-gray-600">Post the month's deductions for everyone at once: loan principal and interest, savings, shares, and the total taken from each person's pay.</p>
 
     <section class="card mt-5 p-5">
       <h2 class="font-semibold">New upload</h2>
@@ -152,7 +155,7 @@ function reset() {
       <ol class="mt-5 space-y-3 text-sm">
         <li class="flex flex-wrap items-center gap-3">
           <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-900 text-xs font-semibold text-white">1</span>
-          <span>Download the template: every active member, filled in with last month's amounts and loan instalments.</span>
+          <span>Download the template: every active member, filled in with this month's loan principal and interest, last month's savings and shares, and each person's total.</span>
           <button type="button" class="btn-secondary px-3 py-1.5" @click="template">Download template</button>
         </li>
         <li class="flex flex-wrap items-center gap-3">
@@ -174,10 +177,11 @@ function reset() {
           <button type="button" class="btn-ghost px-2 py-1" @click="reset">Start again</button>
         </div>
 
-        <div class="mt-3 grid gap-3 sm:grid-cols-4">
+        <div class="mt-3 grid gap-3 sm:grid-cols-5">
           <div class="rounded-lg bg-gray-50 p-3"><p class="text-xs text-gray-600">Savings</p><p class="font-semibold tabular-nums">{{ formatMoney(report.totals.savings) }}</p></div>
           <div class="rounded-lg bg-gray-50 p-3"><p class="text-xs text-gray-600">Shares</p><p class="font-semibold tabular-nums">{{ formatMoney(report.totals.shares) }}</p></div>
-          <div class="rounded-lg bg-gray-50 p-3"><p class="text-xs text-gray-600">Loan repayments</p><p class="font-semibold tabular-nums">{{ formatMoney(report.totals.loan) }}</p></div>
+          <div class="rounded-lg bg-gray-50 p-3"><p class="text-xs text-gray-600">Loan repayments</p><p class="font-semibold tabular-nums">{{ formatMoney(report.totals.loan) }}</p><p v-if="Number(report.totals.principal) || Number(report.totals.interest)" class="text-xs text-gray-500">{{ formatMoney(report.totals.principal) }} principal · {{ formatMoney(report.totals.interest) }} interest</p></div>
+          <div class="rounded-lg bg-navy-50 p-3"><p class="text-xs text-gray-600">Total deducted</p><p class="font-semibold tabular-nums">{{ formatMoney(report.totals.total) }}</p></div>
           <div class="rounded-lg p-3" :class="report.error_count ? 'bg-red-50' : 'bg-green-50'">
             <p class="text-xs" :class="report.error_count ? 'text-red-700' : 'text-green-800'">{{ report.error_count ? 'Must fix' : 'Ready' }}</p>
             <p class="font-semibold" :class="report.error_count ? 'text-red-700' : 'text-green-800'">
@@ -201,9 +205,11 @@ function reset() {
                 <th class="px-3 py-2">Row</th>
                 <th class="px-3 py-2">Account</th>
                 <th class="px-3 py-2">Member</th>
+                <th class="px-3 py-2 text-right">Principal</th>
+                <th class="px-3 py-2 text-right">Interest</th>
                 <th class="px-3 py-2 text-right">Savings</th>
                 <th class="px-3 py-2 text-right">Shares</th>
-                <th class="px-3 py-2 text-right">Loan</th>
+                <th class="px-3 py-2 text-right">Total</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -212,13 +218,15 @@ function reset() {
                   <td class="px-3 py-2 text-gray-500">{{ r.row }}</td>
                   <td class="px-3 py-2 font-mono">{{ r.account_no }}</td>
                   <td class="px-3 py-2">{{ r.member_name ?? r.name }}</td>
+                  <td class="px-3 py-2 text-right tabular-nums">{{ Number(r.principal) ? formatMoney(r.principal) : (Number(r.loan) && !Number(r.interest) ? formatMoney(r.loan) : '') }}<span v-if="r.loan_no" class="block text-xs text-gray-500">{{ r.loan_no }}</span></td>
+                  <td class="px-3 py-2 text-right tabular-nums">{{ Number(r.interest) ? formatMoney(r.interest) : '' }}</td>
                   <td class="px-3 py-2 text-right tabular-nums">{{ Number(r.savings) ? formatMoney(r.savings) : '' }}</td>
                   <td class="px-3 py-2 text-right tabular-nums">{{ Number(r.shares) ? formatMoney(r.shares) : '' }}</td>
-                  <td class="px-3 py-2 text-right tabular-nums">{{ Number(r.loan) ? formatMoney(r.loan) : '' }}<span v-if="r.loan_no" class="block text-xs text-gray-500">{{ r.loan_no }}</span></td>
+                  <td class="px-3 py-2 text-right font-semibold tabular-nums">{{ Number(r.total) ? formatMoney(r.total) : '' }}</td>
                 </tr>
                 <tr v-if="r.errors.length || r.warnings.length" :class="{ 'bg-red-50/50': r.errors.length }">
                   <td></td>
-                  <td colspan="5" class="px-3 pb-2 text-xs">
+                  <td colspan="7" class="px-3 pb-2 text-xs">
                     <p v-for="m in r.errors" :key="m" class="text-red-700">✕ {{ m }}</p>
                     <p v-for="m in r.warnings" :key="m" class="text-amber-800">! {{ m }}</p>
                   </td>

@@ -30,9 +30,9 @@ final class ProductController
         $data = $this->validated($request);
         $db = Database::tenant();
         $db->prepare(
-            'INSERT INTO loan_products (name, description, interest_rate_monthly, max_months, savings_multiplier, processing_fee_percent, min_guarantors, guarantee_cover_percent,
+            'INSERT INTO loan_products (name, description, interest_rate_monthly, max_months, savings_multiplier, processing_fee, processing_fee_type, processing_fee_percent, processing_fee_bands, min_guarantors, guarantee_cover_percent,
                 min_amount, max_amount, min_member_months, max_open, open_months, allow_top_up)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         )->execute(array_values($data));
         $id = (int) $db->lastInsertId();
         Audit::log('loan_product.created', 'loan_product', $id, $data);
@@ -48,7 +48,7 @@ final class ProductController
         $status = in_array($request->string('status'), ['active', 'archived'], true) ? $request->string('status') : $before['status'];
         Database::tenant()->prepare(
             'UPDATE loan_products SET name = ?, description = ?, interest_rate_monthly = ?, max_months = ?, savings_multiplier = ?,
-                processing_fee_percent = ?, min_guarantors = ?, guarantee_cover_percent = ?,
+                processing_fee = ?, processing_fee_type = ?, processing_fee_percent = ?, processing_fee_bands = ?, min_guarantors = ?, guarantee_cover_percent = ?,
                 min_amount = ?, max_amount = ?, min_member_months = ?, max_open = ?, open_months = ?, allow_top_up = ?, status = ? WHERE id = ?'
         )->execute([...array_values($data), $status, $id]);
         Audit::log('loan_product.updated', 'loan_product', $id, ['before' => $before, 'after' => $data + ['status' => $status]]);
@@ -92,10 +92,38 @@ final class ProductController
             'interest_rate_monthly' => $decimal('interest_rate_monthly', 0, 10, 'Interest between 0% and 10% a month.'),
             'max_months' => $int('max_months', 1, 120, 'Between 1 and 120 months.'),
             'savings_multiplier' => $decimal('savings_multiplier', 0.1, 20, 'Between 0.1 and 20 times savings.'),
-            'processing_fee_percent' => $decimal('processing_fee_percent', 0, 20, 'A fee between 0% and 20%.'),
+            'processing_fee' => $decimal('processing_fee', 0, 100000000, 'Enter the fee for each loan, or 0.'),
+            'processing_fee_type' => in_array($request->string('processing_fee_type'), ['flat', 'percent', 'bands'], true) ? $request->string('processing_fee_type') : 'flat',
+            'processing_fee_percent' => $decimal('processing_fee_percent', 0, 20, 'A percentage between 0 and 20.'),
+            'processing_fee_bands' => null,
             'min_guarantors' => $int('min_guarantors', 0, 10, 'Between 0 and 10 guarantors.'),
             'guarantee_cover_percent' => $int('guarantee_cover_percent', 0, 300, 'Between 0% and 300%.'),
         ];
+        // Fees by loan size: each band from an amount, up to an amount (or no limit), with its fee
+        $bands = [];
+        foreach ((array) $request->input('processing_fee_bands', []) as $i => $b) {
+            $from = Money::parse((string) ($b['from'] ?? ''));
+            $toText = trim((string) ($b['to'] ?? ''));
+            $to = $toText === '' ? null : Money::parse($toText);
+            $fee = Money::parse((string) ($b['fee'] ?? ''));
+            if ($from === null || $fee === null || ($toText !== '' && ($to === null || $to <= $from))) {
+                $errors['processing_fee_bands'] = 'Band ' . ($i + 1) . ' needs a starting amount, a fee, and an upper amount above the start (or none).';
+                break;
+            }
+            $bands[] = ['from' => Money::toDecimal($from), 'to' => $to === null ? null : Money::toDecimal($to), 'fee' => Money::toDecimal($fee)];
+        }
+        usort($bands, fn ($a, $b) => Money::parse($a['from']) <=> Money::parse($b['from']));
+        foreach ($bands as $i => $b) {
+            $next = $bands[$i + 1] ?? null;
+            if ($next && ($b['to'] === null || Money::parse($b['to']) >= Money::parse($next['from']))) {
+                $errors['processing_fee_bands'] = 'The bands overlap: each must end before the next one starts.';
+            }
+        }
+        if ($data['processing_fee_type'] === 'bands' && !$bands) {
+            $errors['processing_fee_bands'] = 'Add at least one band.';
+        }
+        $data['processing_fee_bands'] = $bands ? json_encode($bands) : null;
+
         // The type's own limits; empty means none (or the SACCO's general rule)
         $optionalMoney = function (string $field) use ($request, &$errors): ?string {
             $v = trim((string) $request->input($field, ''));

@@ -60,7 +60,7 @@ final class LoanController
         }
 
         $membership = Loans::membership(Database::tenant(), (int) Auth::id());
-        $fee = $amount ? self::fee($amount, $rules['processing_fee_percent']) : 0;
+        $fee = $amount ? Loans::processingFee($rules, $amount) : 0;
         if ($schedule) {
             $schedule['processing_fee'] = Money::toDecimal($fee);
             $schedule['you_receive'] = Money::toDecimal($amount - $fee);
@@ -339,7 +339,7 @@ final class LoanController
         }
 
         // The product's processing fee comes off the cheque; the loan itself is the full amount
-        $fee = self::fee(Money::fromDecimal($loan['amount']), Loans::productRules(Database::tenant(), $loan['product_id'] ? (int) $loan['product_id'] : null)['processing_fee_percent']);
+        $fee = Loans::processingFee(Loans::productRules(Database::tenant(), $loan['product_id'] ? (int) $loan['product_id'] : null), Money::fromDecimal($loan['amount']));
         Periods::check($date);
         $moneyAccount = Periods::moneyAccount($request);
         $cleared = Database::transaction(function (\PDO $db) use ($loan, $date, $reference, $fee, $moneyAccount) {
@@ -944,12 +944,6 @@ final class LoanController
     }
 
     /** A percentage fee on an amount, rounded to whole currency units */
-    private static function fee(int $amount, string $percent): int
-    {
-        $hundredths = (int) Money::parse($percent ?: '0');
-        return (int) (round($amount * ($hundredths / 10000) / LoanMath::UNIT) * LoanMath::UNIT);
-    }
-
     private function find(int $id): array
     {
         $stmt = Database::tenant()->prepare('SELECT * FROM loans WHERE id = ?');
@@ -1096,6 +1090,7 @@ final class LoanController
         $g = $db->prepare('SELECT g.id, g.guarantor_id, u.full_name, u.account_no, g.amount, g.requested_amount, g.status, g.responded_at, g.replaces_id FROM loan_guarantors g JOIN users u ON u.id = g.guarantor_id WHERE g.loan_id = ? ORDER BY g.id');
         $g->execute([$id]);
         $loan['guarantors'] = $g->fetchAll();
+        $loan['securities'] = LoanSecurityController::forLoan($id);
 
         $i = $db->prepare('SELECT number, due_date, principal, interest, principal_paid, interest_paid FROM loan_installments WHERE loan_id = ? ORDER BY number');
         $i->execute([$id]);
@@ -1149,7 +1144,7 @@ final class LoanController
             $l = $db->prepare('SELECT product_id FROM loans WHERE id = ?');
             $l->execute([$id]);
             $pid = $l->fetchColumn();
-            $loan['processing_fee'] = Money::toDecimal(self::fee(Money::fromDecimal($loan['amount']), Loans::productRules($db, $pid ? (int) $pid : null)['processing_fee_percent']));
+            $loan['processing_fee'] = Money::toDecimal(Loans::processingFee(Loans::productRules($db, $pid ? (int) $pid : null), Money::fromDecimal($loan['amount'])));
         }
 
         // For admins deciding: does the borrower qualify today?

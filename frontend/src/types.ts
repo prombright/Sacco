@@ -76,6 +76,19 @@ export interface LoanPosition {
   overdue: string
 }
 
+export interface LoanSecurity {
+  id: number
+  kind: string
+  description: string
+  value: string | null
+  reference: string | null
+  kept_at: string | null
+  created_at: string
+  created_by_name: string | null
+  returned_on: string | null
+  returned_by_name: string | null
+}
+
 export interface LoanGuarantor {
   id: number
   guarantor_id: number
@@ -151,6 +164,8 @@ export interface Loan {
   guarantee_shortfall: { guarantors: number; amount: string } | null
   // Only on the full loan
   guarantors?: LoanGuarantor[]
+  /** Collateral left with the SACCO (borrower and office only) */
+  securities?: LoanSecurity[]
   installments?: Installment[]
   projected?: Installment[]
   payments?: LoanPayment[]
@@ -190,7 +205,10 @@ export interface LoanProduct {
   interest_rate_monthly: string
   max_months: number
   savings_multiplier: string
+  processing_fee_type: 'flat' | 'percent' | 'bands'
+  processing_fee: string
   processing_fee_percent: string
+  processing_fee_bands: { from: string; to: string | null; fee: string }[]
   min_guarantors: number
   guarantee_cover_percent: number
   min_amount: string | null
@@ -219,7 +237,7 @@ export interface LoanRules {
   guarantee_cover_percent: number
   min_member_months: number
   guarantor_min_member_months: number
-  processing_fee_percent: string
+  processing_fee: string
   product_id: number | null
   product_name: string | null
 }

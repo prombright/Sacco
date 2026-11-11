@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { feeText } from '@/loanFee'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { api, ApiError } from '@/api'
@@ -123,7 +124,7 @@ async function submit() {
           </span>
           <span v-if="p.description" class="mt-1 block text-sm text-gray-600">{{ p.description }}</span>
           <span class="mt-2 block text-xs text-gray-500">
-            Up to {{ p.max_months }} months · {{ p.savings_multiplier }}× savings<template v-if="Number(p.processing_fee_percent)"> · {{ p.processing_fee_percent }}% fee</template>
+            Up to {{ p.max_months }} months · {{ p.savings_multiplier }}× savings<template v-if="feeText(p) !== 'no fee'"> · {{ feeText(p) }}</template>
           </span>
         </label>
       </div>
@@ -196,7 +197,7 @@ async function submit() {
             </div>
           </div>
           <p v-if="Number(quote.schedule.processing_fee) > 0" class="mt-3 border-t border-line pt-3 text-sm text-gray-700">
-            A {{ quote.rules.processing_fee_percent }}% processing fee of {{ formatMoney(quote.schedule.processing_fee) }} comes off the cheque:
+            A processing fee of {{ formatMoney(quote.schedule.processing_fee) }} comes off the cheque:
             you receive <strong class="font-semibold">{{ formatMoney(quote.schedule.you_receive) }}</strong>.
           </p>
           <button type="button" class="mt-3 text-sm font-medium text-brand hover:underline" @click="showSchedule = !showSchedule">

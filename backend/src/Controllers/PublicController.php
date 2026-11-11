@@ -130,7 +130,10 @@ final class PublicController
                 'interest_rate_monthly' => $p['interest_rate_monthly'],
                 'max_months' => $p['max_months'],
                 'savings_multiplier' => $p['savings_multiplier'],
+                'processing_fee_type' => $p['processing_fee_type'],
+                'processing_fee' => $p['processing_fee'],
                 'processing_fee_percent' => $p['processing_fee_percent'],
+                'processing_fee_bands' => $p['processing_fee_bands'],
                 'min_guarantors' => $p['min_guarantors'],
             ], Loans::products($db)),
             'min_member_months' => $rules['min_member_months'],
@@ -140,7 +143,8 @@ final class PublicController
             'min_shares' => (int) Settings::get('min_shares', '0'),
             'savings_min_balance' => Settings::get('savings_min_balance', '0'),
             'withdrawal_fee_percent' => Settings::get('withdrawal_fee_percent', '0'),
-            'membership_fee_annual' => Settings::get('membership_fee_annual', '0'),
+            'membership_fee_once' => Settings::get('membership_fee_once', '0'),
+            'subscription_fee_annual' => Settings::get('subscription_fee_annual', '0'),
         ]);
     }
 }

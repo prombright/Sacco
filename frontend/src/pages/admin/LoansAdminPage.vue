@@ -5,7 +5,7 @@ import { useRoute } from 'vue-router'
 import { api, ApiError } from '@/api'
 import type { Loan, LoanStatus } from '@/types'
 import { formatDate, formatMoney } from '@/money'
-import { loanStatus } from '@/loans'
+import { loanFigures, loanStatus } from '@/loans'
 import StatusBadge from '@/components/StatusBadge.vue'
 import ExistingLoanForm from './ExistingLoanForm.vue'
 
@@ -111,7 +111,7 @@ onMounted(load)
           <div class="text-right">
             <p class="font-semibold tabular-nums">{{ formatMoney(loan.amount) }} <span class="text-sm font-normal text-gray-500">/ {{ loan.months }} mo</span></p>
             <p v-if="loan.position && loan.status === 'active'" class="text-sm tabular-nums text-gray-600">
-              {{ formatMoney(loan.position.total_left) }} left
+              Interest {{ formatMoney(loan.position.total_interest) }} · paid {{ formatMoney(loan.position.paid) }} of {{ formatMoney(String(loanFigures(loan).total)) }} · {{ formatMoney(loan.position.total_left) }} left
               <span v-if="Number(loan.position.overdue) > 0" class="text-red-700">· {{ formatMoney(loan.position.overdue) }} overdue</span>
             </p>
             <StatusBadge v-else :label="loanStatus[loan.status].label" :style-class="loanStatus[loan.status].style" />

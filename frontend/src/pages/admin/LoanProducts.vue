@@ -3,6 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { api, ApiError } from '@/api'
 import { useAuth } from '@/stores/auth'
 import type { LoanProduct } from '@/types'
+import { bandText, feeText, type FeeBand } from '@/loanFee'
 import Modal from '@/components/Modal.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 
@@ -16,7 +17,10 @@ const form = reactive({
   interest_rate_monthly: '1',
   max_months: '12',
   savings_multiplier: '2',
+  processing_fee: '10000',
+  processing_fee_type: 'flat' as 'flat' | 'percent' | 'bands',
   processing_fee_percent: '0',
+  processing_fee_bands: [] as FeeBand[],
   min_guarantors: '2',
   guarantee_cover_percent: '100',
   min_amount: '',
@@ -44,8 +48,8 @@ function open(p: LoanProduct | null) {
   errors.value = {}
   error.value = ''
   Object.assign(form, p
-    ? { ...p, description: p.description ?? '', max_months: String(p.max_months), min_guarantors: String(p.min_guarantors), guarantee_cover_percent: String(p.guarantee_cover_percent), min_amount: p.min_amount ?? '', max_amount: p.max_amount ?? '', min_member_months: p.min_member_months === null ? '' : String(p.min_member_months), max_open: String(p.max_open), open_months: [...p.open_months] }
-    : { name: '', description: '', interest_rate_monthly: '1', max_months: '12', savings_multiplier: '2', processing_fee_percent: '0', min_guarantors: '2', guarantee_cover_percent: '100', min_amount: '', max_amount: '', min_member_months: '', max_open: '1', open_months: [], allow_top_up: false, status: 'active' })
+    ? { ...p, processing_fee_bands: p.processing_fee_bands.map((b) => ({ ...b, to: b.to ?? '' })), description: p.description ?? '', max_months: String(p.max_months), min_guarantors: String(p.min_guarantors), guarantee_cover_percent: String(p.guarantee_cover_percent), min_amount: p.min_amount ?? '', max_amount: p.max_amount ?? '', min_member_months: p.min_member_months === null ? '' : String(p.min_member_months), max_open: String(p.max_open), open_months: [...p.open_months] }
+    : { name: '', description: '', interest_rate_monthly: '1', max_months: '12', savings_multiplier: '2', processing_fee: '10000', processing_fee_type: 'flat', processing_fee_percent: '0', processing_fee_bands: [], min_guarantors: '2', guarantee_cover_percent: '100', min_amount: '', max_amount: '', min_member_months: '', max_open: '1', open_months: [], allow_top_up: false, status: 'active' })
   editing.value = p
 }
 
@@ -72,8 +76,7 @@ const fields: { key: keyof typeof form; label: string; suffix: string }[] = [
   { key: 'interest_rate_monthly', label: 'Interest', suffix: '% a month' },
   { key: 'max_months', label: 'Longest term', suffix: 'months' },
   { key: 'savings_multiplier', label: 'Loan limit', suffix: '× savings' },
-  { key: 'processing_fee_percent', label: 'Processing fee', suffix: '% of the loan' },
-  { key: 'min_guarantors', label: 'Guarantors needed', suffix: 'people' },
+    { key: 'min_guarantors', label: 'Guarantors needed', suffix: 'people' },
   { key: 'guarantee_cover_percent', label: 'Guarantees must cover', suffix: '% of the loan' },
 ]
 </script>
@@ -112,7 +115,7 @@ const fields: { key: keyof typeof form; label: string; suffix: string }[] = [
             <td class="px-3 py-2.5 text-right tabular-nums">{{ p.interest_rate_monthly }}%/mo</td>
             <td class="px-3 py-2.5 text-right tabular-nums">{{ p.max_months }} mo</td>
             <td class="px-3 py-2.5 text-right tabular-nums">{{ p.savings_multiplier }}×</td>
-            <td class="px-3 py-2.5 text-right tabular-nums">{{ p.processing_fee_percent }}%</td>
+            <td class="px-3 py-2.5 text-right tabular-nums"><span :title="p.processing_fee_type === 'bands' ? p.processing_fee_bands.map(bandText).join('\n') : undefined">{{ feeText(p) }}</span></td>
             <td class="px-3 py-2.5 text-right tabular-nums">{{ p.min_guarantors }} · {{ p.guarantee_cover_percent }}%</td>
             <td class="px-3 py-2.5 text-xs text-gray-600">
               <span v-if="p.max_amount" class="block">Up to {{ Number(p.max_amount).toLocaleString() }}</span>
@@ -142,6 +145,31 @@ const fields: { key: keyof typeof form; label: string; suffix: string }[] = [
             <p v-if="errors[f.key]" class="field-error">{{ errors[f.key] }}</p>
           </div>
         </div>
+        <fieldset class="rounded-xl border border-line p-4">
+          <legend class="px-1 text-sm font-semibold">Processing fee</legend>
+          <div class="flex flex-wrap gap-x-5 gap-y-2 text-sm" role="radiogroup" aria-label="How the fee is worked out">
+            <label v-for="[k, label] in ([['flat', 'A flat amount'], ['percent', 'A percentage of the loan'], ['bands', 'By loan size']] as const)" :key="k" class="flex items-center gap-2">
+              <input v-model="form.processing_fee_type" type="radio" :value="k" class="border-line text-brand focus:ring-brand" />{{ label }}
+            </label>
+          </div>
+          <div v-if="form.processing_fee_type === 'flat'" class="mt-3 flex max-w-xs items-center gap-2">
+            <input id="pfee" v-model="form.processing_fee" class="input tabular-nums" inputmode="decimal" aria-label="Fee on each loan" /><span class="whitespace-nowrap text-sm text-gray-500">each loan</span>
+          </div>
+          <div v-else-if="form.processing_fee_type === 'percent'" class="mt-3 flex max-w-xs items-center gap-2">
+            <input id="ppct" v-model="form.processing_fee_percent" class="input tabular-nums" inputmode="decimal" aria-label="Percentage of the loan" /><span class="whitespace-nowrap text-sm text-gray-500">% of the loan</span>
+          </div>
+          <div v-else class="mt-3 space-y-2">
+            <div v-for="(b, i) in form.processing_fee_bands" :key="i" class="grid grid-cols-[1fr_1fr_1fr_auto] items-center gap-2">
+              <input v-model="b.from" class="input tabular-nums" inputmode="decimal" placeholder="From" :aria-label="`Band ${i + 1} from`" />
+              <input v-model="b.to" class="input tabular-nums" inputmode="decimal" placeholder="To (no limit)" :aria-label="`Band ${i + 1} up to`" />
+              <input v-model="b.fee" class="input tabular-nums" inputmode="decimal" placeholder="Fee" :aria-label="`Band ${i + 1} fee`" />
+              <button type="button" class="btn-ghost px-2" :aria-label="`Remove band ${i + 1}`" @click="form.processing_fee_bands.splice(i, 1)">✕</button>
+            </div>
+            <button type="button" class="btn-ghost px-2 py-1 text-sm" @click="form.processing_fee_bands.push({ from: form.processing_fee_bands.at(-1)?.to ? String(Number(form.processing_fee_bands.at(-1)!.to) + 1) : '', to: '', fee: '' })">+ Add a band</button>
+            <p class="text-xs text-gray-500">For example 100,000 to 1,000,000 pays 10,000. Leave "To" empty on the last band for no upper limit. A loan outside every band pays no fee.</p>
+          </div>
+          <p v-if="errors.processing_fee || errors.processing_fee_percent || errors.processing_fee_bands" class="field-error">{{ errors.processing_fee || errors.processing_fee_percent || errors.processing_fee_bands }}</p>
+        </fieldset>
         <fieldset class="rounded-xl border border-line p-4">
           <legend class="px-1 text-sm font-semibold">This type's own rules</legend>
           <div class="grid gap-4 sm:grid-cols-2">

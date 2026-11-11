@@ -41,6 +41,7 @@ export const transactionTypeLabel: Record<string, string> = {
   adjustment: 'Adjustment',
   dividend: 'Dividend',
   profit: 'Profit share',
+  subscription: 'Annual subscription',
   charge: 'Fee',
   reversal: 'Reversal',
   transfer: 'Transfer',

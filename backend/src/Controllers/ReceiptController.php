@@ -21,7 +21,7 @@ final class ReceiptController
 {
     private const TITLES = [
         'deposit' => 'Deposit', 'opening_balance' => 'Opening balance', 'withdrawal' => 'Withdrawal', 'adjustment' => 'Adjustment',
-        'dividend' => 'Dividend', 'profit' => 'Investment profit share', 'charge' => 'Fee', 'transfer' => 'Internal transfer', 'membership_fee' => 'Membership fee',
+        'dividend' => 'Dividend', 'profit' => 'Investment profit share', 'charge' => 'Fee', 'transfer' => 'Internal transfer', 'subscription' => 'Annual subscription', 'membership_fee' => 'Membership fee',
     ];
 
     /** GET /api/me/receipts?page= */

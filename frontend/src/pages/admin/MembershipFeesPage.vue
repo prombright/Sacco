@@ -20,7 +20,7 @@ interface Fee {
   year: number
   amount: string
   status: 'unpaid' | 'paid' | 'waived'
-  method: 'savings' | 'cash' | null
+  method: 'savings' | 'cash' | 'old_system' | null
   paid_on: string | null
   reference: string | null
   note: string | null
@@ -35,9 +35,11 @@ interface Data {
   not_charged: number
 }
 
-/** The yearly membership fee: charge everyone, then take it from savings, record cash, or waive */
+/** The two fees: charge the members who owe one, then take it from savings, record cash, or waive */
 const auth = useAuth()
 const year = ref(new Date().getFullYear())
+const kind = ref<'subscription' | 'membership'>('subscription')
+const feeName = computed(() => (kind.value === 'membership' ? 'membership fee' : `${year.value} subscription`))
 const data = ref<Data | null>(null)
 const show = ref<'all' | 'unpaid' | 'paid' | 'waived'>('all')
 const busy = ref(false)
@@ -47,13 +49,13 @@ const error = ref('')
 async function load() {
   error.value = ''
   try {
-    data.value = await api.get<Data>('/membership-fees', { year: year.value })
+    data.value = await api.get<Data>('/membership-fees', { kind: kind.value, year: year.value })
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Couldn\'t load the fees.'
   }
 }
 onMounted(load)
-watch(year, load)
+watch([year, kind], load)
 
 async function act(fn: () => Promise<string>) {
   busy.value = true
@@ -69,12 +71,12 @@ async function act(fn: () => Promise<string>) {
   }
 }
 const charge = () => act(async () => {
-  const r = await api.post<{ charged: number }>('/membership-fees/charge', { year: year.value })
-  return r.charged ? `${r.charged} member${r.charged === 1 ? '' : 's'} charged the ${year.value} fee. They have been told.` : 'Everyone has already been charged.'
+  const r = await api.post<{ charged: number }>('/membership-fees/charge', { kind: kind.value, year: year.value })
+  return r.charged ? `${r.charged} member${r.charged === 1 ? '' : 's'} charged the ${feeName.value}. They have been told.` : 'Everyone has already been charged.'
 })
 const collect = () => act(async () => {
-  if (!await ask(`Take the ${year.value} fee from the savings of every member who hasn't paid? Each is told.`)) return ''
-  const r = await api.post<{ collected: number; not_enough_savings: string[] }>('/membership-fees/collect', { year: year.value })
+  if (!await ask(`Take the ${feeName.value} from the savings of every member who hasn't paid? Each is told.`)) return ''
+  const r = await api.post<{ collected: number; not_enough_savings: string[] }>('/membership-fees/collect', { kind: kind.value, year: year.value })
   return `${r.collected} fee${r.collected === 1 ? '' : 's'} taken from savings.` + (r.not_enough_savings.length ? ` Not enough free savings: ${r.not_enough_savings.join(', ')}. Record those when they pay in cash.` : '')
 })
 
@@ -84,7 +86,7 @@ const paidPct = computed(() => {
 })
 
 const report = computed<Report | null>(() => data.value && {
-  title: `Membership fees ${data.value.year}`,
+  title: kind.value === 'membership' ? 'Membership fees' : `Subscriptions ${data.value.year}`,
   subtitle: `${formatMoney(data.value.fee)} a member · paid ${formatMoney(data.value.totals.paid)} · unpaid ${formatMoney(data.value.totals.unpaid)}`,
   columns: [
     { key: 'full_name', label: 'Member', type: 'text' },
@@ -97,7 +99,7 @@ const report = computed<Report | null>(() => data.value && {
     .filter((f) => show.value === 'all' || f.status === show.value)
     .map((f) => ({
       ...f,
-      state: f.status === 'paid' ? `Paid${f.method === 'savings' ? ' from savings' : ' in cash'}${f.reference ? ` (${f.reference})` : ''}` : f.status === 'waived' ? `Waived: ${f.note ?? ''}` : 'Unpaid',
+      state: f.status === 'paid' ? `Paid${f.method === 'savings' ? ' from savings' : f.method === 'old_system' ? ' before this system' : ' in cash'}${f.reference ? ` (${f.reference})` : ''}` : f.status === 'waived' ? `Waived: ${f.note ?? ''}` : 'Unpaid',
       _id: f.id,
     })),
   totals: { amount: String(data.value.fees.filter((f) => show.value === 'all' || f.status === show.value).reduce((s, f) => s + Number(f.amount), 0)) },
@@ -129,17 +131,21 @@ const thisYear = new Date().getFullYear()
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
         <p class="eyebrow">Members</p>
-        <h1 class="mt-1 text-2xl font-bold">Membership fees</h1>
-        <p class="mt-1 max-w-3xl text-gray-600">The yearly fee every member pays. Charge it at the start of the year, then take it from savings or record it when paid in cash. It goes to "Membership fees" income in the books.</p>
+        <h1 class="mt-1 text-2xl font-bold">Membership &amp; subscription</h1>
+        <p class="mt-1 max-w-3xl text-gray-600">{{ kind === 'membership' ? 'The membership fee every member pays once.' : 'The subscription every member pays each year.' }} Charge it, then take it from savings or record it when paid in cash. It goes to "Membership fees" income in the books.</p>
       </div>
-      <div class="flex rounded-lg bg-gray-200/60 p-0.5 text-sm font-semibold" role="radiogroup" aria-label="Year">
+      <div class="flex rounded-lg bg-gray-200/60 p-0.5 text-sm font-semibold" v-if="kind === 'subscription'" role="radiogroup" aria-label="Year">
         <button v-for="y in [thisYear - 1, thisYear]" :key="y" type="button" role="radio" :aria-checked="year === y" class="rounded-md px-3 py-1.5" :class="year === y ? 'bg-surface text-ink shadow-sm' : 'text-gray-600'" @click="year = y">{{ y }}</button>
       </div>
     </div>
 
+    <div class="mt-4 inline-flex rounded-lg bg-gray-200/60 p-0.5 text-sm font-semibold" role="radiogroup" aria-label="Which fee">
+      <button v-for="k in (['subscription', 'membership'] as const)" :key="k" type="button" role="radio" :aria-checked="kind === k" class="rounded-md px-3 py-1.5" :class="kind === k ? 'bg-white shadow-sm' : 'text-gray-600'" @click="kind = k">{{ k === 'subscription' ? 'Subscription (yearly)' : 'Membership fee (once)' }}</button>
+    </div>
+
     <div v-if="data && Number(data.fee) <= 0" class="mt-5 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
       <ExclamationTriangleIcon class="h-5 w-5 shrink-0" />
-      <p>The yearly fee isn't set yet. {{ auth.isSuperAdmin ? 'Set it' : 'A super admin sets it' }} on <RouterLink :to="{ name: 'settings' }" class="font-semibold underline">Setup &amp; rules</RouterLink> ("Membership fee every year").</p>
+      <p>This fee isn't set yet. {{ auth.isSuperAdmin ? 'Set it' : 'A super admin sets it' }} on <RouterLink :to="{ name: 'settings' }" class="font-semibold underline">Setup &amp; rules</RouterLink> ("Membership fee every year").</p>
     </div>
 
     <template v-if="data">
@@ -147,9 +153,9 @@ const thisYear = new Date().getFullYear()
       <section class="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div class="relative overflow-hidden rounded-2xl bg-navy-900 p-5 text-white shadow-lift sm:col-span-2 xl:col-span-1">
           <div class="absolute -right-12 -top-14 h-32 w-32 rounded-full border-2 border-saffron-400/80" aria-hidden="true" />
-          <p class="text-xs font-semibold uppercase tracking-wider text-navy-200">{{ data.year }} fee</p>
+          <p class="text-xs font-semibold uppercase tracking-wider text-navy-200">{{ kind === 'membership' ? 'Membership fee' : `${data.year} subscription` }}</p>
           <p class="mt-2 text-3xl font-bold tabular-nums">{{ formatMoney(data.fee) }}</p>
-          <p class="mt-1 text-xs text-navy-200">per member, per year</p>
+          <p class="mt-1 text-xs text-navy-200">{{ kind === 'membership' ? 'per member, paid once' : 'per member, per year' }}</p>
         </div>
         <div class="card p-5">
           <p class="eyebrow">Collected</p>
@@ -164,11 +170,11 @@ const thisYear = new Date().getFullYear()
         </div>
         <div class="card flex flex-col justify-between gap-3 p-5">
           <p class="text-sm text-gray-600">
-            <template v-if="data.not_charged">{{ data.not_charged }} active member{{ data.not_charged === 1 ? '' : 's' }} not yet charged for {{ data.year }}.</template>
-            <template v-else>Everyone has been charged for {{ data.year }}.</template>
+            <template v-if="data.not_charged">{{ data.not_charged }} active member{{ data.not_charged === 1 ? '' : 's' }} not yet charged{{ kind === 'membership' ? '' : ` for ${data.year}` }}.</template>
+            <template v-else>Everyone has been charged{{ kind === 'membership' ? '' : ` for ${data.year}` }}.</template>
           </p>
           <div class="flex flex-wrap gap-2">
-            <button v-can="'money'" type="button" class="btn-primary" :disabled="busy || !data.not_charged || Number(data.fee) <= 0" @click="charge"><PlusIcon class="h-4 w-4" />Charge {{ data.year }}</button>
+            <button v-can="'money'" type="button" class="btn-primary" :disabled="busy || !data.not_charged || Number(data.fee) <= 0" @click="charge"><PlusIcon class="h-4 w-4" />Charge {{ kind === 'membership' ? 'members' : data.year }}</button>
             <button v-can="'money'" type="button" class="btn-secondary" :disabled="busy || !data.counts.unpaid" @click="collect"><ArrowDownLeftIcon class="h-4 w-4" />Take from savings</button>
           </div>
         </div>
@@ -190,7 +196,7 @@ const thisYear = new Date().getFullYear()
           </template>
           <button v-can="'money'" v-else-if="byId(row._id)?.status === 'paid'" type="button" class="rounded-lg px-2 py-1 text-xs font-semibold text-gray-500 hover:bg-gray-100" @click="acting = { fee: byId(row._id)!, kind: 'undo' }">Undo</button>
         </template>
-        <template #empty>No fees charged for {{ year }} yet.</template>
+        <template #empty>No fees charged yet.</template>
       </ReportView>
     </template>
 

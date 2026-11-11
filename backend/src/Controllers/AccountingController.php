@@ -338,7 +338,7 @@ final class AccountingController
         $withdrawn = -$cents($one("SELECT COALESCE(SUM(t.amount), 0) FROM transactions t WHERE t.type = 'withdrawal' AND t.value_date BETWEEN ? AND ? $notReversed", [$from, $to]));
         $dividends = $cents($one("SELECT COALESCE(SUM(total_dividend), 0) FROM dividend_runs WHERE kind = 'dividend' AND status = 'posted' AND value_date BETWEEN ? AND ?", [$from, $to]));
         $profit = $cents($one("SELECT COALESCE(SUM(total_dividend), 0) FROM dividend_runs WHERE kind = 'profit' AND status = 'posted' AND value_date BETWEEN ? AND ?", [$from, $to]));
-        $fees = $cents($one("SELECT COALESCE(SUM(amount), 0) FROM membership_fees WHERE year = ? AND status = 'paid'", [$year]));
+        $fees = $cents($one("SELECT COALESCE(SUM(amount), 0) FROM membership_fees WHERE year = ? AND status = 'paid' AND method IN ('savings', 'cash')", [$year]));
 
         $row = fn ($item, $amount = null, $number = null, $kind = null) => array_filter(['item' => $item, 'amount' => $amount === null ? null : Money::toDecimal($amount), 'number' => $number, '_kind' => $kind], fn ($v) => $v !== null);
         $key = [

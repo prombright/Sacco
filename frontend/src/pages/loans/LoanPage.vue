@@ -8,12 +8,13 @@ import { CheckCircleIcon, DocumentTextIcon, ExclamationTriangleIcon, ShieldCheck
 import { useRoute } from 'vue-router'
 import { api, ApiError } from '@/api'
 import { useAuth } from '@/stores/auth'
-import type { Installment, Loan, LoanCharge, LoanPayment, PaymentReceipt, PickedMember, LoanGuarantor } from '@/types'
+import type { Installment, Loan, LoanCharge, LoanPayment, LoanSecurity, PaymentReceipt, PickedMember, LoanGuarantor } from '@/types'
 import { formatDate, formatMoney } from '@/money'
-import { guarantorStatus, loanStatus, creditSummary } from '@/loans'
+import { guarantorStatus, loanStatus, creditSummary, loanFigures } from '@/loans'
 import StatusBadge from '@/components/StatusBadge.vue'
 import Modal from '@/components/Modal.vue'
 import MemberPicker from '@/components/MemberPicker.vue'
+import SecurityFields from '@/components/SecurityFields.vue'
 
 /** One loan. The borrower can cancel it or ask another guarantor; admins move it along. */
 const route = useRoute()
@@ -39,7 +40,7 @@ load()
 
 // --- Actions: each opens a small form in a dialog --------------------------------------
 
-type Dialog = 'reject' | 'disburse' | 'payment' | 'reverse' | 'guarantor' | 'settle' | 'waive' | 'approve' | null | 'replace'
+type Dialog = 'reject' | 'disburse' | 'payment' | 'reverse' | 'guarantor' | 'settle' | 'waive' | 'approve' | null | 'replace' | 'security'
 const dialog = ref<Dialog>(null)
 const form = reactive({ note: '', date: today, reference: '', amount: '', reason: '', message: '', money_account_id: '' })
 const newGuarantor = ref<(PickedMember & { amount: string }) | null>(null)
@@ -115,6 +116,73 @@ function installmentState(i: Installment) {
   if (paid >= due) return { label: 'Paid', style: 'text-green-700' }
   if (i.due_date < today) return { label: paid > 0 ? 'Part paid · overdue' : 'Overdue', style: 'text-red-700' }
   return paid > 0 ? { label: 'Part paid', style: 'text-gray-700' } : { label: '', style: '' }
+}
+
+// --- Loan security (collateral) ---------------------------------------------------------
+
+const SECURITY_KINDS = ['Land title', 'Car logbook', 'Household items', 'Business equipment', 'Fixed deposit', 'Other']
+const blankSecurity = () => ({ kind: '', description: '', value: '', reference: '', kept_at: '' })
+const security = reactive(blankSecurity())
+/** In the payout dialog: whether a security is being recorded with it */
+const withSecurity = ref(false)
+const figures = computed(() => (loan.value ? loanFigures(loan.value) : null))
+const securityTotal = computed(() => (loan.value?.securities ?? []).filter((x) => !x.returned_on).reduce((sum, x) => sum + Number(x.value ?? 0), 0))
+
+function openSecurity() {
+  Object.assign(security, blankSecurity())
+  formError.value = ''
+  dialog.value = 'security'
+}
+
+/** Saves the security being typed; true when it worked (or nothing was typed) */
+async function saveSecurity(): Promise<boolean> {
+  if (!loan.value) return false
+  try {
+    const res = await api.post<{ securities: LoanSecurity[] }>(`/loans/${loan.value.id}/securities`, { ...security })
+    loan.value.securities = res.securities
+    Object.assign(security, blankSecurity())
+    return true
+  } catch (e) {
+    formError.value = e instanceof ApiError ? e.message : 'Couldn\'t save the security.'
+    return false
+  }
+}
+
+async function addSecurity() {
+  busy.value = true
+  if (await saveSecurity()) dialog.value = null
+  busy.value = false
+}
+
+/** Payout, with the security first when one was filled in */
+async function disburse() {
+  if (!loan.value) return
+  formError.value = ''
+  if (withSecurity.value) {
+    busy.value = true
+    const ok = await saveSecurity()
+    busy.value = false
+    if (!ok) return
+    withSecurity.value = false
+  }
+  await act(`/loans/${loan.value.id}/disburse`, { disbursed_on: form.date, reference: form.reference, money_account_id: form.money_account_id })
+}
+
+async function securityAction(x: LoanSecurity, action: 'return' | 'remove') {
+  if (!loan.value) return
+  const text = action === 'return'
+    ? `Mark "${x.kind}: ${x.description}" as handed back to ${loan.value.borrower_name}?`
+    : `Remove "${x.kind}: ${x.description}"? Only do this if it was entered by mistake.`
+  if (!await ask(text)) return
+  error.value = ''
+  try {
+    const res = action === 'return'
+      ? await api.post<{ securities: LoanSecurity[] }>(`/loans/${loan.value.id}/securities/${x.id}/return`, {})
+      : await api.delete<{ securities: LoanSecurity[] }>(`/loans/${loan.value.id}/securities/${x.id}`)
+    loan.value.securities = res.securities
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.message : 'Something went wrong. Please try again.'
+  }
 }
 
 const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: auth.user?.full_name ?? null })
@@ -207,12 +275,30 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
         <p v-if="loan.status === 'rejected'" class="text-sm text-gray-700">Rejected: {{ loan.decision_note }}</p>
         <p v-if="loan.disbursed_on" class="text-sm text-gray-700">Paid out on {{ formatDate(loan.disbursed_on) }} · {{ loan.disbursement_ref }}</p>
 
-        <div v-if="loan.position && loan.status !== 'closed'" class="mt-3 grid gap-4 sm:grid-cols-4">
-          <div><p class="text-sm text-gray-600">Still to pay</p><p class="text-lg font-semibold tabular-nums">{{ formatMoney(loan.position.total_left) }}</p></div>
-          <div><p class="text-sm text-gray-600">Of which principal</p><p class="text-lg font-semibold tabular-nums">{{ formatMoney(loan.position.principal_left) }}</p></div>
-          <div><p class="text-sm text-gray-600">Next payment</p><p class="text-lg font-semibold tabular-nums">{{ formatMoney(loan.position.next_due_amount) }}</p><p class="text-xs text-gray-500">{{ formatDate(loan.position.next_due_date) }}</p></div>
-          <div v-if="Number(loan.position.overdue) > 0"><p class="text-sm text-red-700">Overdue</p><p class="text-lg font-semibold tabular-nums text-red-700">{{ formatMoney(loan.position.overdue) }}</p></div>
-        </div>
+        <!-- The money: borrowed, interest, total, paid, left -->
+        <template v-if="figures?.known && !['rejected', 'cancelled'].includes(loan.status)">
+          <dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3" :class="loan.position ? 'lg:grid-cols-5' : ''">
+            <div><dt class="text-sm text-gray-600">Amount borrowed</dt><dd class="text-lg font-semibold tabular-nums">{{ formatMoney(String(figures.borrowed)) }}</dd></div>
+            <div><dt class="text-sm text-gray-600">Interest{{ loan.position ? '' : ' (expected)' }}</dt><dd class="text-lg font-semibold tabular-nums">{{ formatMoney(String(figures.interest)) }}</dd></div>
+            <div><dt class="text-sm text-gray-600">Total to repay</dt><dd class="text-lg font-semibold tabular-nums">{{ formatMoney(String(figures.total)) }}</dd></div>
+            <template v-if="loan.position">
+              <div><dt class="text-sm text-gray-600">Amount paid</dt><dd class="text-lg font-semibold tabular-nums">{{ formatMoney(String(figures.paid)) }}</dd></div>
+              <div><dt class="text-sm text-gray-600">Still to pay</dt><dd class="text-lg font-semibold tabular-nums">{{ formatMoney(String(figures.left)) }}</dd>
+                <p v-if="figures.penalties > 0" class="text-xs text-amber-800">includes {{ formatMoney(String(figures.penalties)) }} penalties</p></div>
+            </template>
+          </dl>
+          <div v-if="loan.position" class="mt-3">
+            <div class="h-2 overflow-hidden rounded-full bg-gray-100" role="progressbar" :aria-valuenow="figures.percentPaid" aria-valuemin="0" aria-valuemax="100" aria-label="Share of the loan repaid">
+              <div class="h-full rounded-full bg-brand transition-all" :style="{ width: figures.percentPaid + '%' }" />
+            </div>
+            <p class="mt-1 text-xs text-gray-600">{{ figures.percentPaid }}% repaid</p>
+          </div>
+          <div v-if="loan.position && loan.status === 'active'" class="mt-3 flex flex-wrap gap-x-8 gap-y-2 border-t border-line pt-3 text-sm">
+            <p><span class="text-gray-600">Next payment</span> <span class="font-semibold tabular-nums">{{ formatMoney(loan.position.next_due_amount) }}</span> <span class="text-gray-600">on {{ formatDate(loan.position.next_due_date) }}</span></p>
+            <p><span class="text-gray-600">Principal left</span> <span class="font-semibold tabular-nums">{{ formatMoney(loan.position.principal_left) }}</span> · <span class="text-gray-600">interest left</span> <span class="font-semibold tabular-nums">{{ formatMoney(loan.position.interest_left) }}</span></p>
+            <p v-if="Number(loan.position.overdue) > 0" class="font-semibold text-red-700">Overdue <span class="tabular-nums">{{ formatMoney(loan.position.overdue) }}</span></p>
+          </div>
+        </template>
 
         <div v-if="canAdmin && loan.borrower_eligibility && ['pending_guarantors', 'pending_approval', 'approved'].includes(loan.status)" class="mt-3 rounded-lg bg-gray-50 p-3 text-sm text-gray-700">
           Borrower's savings today {{ formatMoney(loan.borrower_eligibility.savings) }}<template v-if="Number(loan.borrower_eligibility.owed) > 0">, owing {{ formatMoney(loan.borrower_eligibility.owed) }} on other loans</template>
@@ -234,6 +320,41 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
           </template>
         </div>
       </div>
+
+      <!-- Loan security (collateral) -->
+      <section v-if="loan.securities && (loan.securities.length || (canAdmin && !['closed', 'rejected', 'cancelled'].includes(loan.status)))" class="mt-8">
+        <div class="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <h2 class="font-semibold">Loan security</h2>
+            <p class="text-sm text-gray-600">
+              <template v-if="loan.securities.length">What {{ isOwner ? 'you' : loan.borrower_name }} left with the SACCO<template v-if="securityTotal"> · worth about {{ formatMoney(String(securityTotal)) }}</template>. Handed back once the loan is fully repaid.</template>
+              <template v-else>None recorded. If the borrower leaves something as security (a land title, a logbook…), record it here.</template>
+            </p>
+          </div>
+          <button v-can="'loans'" v-if="canAdmin && !['closed', 'rejected', 'cancelled'].includes(loan.status)" type="button" class="btn-secondary" @click="openSecurity">Add security</button>
+        </div>
+        <ul v-if="loan.securities.length" class="card mt-3 divide-y divide-line">
+          <li v-for="x in loan.securities" :key="x.id" class="flex flex-wrap items-center justify-between gap-2 p-4 text-sm">
+            <div class="min-w-0">
+              <p class="font-medium">{{ x.kind }} · {{ x.description }}</p>
+              <p class="text-gray-600">
+                <template v-if="x.value">Worth about <span class="tabular-nums">{{ formatMoney(x.value) }}</span></template>
+                <template v-if="x.reference"><template v-if="x.value"> · </template>No. {{ x.reference }}</template>
+                <template v-if="x.kept_at"> · kept: {{ x.kept_at }}</template>
+              </p>
+              <p class="text-xs text-gray-500">Recorded {{ formatDate(x.created_at) }}<template v-if="x.created_by_name"> by {{ x.created_by_name }}</template></p>
+            </div>
+            <span class="flex shrink-0 items-center gap-2">
+              <span v-if="x.returned_on" class="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800">Returned {{ formatDate(x.returned_on) }}</span>
+              <span v-else class="rounded-full bg-navy-50 px-2 py-0.5 text-xs font-semibold text-navy-800">Held by the SACCO</span>
+              <template v-if="canAdmin && !x.returned_on">
+                <button v-can="'loans'" v-if="loan.status !== 'active'" type="button" class="btn-ghost px-2 py-1 text-xs" @click="securityAction(x, 'return')">Mark returned</button>
+                <button v-can="'loans'" type="button" class="btn-ghost px-2 py-1 text-xs" @click="securityAction(x, 'remove')">Remove</button>
+              </template>
+            </span>
+          </li>
+        </ul>
+      </section>
 
       <!-- Guarantors -->
       <section v-if="loan.guarantors?.length" class="mt-8">
@@ -353,7 +474,7 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
     </Modal>
 
     <Modal v-if="dialog === 'disburse' && loan" title="Record the payout" @close="dialog = null">
-      <form class="space-y-4" @submit.prevent="act(`/loans/${loan.id}/disburse`, { disbursed_on: form.date, reference: form.reference, money_account_id: form.money_account_id })">
+      <form class="space-y-4" @submit.prevent="disburse">
         <div v-if="formError" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ formError }}</div>
         <p class="text-sm text-gray-700">Record the cheque issued to {{ loan.borrower_name }}. The repayment schedule starts from this date.</p>
         <dl class="grid grid-cols-2 gap-y-1 rounded-xl bg-gray-50 p-3 text-sm">
@@ -368,9 +489,31 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
           <MoneyAccountSelect id="d-money" v-model="form.money_account_id" label="Paid from" class="sm:col-span-2" />
           <div><label for="date" class="label">Date issued</label><input id="date" v-model="form.date" type="date" :max="today" class="input" /></div>
         </div>
+        <div class="rounded-xl border border-line p-3">
+          <p v-if="loan.securities?.length" class="mb-2 text-sm text-gray-700">Security already recorded: {{ loan.securities.map((x) => x.kind).join(', ') }}.</p>
+          <label class="flex items-center gap-2 text-sm font-medium">
+            <input v-model="withSecurity" type="checkbox" class="h-4 w-4 accent-brand" />
+            The borrower is leaving {{ loan.securities?.length ? 'another' : 'a' }} security (land title, logbook…)
+          </label>
+          <div v-if="withSecurity" class="mt-3">
+            <SecurityFields :security="security" :kinds="SECURITY_KINDS" />
+          </div>
+        </div>
         <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>
-          <button type="submit" class="btn-primary" :disabled="busy || !form.reference.trim()">Record payout</button>
+          <button type="submit" class="btn-primary" :disabled="busy || !form.reference.trim() || (withSecurity && (!security.kind || !security.description.trim()))">Record payout</button>
+        </div>
+      </form>
+    </Modal>
+
+    <Modal v-if="dialog === 'security' && loan" title="Add loan security" @close="dialog = null">
+      <form class="space-y-4" @submit.prevent="addSecurity">
+        <div v-if="formError" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ formError }}</div>
+        <p class="text-sm text-gray-700">Something {{ loan.borrower_name }} leaves with the SACCO for loan {{ loan.loan_no }}. They see it on their loan page, and the office is reminded to hand it back once the loan is repaid.</p>
+        <SecurityFields :security="security" :kinds="SECURITY_KINDS" />
+        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>
+          <button type="submit" class="btn-primary" :disabled="busy || !security.kind || !security.description.trim()">Save security</button>
         </div>
       </form>
     </Modal>

@@ -23,6 +23,7 @@ use Sacco\Support\Settings;
  * - savings to the member's own shares (buying shares)
  * - savings to another member's savings or shares
  * - shares to another member's shares (selling shares to a colleague)
+ * - shares back to the member's own savings (keeping the minimum shares)
  * - savings to a loan (the member's own, or one they help repay)
  *
  * The same rules as a withdrawal apply to what leaves: the minimum savings balance stays, pledged
@@ -69,8 +70,9 @@ final class TransferController
         if ($same && $fromAccount === $toAccount) {
             Response::error('Choose a different account to move it to.', 422, ['to_account' => 'Same']);
         }
-        if ($fromAccount === 'shares' && ($toAccount !== 'shares' || $same)) {
-            Response::error('Shares can only be transferred to another member\'s shares. They are paid out only when a member leaves.', 422, ['to_account' => 'Not allowed']);
+        // Shares go to another member's shares, or back into the member's own savings
+        if ($fromAccount === 'shares' && !(($toAccount === 'shares' && !$same) || ($toAccount === 'savings' && $same))) {
+            Response::error('Shares can move to another member\'s shares, or into the same member\'s own savings.', 422, ['to_account' => 'Not allowed']);
         }
         foreach ([$from, $to] as $u) {
             if ((int) $u['id'] === Auth::id()) {

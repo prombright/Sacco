@@ -35,6 +35,10 @@ final class Reminders
     /** @return array{due_soon: int, overdue: int, borrowers: int} */
     public static function run(PDO $db): array
     {
+        // Paused, e.g. right after old loans are brought in, until the repayments since are entered
+        if (Settings::get('loan_reminders', 'on') === 'off') {
+            return ['due_soon' => 0, 'overdue' => 0, 'borrowers' => 0];
+        }
         Notify::$system = true;
         try {
             $days = max(1, min(14, (int) Settings::get('loan_reminder_days', '3')));

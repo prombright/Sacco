@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { api, ApiError } from '@/api'
 import type { Loan } from '@/types'
 import { formatDate, formatMoney } from '@/money'
-import { loanStatus } from '@/loans'
+import { loanFigures, loanStatus } from '@/loans'
 import StatusBadge from '@/components/StatusBadge.vue'
 import GuaranteeRequests from './GuaranteeRequests.vue'
 
@@ -53,11 +53,19 @@ onMounted(async () => {
           </div>
           <StatusBadge :label="loanStatus[loan.status].label" :style-class="loanStatus[loan.status].style" />
         </div>
-        <div v-if="loan.status === 'active' && loan.position" class="mt-3 grid gap-2 text-sm sm:grid-cols-3">
-          <p><span class="text-gray-600">Still to pay</span><br /><span class="font-semibold tabular-nums">{{ formatMoney(loan.position.total_left) }}</span></p>
-          <p><span class="text-gray-600">Next payment</span><br /><span class="font-semibold tabular-nums">{{ formatMoney(loan.position.next_due_amount) }}</span> <span class="text-gray-600">on {{ formatDate(loan.position.next_due_date) }}</span></p>
-          <p v-if="Number(loan.position.overdue) > 0" class="text-red-700"><span>Overdue</span><br /><span class="font-semibold tabular-nums">{{ formatMoney(loan.position.overdue) }}</span></p>
-        </div>
+        <template v-if="loan.position">
+          <dl class="mt-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-5">
+            <div><dt class="text-gray-600">Borrowed</dt><dd class="font-semibold tabular-nums">{{ formatMoney(loan.amount) }}</dd></div>
+            <div><dt class="text-gray-600">Interest</dt><dd class="font-semibold tabular-nums">{{ formatMoney(loan.position.total_interest) }}</dd></div>
+            <div><dt class="text-gray-600">Total</dt><dd class="font-semibold tabular-nums">{{ formatMoney(String(loanFigures(loan).total)) }}</dd></div>
+            <div><dt class="text-gray-600">Paid</dt><dd class="font-semibold tabular-nums">{{ formatMoney(loan.position.paid) }}</dd></div>
+            <div><dt class="text-gray-600">Still to pay</dt><dd class="font-semibold tabular-nums">{{ formatMoney(loan.position.total_left) }}</dd></div>
+          </dl>
+          <p v-if="loan.status === 'active'" class="mt-2 text-sm">
+            <span class="text-gray-600">Next payment</span> <span class="font-semibold tabular-nums">{{ formatMoney(loan.position.next_due_amount) }}</span> <span class="text-gray-600">on {{ formatDate(loan.position.next_due_date) }}</span>
+            <span v-if="Number(loan.position.overdue) > 0" class="ml-2 font-semibold text-red-700">· {{ formatMoney(loan.position.overdue) }} overdue</span>
+          </p>
+        </template>
         <p v-if="loan.guarantee_shortfall" class="mt-2 text-sm text-amber-800">
           Still needs
           <template v-if="loan.guarantee_shortfall.guarantors">{{ loan.guarantee_shortfall.guarantors }} more guarantor{{ loan.guarantee_shortfall.guarantors === 1 ? '' : 's' }}</template>

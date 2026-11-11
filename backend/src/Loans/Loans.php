@@ -59,7 +59,10 @@ final class Loans
             'interest_rate_monthly' => $trim($p['interest_rate_monthly']),
             'max_months' => (int) $p['max_months'],
             'savings_multiplier' => $trim($p['savings_multiplier']),
-            'processing_fee_percent' => $trim($p['processing_fee_percent']) ?: '0',
+            'processing_fee_type' => $p['processing_fee_type'] ?? 'flat',
+            'processing_fee' => $trim($p['processing_fee']) ?: '0',
+            'processing_fee_percent' => $trim($p['processing_fee_percent'] ?? '0') ?: '0',
+            'processing_fee_bands' => json_decode((string) ($p['processing_fee_bands'] ?? ''), true) ?: [],
             'min_guarantors' => (int) $p['min_guarantors'],
             'guarantee_cover_percent' => (int) $p['guarantee_cover_percent'],
             'min_amount' => $p['min_amount'] !== null ? $trim($p['min_amount']) : null,
@@ -72,10 +75,31 @@ final class Loans
         ];
     }
 
+    /** The processing fee on a loan of $amount cents under these rules (a product's, from productRules) */
+    public static function processingFee(array $rules, int $amount): int
+    {
+        switch ($rules['processing_fee_type'] ?? 'flat') {
+            case 'percent':
+                $hundredths = (int) Money::parse((string) ($rules['processing_fee_percent'] ?? '0'));
+                return (int) (round($amount * ($hundredths / 10000) / LoanMath::UNIT) * LoanMath::UNIT);
+            case 'bands':
+                foreach ($rules['processing_fee_bands'] ?? [] as $b) {
+                    $from = Money::parse((string) $b['from']) ?? 0;
+                    $to = ($b['to'] ?? null) === null || $b['to'] === '' ? null : Money::parse((string) $b['to']);
+                    if ($amount >= $from && ($to === null || $amount <= $to)) {
+                        return Money::parse((string) $b['fee']) ?? 0;
+                    }
+                }
+                return 0;
+            default:
+                return Money::parse((string) ($rules['processing_fee'] ?? '0')) ?? 0;
+        }
+    }
+
     /** A product's terms in the shape of rules(); the SACCO's general rules when there's no product */
     public static function productRules(PDO $db, ?int $productId): array
     {
-        $rules = self::rules() + ['processing_fee_percent' => '0', 'product_id' => null, 'product_name' => null];
+        $rules = self::rules() + ['processing_fee_type' => 'flat', 'processing_fee' => '0', 'processing_fee_percent' => '0', 'processing_fee_bands' => [], 'product_id' => null, 'product_name' => null];
         if ($productId) {
             $stmt = $db->prepare('SELECT * FROM loan_products WHERE id = ?');
             $stmt->execute([$productId]);
@@ -87,7 +111,10 @@ final class Loans
                     'savings_multiplier' => $p['savings_multiplier'],
                     'min_guarantors' => $p['min_guarantors'],
                     'guarantee_cover_percent' => $p['guarantee_cover_percent'],
+                    'processing_fee_type' => $p['processing_fee_type'],
+                    'processing_fee' => $p['processing_fee'],
                     'processing_fee_percent' => $p['processing_fee_percent'],
+                    'processing_fee_bands' => $p['processing_fee_bands'],
                     'min_amount' => $p['min_amount'],
                     'max_amount' => $p['max_amount'],
                     'min_member_months' => $p['min_member_months'] ?? self::rules()['min_member_months'],
@@ -284,6 +311,17 @@ final class Loans
                 "{$g['full_name']} has fully repaid loan {$g['loan_no']}. The " . \Sacco\Support\Notify::money($g['amount'])
                     . ' you pledged is no longer held, so you can withdraw it or guarantee someone else.',
                 '/loans');
+        }
+        // Security left with the SACCO can now go back to the borrower
+        $s = $db->prepare("SELECT s.kind, s.description, l.loan_no, u.full_name FROM loan_securities s JOIN loans l ON l.id = s.loan_id
+                           JOIN users u ON u.id = l.user_id WHERE s.loan_id = ? AND s.returned_on IS NULL");
+        $s->execute([$loanId]);
+        $held = $s->fetchAll();
+        if ($held) {
+            $what = implode('; ', array_map(fn ($r) => "{$r['kind']}: {$r['description']}", $held));
+            \Sacco\Support\Notify::office('loan_security', 'Return a loan security',
+                "{$held[0]['full_name']} has fully repaid loan {$held[0]['loan_no']}. Hand back what they left as security ($what), then mark it returned on the loan page.",
+                '/loans/' . $loanId);
         }
     }
 

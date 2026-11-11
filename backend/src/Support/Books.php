@@ -179,6 +179,7 @@ final class Books
                 'deposit', 'withdrawal' => 'bank',
                 'charge' => 'withdrawal_fee_income',
                 'membership_fee' => 'membership_fee_income',
+                'subscription' => 'subscription_income',
                 'adjustment' => 'suspense',
                 'opening_balance' => 'opening',
                 'dividend', 'profit' => 'distributions',
@@ -400,9 +401,10 @@ final class Books
         )->fetchAll();
         foreach ($rows as $f) {
             $cents = Money::fromDecimal($f['amount']);
-            self::add($db, $f['paid_on'], "Membership fee {$f['year']}, {$f['full_name']}", 'membership_fee', (int) $f['id'], [
+            $once = $f['kind'] === 'membership';
+            self::add($db, $f['paid_on'], ($once ? 'Membership fee' : "Subscription {$f['year']}") . ", {$f['full_name']}", 'membership_fee', (int) $f['id'], [
                 [(int) ($f['money_account_id'] ?: self::account($db, 'bank')), $cents, null, null],
-                [self::account($db, 'membership_fee_income'), -$cents, (int) $f['user_id'], (string) $f['year']],
+                [self::account($db, $once ? 'membership_fee_income' : 'subscription_income'), -$cents, (int) $f['user_id'], (string) $f['year']],
             ], $f['reference']);
         }
     }

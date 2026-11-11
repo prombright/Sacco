@@ -10,9 +10,13 @@ const COLUMNS = {
   employee_no: { header: 'Employee no', also: ['employee number', 'staff no', 'staff number', 'payroll no', 'emp no'] },
   account_no: { header: 'Account no', also: ['account number', 'a/c no', 'member no', 'sacco no'] },
   phone: { header: 'Phone', also: ['phone number', 'telephone', 'mobile', 'tel'] },
+  gender: { header: 'Gender', also: ['sex'] },
   joined_on: { header: 'Member since', also: ['date joined', 'joined', 'joining date', 'membership date'] },
+  balances_on: { header: 'Balances as at', also: ['balance date', 'as at'] },
   savings: { header: 'Opening savings', also: ['savings', 'savings balance'] },
   shares: { header: 'Opening shares', also: ['shares', 'share capital', 'shares balance'] },
+  membership_paid: { header: 'Membership fee paid', also: ['membership paid'] },
+  subscription_paid: { header: 'Subscription paid for', also: ['subscription paid'] },
 } as const
 
 type Field = keyof typeof COLUMNS
@@ -57,9 +61,9 @@ export async function readMemberFile(file: File): Promise<ImportRow[]> {
 
 export function downloadMemberTemplate() {
   const header = Object.values(COLUMNS).map((c) => c.header)
-  const example = ['Jane Namukasa', 'jane@stmarks.ac.ug', 'T045', '', '0772000000', '2019-02-01', 1250000, 100000]
+  const example = ['Jane Namukasa', 'jane@stmarks.ac.ug', 'T045', '', '0772000000', 'F', '2019-02-01', '2026-08-31', 1250000, 100000, 'Yes', 2026]
   const sheet = XLSX.utils.aoa_to_sheet([header, example])
-  sheet['!cols'] = [{ wch: 26 }, { wch: 26 }, { wch: 13 }, { wch: 12 }, { wch: 14 }, { wch: 13 }, { wch: 16 }, { wch: 15 }]
+  sheet['!cols'] = [{ wch: 26 }, { wch: 26 }, { wch: 13 }, { wch: 12 }, { wch: 14 }, { wch: 8 }, { wch: 13 }, { wch: 14 }, { wch: 16 }, { wch: 15 }, { wch: 19 }, { wch: 20 }]
   const book = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(book, sheet, 'Members')
   XLSX.writeFile(book, 'members-import-template.xlsx')

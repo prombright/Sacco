@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { loanFee } from '@/loanFee'
 import { computed, onMounted, ref, watch } from 'vue'
 import {
   ArrowRightIcon,
@@ -22,7 +23,10 @@ interface Product {
   interest_rate_monthly: string
   max_months: number
   savings_multiplier: string
-  processing_fee_percent: string
+  processing_fee: string
+  processing_fee_type?: 'flat' | 'percent' | 'bands'
+  processing_fee_percent?: string
+  processing_fee_bands?: { from: string; to: string | null; fee: string }[]
   min_guarantors: number
 }
 interface Terms {
@@ -35,7 +39,8 @@ interface Terms {
   min_shares: number
   savings_min_balance: string
   withdrawal_fee_percent: string
-  membership_fee_annual: string
+  membership_fee_once: string
+  subscription_fee_annual: string
 }
 
 /**
@@ -84,7 +89,7 @@ const plan = computed(() => {
     interest += int
     owed -= Math.min(owed, payment - int)
   }
-  const fee = Math.round((p * Number(chosen.value?.processing_fee_percent ?? 0)) / 100)
+  const fee = loanFee(chosen.value, p)
   return { payment, interest, total: p + interest, fee }
 })
 
@@ -321,7 +326,8 @@ const loginTo = computed(() => (auth.user ? (auth.isAdmin ? '/office' : '/') : '
             `${main?.interest_rate_monthly ?? 1}% a month on what you still owe`,
             `Keep at least ${money(Number(terms.savings_min_balance))} in savings`,
             `${terms.withdrawal_fee_percent}% fee on savings withdrawals`,
-            ...(Number(terms.membership_fee_annual) > 0 ? [`A membership fee of ${money(Number(terms.membership_fee_annual))} a year`] : []),
+            ...(Number(terms.membership_fee_once) > 0 ? [`A membership fee of ${money(Number(terms.membership_fee_once))}, paid once`] : []),
+            ...(Number(terms.subscription_fee_annual) > 0 ? [`A subscription of ${money(Number(terms.subscription_fee_annual))} a year`] : []),
           ]" :key="r" class="flex gap-3 text-sm">
             <span class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700"><CheckIcon class="h-3.5 w-3.5" aria-hidden="true" /></span>{{ r }}
           </li>

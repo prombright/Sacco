@@ -84,6 +84,7 @@ async function importAll() {
     <RouterLink :to="{ name: 'users' }" class="text-sm font-medium text-gray-600 hover:text-gray-900">← Members</RouterLink>
     <h1 class="mt-3 text-2xl font-bold">Import members</h1>
     <p class="mt-1 text-gray-600">Bring in everyone at once from Excel, with the savings and shares they already have in the old records.</p>
+    <p v-if="auth.isSuperAdmin" class="mt-1 text-sm"><RouterLink :to="{ name: 'old-system-import' }" class="font-medium text-navy-700 hover:underline">After the members: loans, opening journal and old transactions →</RouterLink></p>
 
     <!-- Done -->
     <section v-if="created" class="card mt-6 p-6">

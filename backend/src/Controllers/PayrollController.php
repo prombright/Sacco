@@ -49,6 +49,10 @@ final class PayrollController
             $loan = $loan->fetch();
             $m['loan_no'] = $loan['loan_no'] ?? null;
             $m['loan_due'] = $loan ? Money::toDecimal(Loans::position($db, (int) $loan['id'])['next_due_amount']) : null;
+            // The next instalment split, for the Loan Principal and Loan Interest columns
+            $next = $loan ? $db->query('SELECT principal - principal_paid AS p, interest - interest_paid AS i FROM loan_installments WHERE loan_id = ' . (int) $loan['id'] . ' AND cleared_on IS NULL ORDER BY number LIMIT 1')->fetch() : null;
+            $m['loan_principal_due'] = $next ? $next['p'] : null;
+            $m['loan_interest_due'] = $next ? $next['i'] : null;
             unset($m['id']);
         }
         unset($m);
@@ -59,7 +63,7 @@ final class PayrollController
     public function preview(Request $request): never
     {
         $period = $this->period($request);
-        $rows = $this->check($this->rows($request));
+        $rows = $this->check($this->rows($request), $period);
         Response::ok($this->report($period, $rows));
     }
 
@@ -80,7 +84,7 @@ final class PayrollController
         $posted = [];
         $batchId = Database::transaction(function (\PDO $db) use ($period, $valueDate, $fileName, $input, $request, &$posted) {
             // Checked again inside the transaction: balances may have moved since the preview
-            $rows = $this->check($input);
+            $rows = $this->check($input, $period);
             $posted = $rows;
             $report = $this->report($period, $rows);
             if ($report['error_count'] > 0) {
@@ -262,7 +266,7 @@ final class PayrollController
      * Each row with what's wrong (errors stop the upload) and what's worth a second look (warnings).
      * Amounts come back in cents.
      */
-    private function check(array $input): array
+    private function check(array $input, string $period): array
     {
         $db = Database::tenant();
         $members = [];
@@ -288,13 +292,17 @@ final class PayrollController
                 'savings' => 0,
                 'shares' => 0,
                 'loan' => 0,
+                'principal' => 0,
+                'interest' => 0,
+                'total' => 0,
                 'loan_id' => null,
                 'loan_no' => null,
                 'errors' => [],
                 'warnings' => [],
             ];
 
-            foreach (['savings', 'shares', 'loan'] as $field) {
+            $given = [];
+            foreach (['savings', 'shares', 'loan', 'principal', 'interest', 'total'] as $field) {
                 $value = $raw[$field] ?? '';
                 if ($value === '' || $value === null) {
                     continue;
@@ -304,8 +312,22 @@ final class PayrollController
                     $r['errors'][] = ucfirst($field) . " amount \"$value\" isn't a valid amount.";
                 } else {
                     $r[$field] = $cents;
+                    $given[$field] = true;
                 }
             }
+            // The loan as principal and interest; a single Loan Repayment column still works
+            if (isset($given['principal']) || isset($given['interest'])) {
+                $split = $r['principal'] + $r['interest'];
+                if (isset($given['loan']) && $r['loan'] !== $split) {
+                    $r['errors'][] = 'Loan repayment ' . number_format($r['loan'] / 100) . ' is not principal plus interest (' . number_format($split / 100) . ').';
+                }
+                $r['loan'] = $split;
+            }
+            $sum = $r['savings'] + $r['shares'] + $r['loan'];
+            if (isset($given['total']) && $r['total'] !== $sum) {
+                $r['errors'][] = 'Total deducted ' . number_format($r['total'] / 100) . ' but loan, savings and shares add up to ' . number_format($sum / 100) . '.';
+            }
+            $r['total'] = $sum;
 
             $key = strtolower($r['account_no']);
             $member = $members[$key] ?? null;
@@ -344,6 +366,15 @@ final class PayrollController
                         $loanLeft[$loanId] -= $r['loan'];
                         $r['loan_id'] = $loanId;
                         $r['loan_no'] = $loan['loan_no'];
+                        // Interest due by the end of the month is taken first; say so if the sheet splits it differently
+                        if (isset($given['interest'])) {
+                            $due = $db->prepare('SELECT COALESCE(SUM(interest - interest_paid), 0) FROM loan_installments WHERE loan_id = ? AND due_date <= LAST_DAY(?)');
+                            $due->execute([$loanId, "$period-01"]);
+                            $interestDue = Money::fromDecimal($due->fetchColumn());
+                            if ($interestDue !== $r['interest']) {
+                                $r['warnings'][] = 'The sheet puts ' . number_format($r['interest'] / 100) . ' to interest, but ' . number_format(min($interestDue, $r['loan']) / 100) . ' interest is due, so that goes to interest and the rest to principal.';
+                            }
+                        }
                     }
                 }
             }
@@ -365,7 +396,7 @@ final class PayrollController
 
     private function report(string $period, array $rows): array
     {
-        $totals = ['savings' => 0, 'shares' => 0, 'loan' => 0];
+        $totals = ['savings' => 0, 'shares' => 0, 'loan' => 0, 'principal' => 0, 'interest' => 0, 'total' => 0];
         $posted = 0;
         foreach ($rows as $r) {
             if (!$r['errors']) {
@@ -384,6 +415,9 @@ final class PayrollController
                 'savings' => Money::toDecimal($r['savings']),
                 'shares' => Money::toDecimal($r['shares']),
                 'loan' => Money::toDecimal($r['loan']),
+                'principal' => Money::toDecimal($r['principal']),
+                'interest' => Money::toDecimal($r['interest']),
+                'total' => Money::toDecimal($r['total']),
             ]), $rows),
             'row_count' => count($rows),
             'posted_rows' => $posted,
