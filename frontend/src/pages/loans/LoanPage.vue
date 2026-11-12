@@ -109,6 +109,17 @@ watch(() => [dialog.value, form.amount, form.date], () => {
 // --- Schedule ------------------------------------------------------------------------
 
 const schedule = computed<Installment[]>(() => loan.value?.installments?.length ? loan.value.installments : (loan.value?.projected ?? []))
+const isPaid = (i: Installment) => !!i.principal_paid && Number(i.principal_paid) + Number(i.interest_paid) >= Number(i.principal) + Number(i.interest)
+/** The first instalment not fully paid: the one to pay next */
+const nextNumber = computed(() => (loan.value?.installments?.length ? schedule.value.find((i) => !isPaid(i))?.number ?? null : null))
+/** Long schedules show what's late and the next six; the rest on request */
+const showAll = ref(false)
+const shown = computed(() => {
+  if (showAll.value || schedule.value.length <= 12 || !loan.value?.installments?.length) return schedule.value
+  const from = Math.max(0, schedule.value.findIndex((i) => !isPaid(i)))
+  return schedule.value.slice(from, from + 6)
+})
+const paidCount = computed(() => schedule.value.filter(isPaid).length)
 function installmentState(i: Installment) {
   if (!i.principal_paid) return null
   const due = Number(i.principal) + Number(i.interest)
@@ -404,17 +415,30 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
-              <tr v-for="i in schedule" :key="i.number">
+              <tr v-if="shown[0] && shown[0].number > 1 && !showAll" class="bg-gray-50/60">
+                <td colspan="6" class="px-4 py-2 text-xs text-gray-600">{{ paidCount }} instalment{{ paidCount === 1 ? '' : 's' }} before this already paid</td>
+              </tr>
+              <tr
+                v-for="i in shown"
+                :key="i.number"
+                :class="i.number === nextNumber ? 'bg-saffron-50/60' : isPaid(i) ? 'text-gray-400' : ''"
+              >
                 <td class="px-4 py-2">{{ i.number }}</td>
-                <td class="whitespace-nowrap px-4 py-2">{{ formatDate(i.due_date) }}</td>
+                <td class="whitespace-nowrap px-4 py-2">
+                  {{ formatDate(i.due_date) }}
+                  <span v-if="i.number === nextNumber" class="ml-2 rounded-full bg-saffron-100 px-2 py-0.5 text-[11px] font-semibold text-saffron-700">Next</span>
+                </td>
                 <td class="px-4 py-2 text-right">{{ formatMoney(i.principal) }}</td>
                 <td class="px-4 py-2 text-right">{{ formatMoney(i.interest) }}</td>
                 <td class="px-4 py-2 text-right font-medium">{{ formatMoney(String(Number(i.principal) + Number(i.interest))) }}</td>
-                <td v-if="loan.installments?.length" class="whitespace-nowrap px-4 py-2 text-sm" :class="installmentState(i)?.style">{{ installmentState(i)?.label }}</td>
+                <td v-if="loan.installments?.length" class="whitespace-nowrap px-4 py-2 text-sm" :class="isPaid(i) ? 'text-emerald-700' : installmentState(i)?.style">{{ isPaid(i) ? '✓ Paid' : installmentState(i)?.label }}</td>
               </tr>
             </tbody>
           </table>
         </div>
+        <button v-if="schedule.length > 12 && loan.installments?.length" type="button" class="mt-2 text-sm font-medium text-brand hover:underline" @click="showAll = !showAll">
+          {{ showAll ? 'Show only what\'s next' : `Show all ${schedule.length} instalments` }}
+        </button>
       </section>
 
       <!-- Penalties and other charges -->

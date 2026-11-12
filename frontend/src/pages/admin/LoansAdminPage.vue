@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import EmptyState from '@/components/EmptyState.vue'
+import { ClipboardDocumentCheckIcon } from '@heroicons/vue/24/outline'
 import { ask } from '@/confirm'
 import { onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
@@ -21,6 +23,16 @@ const tabs: { status: LoanStatus; label: string }[] = [
 ]
 
 const route = useRoute()
+/** What each tab says when it is empty */
+const EMPTY: Partial<Record<LoanStatus, [string, string]>> = {
+  pending_approval: ['No loans waiting for approval', 'Applications come here once their guarantors have agreed.'],
+  approved: ['Nothing to pay out', 'Approved loans wait here until the cheque is recorded.'],
+  pending_guarantors: ['No loans waiting for guarantors', 'New applications sit here while guarantors decide.'],
+  active: ['No running loans', 'Loans appear here once they are paid out.'],
+  closed: ['No repaid loans yet', 'Fully repaid loans are kept here.'],
+  rejected: ['No rejected loans', ''],
+  cancelled: ['No cancelled loans', ''],
+}
 const status = ref<LoanStatus>((route.meta.loanStatus as LoanStatus) ?? 'pending_approval')
 const q = ref('')
 const loans = ref<Loan[]>([])
@@ -72,7 +84,8 @@ onMounted(load)
   <div>
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 class="text-2xl font-bold">Loans</h1>
+        <p class="eyebrow">Loans</p>
+        <h1 class="mt-1 text-2xl font-bold">Loan applications</h1>
         <p class="mt-1 text-sm text-gray-600">Approve, pay out and record repayments. Your own loans are handled by another admin.</p>
       </div>
       <div class="flex flex-wrap gap-2">
@@ -118,7 +131,10 @@ onMounted(load)
           </div>
         </RouterLink>
       </li>
-      <li v-if="!loading && !loans.length" class="px-4 py-10 text-center text-sm text-gray-500">Nothing here.</li>
+      <li v-if="!loading && !loans.length">
+        <EmptyState v-if="q" title="No loans match" :text="`Nothing in this list matches “${q}”.`" />
+        <EmptyState v-else :title="EMPTY[status]?.[0] ?? 'Nothing here'" :text="EMPTY[status]?.[1]" :icon="ClipboardDocumentCheckIcon" />
+      </li>
     </ul>
     <ExistingLoanForm v-if="bringingIn" @close="bringingIn = false" />
   </div>

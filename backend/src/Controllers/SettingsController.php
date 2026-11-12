@@ -66,7 +66,12 @@ final class SettingsController
     {
         $out = [];
         foreach (self::fields() as $key => $field) {
-            $out[] = ['key' => $key, 'label' => $field[0], 'value' => Settings::get($key), 'options' => $field[2] ?? null];
+            $value = Settings::get($key);
+            // A choice never saved yet shows its first option (e.g. loan reminders: On)
+            if ($value === '' && !empty($field[2])) {
+                $value = (string) array_key_first($field[2]);
+            }
+            $out[] = ['key' => $key, 'label' => $field[0], 'value' => $value, 'options' => $field[2] ?? null];
         }
         Response::ok(['settings' => $out]);
     }

@@ -74,7 +74,7 @@ const report = computed<Report>(() => ({
 
 <template>
   <div>
-    <p class="eyebrow">Members</p>
+    <p class="eyebrow">Savings &amp; shares</p>
     <h1 class="mt-1 text-2xl font-bold">Deposit</h1>
     <p class="mt-1 text-gray-600">Money a member pays in outside the payroll, in cash or by bank slip. It goes to the bank account in the books.</p>
 

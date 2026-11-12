@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import EmptyState from '@/components/EmptyState.vue'
 import { computed, onMounted, ref } from 'vue'
 import { ArrowDownTrayIcon, ArrowUpTrayIcon, ArrowUturnLeftIcon, CheckCircleIcon } from '@heroicons/vue/24/outline'
 import { api, ApiError } from '@/api'
@@ -235,7 +236,7 @@ const money = (v: string, sign = false) => (Number(v) ? formatMoney(v, { sign })
           <button v-else type="button" class="btn-ghost px-2 py-1 text-xs" @click="undoing = u; reason = ''; undoError = ''"><ArrowUturnLeftIcon class="h-4 w-4" />Undo</button>
         </li>
       </ul>
-      <p v-else class="card mt-3 px-4 py-8 text-center text-sm text-gray-500">Nothing imported yet.</p>
+      <div v-else class="card mt-3"><EmptyState title="Nothing imported yet" text="Each upload is listed here, and can be undone as a whole." compact /></div>
     </section>
 
     <Modal v-if="undoing" :title="`Undo ${undoing.upload_no}`" @close="undoing = null">

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import EmptyState from '@/components/EmptyState.vue'
 import { computed, onMounted, ref } from 'vue'
 import { api, ApiError } from '@/api'
 import type { Loan } from '@/types'
@@ -26,7 +27,8 @@ onMounted(async () => {
   <div>
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h1 class="text-xl font-semibold">Loans</h1>
+        <p class="eyebrow">My account</p>
+        <h1 class="mt-1 text-2xl font-bold">Loans</h1>
         <p class="mt-1 text-sm text-gray-600">Your loans, and members who've asked you to guarantee theirs.</p>
       </div>
       <RouterLink v-if="loans && !inProgress" :to="{ name: 'loan-apply' }" class="btn-primary">Apply for a loan</RouterLink>
@@ -73,7 +75,11 @@ onMounted(async () => {
           <template v-if="Number(loan.guarantee_shortfall.amount) > 0">{{ formatMoney(loan.guarantee_shortfall.amount) }} more in guarantees</template>.
         </p>
       </RouterLink>
-      <p v-if="loans && !loans.length" class="card px-4 py-10 text-center text-sm text-gray-500">You haven't taken a loan yet.</p>
+      <div v-if="loans && !loans.length" class="card">
+        <EmptyState title="You haven't taken a loan yet" text="See how much you can borrow and what it would cost each month, before you apply.">
+          <RouterLink :to="{ name: 'loan-apply' }" class="btn-primary">Apply for a loan</RouterLink>
+        </EmptyState>
+      </div>
     </div>
   </div>
 </template>

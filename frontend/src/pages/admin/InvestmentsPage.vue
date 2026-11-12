@@ -160,7 +160,8 @@ const progress = computed(() => {
   <div>
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 class="text-2xl font-bold">Investments</h1>
+        <p class="eyebrow">Cash book</p>
+        <h1 class="mt-1 text-2xl font-bold">Investments</h1>
         <p class="mt-1 text-sm text-gray-600">What the SACCO invests, the profit it brings, and sharing that profit with members by their savings.</p>
       </div>
       <div class="flex items-end gap-2">

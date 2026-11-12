@@ -139,7 +139,7 @@ const byId = (id: unknown) => list.value?.transfers.find((t) => t.id === id)
 
 <template>
   <div>
-    <p class="eyebrow">Members</p>
+    <p class="eyebrow">Savings &amp; shares</p>
     <h1 class="mt-1 text-2xl font-bold">Internal transfers</h1>
     <p class="mt-1 max-w-3xl text-gray-600">Move money between accounts without cash. The same rules as a withdrawal apply: the minimum savings stay, pledged savings stay, and members keep their minimum shares.</p>
 

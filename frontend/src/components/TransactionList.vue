@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import EmptyState from '@/components/EmptyState.vue'
 import type { Transaction } from '@/types'
 import { accountLabel, formatDate, formatMoney, transactionTypeLabel } from '@/money'
 
@@ -68,6 +69,6 @@ function detail(t: Transaction) {
       </li>
     </ul>
 
-    <p v-if="!transactions.length" class="px-4 py-10 text-center text-sm text-gray-500">No entries yet.</p>
+    <EmptyState v-if="!transactions.length" title="No entries yet" text="Deposits, payroll deductions and withdrawals will show here as they are recorded." compact />
   </div>
 </template>

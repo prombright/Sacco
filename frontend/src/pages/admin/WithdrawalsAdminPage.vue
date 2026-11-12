@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import EmptyState from '@/components/EmptyState.vue'
 import MoneyAccountSelect from '@/components/MoneyAccountSelect.vue'
 import { ask } from '@/confirm'
 import { onMounted, reactive, ref, watch } from 'vue'
@@ -70,7 +71,8 @@ async function approve(r: Withdrawal) {
 
 <template>
   <div>
-    <h1 class="text-xl font-semibold">Withdrawal requests</h1>
+    <p class="eyebrow">Savings &amp; shares</p>
+    <h1 class="mt-1 text-2xl font-bold">Withdrawal requests</h1>
     <p class="mt-1 text-sm text-gray-600">Approve requests, then record the cheque. Savings go down when the cheque is recorded.</p>
 
     <div class="mt-5 flex gap-1 overflow-x-auto pb-1" role="tablist">
@@ -118,7 +120,7 @@ async function approve(r: Withdrawal) {
           <RouterLink v-if="r.status === 'paid' || r.status === 'approved'" :to="{ name: 'withdrawal-slip', params: { id: r.id } }" class="btn-secondary px-3 py-1.5">Slip</RouterLink>
         </div>
       </li>
-      <li v-if="!requests.length" class="px-4 py-10 text-center text-sm text-gray-500">Nothing here.</li>
+      <li v-if="!requests.length"><EmptyState title="No withdrawal requests here" text="Members' requests to take out savings appear here for approval and payment." /></li>
     </ul>
 
     <Modal v-if="dialog?.kind === 'reject'" title="Reject withdrawal" @close="dialog = null">

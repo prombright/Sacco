@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import EmptyState from '@/components/EmptyState.vue'
 import { ask } from '@/confirm'
 import { computed, onMounted, ref } from 'vue'
 import { api, ApiError } from '@/api'
@@ -72,7 +73,8 @@ onMounted(() => load().catch((e) => (error.value = e instanceof ApiError ? e.mes
 
 <template>
   <div class="max-w-3xl">
-    <h1 class="text-2xl font-bold">Withdraw savings</h1>
+    <p class="eyebrow">My account</p>
+    <h1 class="mt-1 text-2xl font-bold">Withdraw savings</h1>
     <p class="mt-1 text-sm text-gray-600">Ask for part of your savings. Once approved, you'll get a message to pick up your cheque.</p>
 
     <div v-if="data" class="card mt-5 p-5">
@@ -135,7 +137,7 @@ onMounted(() => load().catch((e) => (error.value = e instanceof ApiError ? e.mes
           <button v-if="r.status === 'pending' || r.status === 'approved'" type="button" class="btn-secondary px-3 py-1.5" @click="cancel(r)">Cancel request</button>
         </div>
       </li>
-      <li v-if="data && !data.requests.length" class="px-4 py-10 text-center text-sm text-gray-500">No withdrawal requests yet.</li>
+      <li v-if="data && !data.requests.length"><EmptyState title="No withdrawal requests yet" text="When you ask to take out savings, you can follow the request here until the cheque is ready." compact /></li>
     </ul>
   </div>
 </template>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import EmptyState from '@/components/EmptyState.vue'
 import { ask } from '@/confirm'
 import { computed, onMounted, ref, watch } from 'vue'
 import MoneyAccountSelect from '@/components/MoneyAccountSelect.vue'
@@ -149,7 +150,8 @@ function reset() {
 
 <template>
   <div>
-    <h1 class="text-xl font-semibold">Payroll uploads</h1>
+    <p class="eyebrow">Savings &amp; shares</p>
+    <h1 class="mt-1 text-2xl font-bold">Payroll deductions</h1>
     <p class="mt-1 text-sm text-gray-600">Post the month's deductions for everyone at once: loan principal and interest, savings, shares, and the total taken from each person's pay.</p>
 
     <section class="card mt-5 p-5">
@@ -278,7 +280,7 @@ function reset() {
           </div>
         </RouterLink>
       </li>
-      <li v-if="!batches.length" class="px-4 py-10 text-center text-sm text-gray-500">No uploads yet.</li>
+      <li v-if="!batches.length"><EmptyState title="No payroll uploads yet" text="Each month's deductions file is listed here once posted, and can be undone as a whole." compact /></li>
     </ul>
   </div>
 </template>

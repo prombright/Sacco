@@ -69,7 +69,8 @@ async function reverse() {
     <template v-if="batch">
       <div class="mt-3 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 class="text-xl font-semibold">Payroll {{ batch.period }}</h1>
+          <p class="eyebrow">Payroll deductions</p>
+          <h1 class="mt-1 text-2xl font-bold">Payroll {{ batch.period }}</h1>
           <p class="mt-1 text-sm text-gray-600">{{ batch.file_name }} · posted {{ formatDate(batch.created_at) }} by {{ batch.created_by_name }}</p>
         </div>
         <StatusBadge v-if="batch.status === 'reversed'" label="Reversed" style-class="bg-gray-100 text-gray-600" />

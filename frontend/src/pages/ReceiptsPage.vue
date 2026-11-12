@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import EmptyState from '@/components/EmptyState.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ArrowDownLeftIcon, ArrowUpRightIcon, DocumentArrowDownIcon } from '@heroicons/vue/24/outline'
@@ -70,7 +71,7 @@ async function download(r: Receipt) {
           <DocumentArrowDownIcon class="h-5 w-5" :class="{ 'animate-pulse': making === r.no }" aria-hidden="true" /><span class="hidden sm:inline">PDF</span>
         </button>
       </li>
-      <li v-if="!rows.length" class="p-10 text-center text-sm text-gray-500">No receipts here yet.</li>
+      <li v-if="!rows.length"><EmptyState title="No receipts here yet" text="Every payment in or out gets a receipt you can download." /></li>
     </ul>
     <div v-else-if="!error" class="mt-5 h-40 animate-pulse rounded-2xl bg-surface" aria-hidden="true" />
 

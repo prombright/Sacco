@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import EmptyState from '@/components/EmptyState.vue'
 import { ask } from '@/confirm'
 import { onMounted, reactive, ref } from 'vue'
 import { api, ApiError } from '@/api'
@@ -55,7 +56,8 @@ async function end(n: Notice) {
 
 <template>
   <div class="max-w-4xl">
-    <h1 class="text-2xl font-bold">Notices</h1>
+    <p class="eyebrow">Members</p>
+    <h1 class="mt-1 text-2xl font-bold">Notices</h1>
     <p class="mt-1 text-sm text-gray-600">Tell every member something: AGM dates, rule changes, when payroll goes in. Notices show on members' dashboards.</p>
 
     <form v-can="'notices'" class="card mt-6 space-y-4 p-5" novalidate @submit.prevent="post">
@@ -82,7 +84,7 @@ async function end(n: Notice) {
           <button v-can="'notices'" v-if="state(n).label !== 'Ended'" type="button" class="btn-ghost px-2 py-1 text-xs" @click="end(n)">Take down</button>
         </div>
       </li>
-      <li v-if="!notices.length" class="card px-5 py-10 text-center text-sm text-gray-500">No notices yet.</li>
+      <li v-if="!notices.length" class="card"><EmptyState title="No notices yet" text="Notices appear on every member's dashboard, for example the AGM date or a change in the rules." /></li>
     </ul>
   </div>
 </template>

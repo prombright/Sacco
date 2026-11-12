@@ -134,7 +134,8 @@ function agenda() {
   <div class="max-w-4xl">
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 class="text-2xl font-bold">Committee decisions</h1>
+        <p class="eyebrow">Settings</p>
+        <h1 class="mt-1 text-2xl font-bold">Committee decisions</h1>
         <p class="mt-1 text-sm text-gray-600">Rules waiting for the committee. Until it decides, the system uses what's on Setup, shown with each question.</p>
       </div>
       <div class="flex flex-wrap gap-2">

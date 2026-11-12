@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import EmptyState from '@/components/EmptyState.vue'
 import { ask } from '@/confirm'
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -92,7 +93,8 @@ async function post() {
 
 <template>
   <div>
-    <h1 class="text-2xl font-bold">Dividends &amp; profit</h1>
+    <p class="eyebrow">Cash book</p>
+    <h1 class="mt-1 text-2xl font-bold">Dividends &amp; profit</h1>
     <p class="mt-1 text-sm text-gray-600">
       The yearly dividend on members' share capital, and every payout so far, including investment profit shared from the Investments page.
     </p>
@@ -169,7 +171,7 @@ async function post() {
           </div>
         </RouterLink>
       </li>
-      <li v-if="!runs.length" class="px-4 py-10 text-center text-sm text-gray-500">No dividends paid yet.</li>
+      <li v-if="!runs.length"><EmptyState title="No dividends paid yet" text="Each year's dividend run is listed here, with what every member received." compact /></li>
     </ul>
   </div>
 </template>
