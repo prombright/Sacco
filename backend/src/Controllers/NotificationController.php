@@ -25,6 +25,8 @@ final class NotificationController
         // in the queue go out a few at a time
         try {
             Reminders::runIfDue();
+            // On the first look of a new month: last month's statement to every member (when turned on)
+            \Sacco\Loans\Statements::runIfDue(Database::tenant());
             Outbox::flush(Database::tenant(), 10);
         } catch (\Throwable $e) {
             error_log('Daily reminders or emails failed: ' . $e->getMessage());

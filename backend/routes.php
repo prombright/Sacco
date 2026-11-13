@@ -25,6 +25,7 @@ use Sacco\Controllers\LoanController;
 use Sacco\Controllers\LoanSecurityController;
 use Sacco\Controllers\TransactionImportController;
 use Sacco\Controllers\GoLiveController;
+use Sacco\Controllers\MonthlyStatementController;
 use Sacco\Controllers\MemberImportController;
 use Sacco\Controllers\OldSystemImportController;
 use Sacco\Controllers\MembershipFeeController;
@@ -147,6 +148,8 @@ $router->get('/api/transaction-imports', [TransactionImportController::class, 'i
 $router->post('/api/transaction-imports/preview', [TransactionImportController::class, 'preview'], $super);
 $router->post('/api/transaction-imports', [TransactionImportController::class, 'import'], $super);
 $router->get('/api/go-live', [GoLiveController::class, 'show'], $super);
+$router->get('/api/statements/monthly', [MonthlyStatementController::class, 'index'], $admins);
+$router->post('/api/statements/monthly/send', [MonthlyStatementController::class, 'send'], $super);
 $router->post('/api/go-live/{step}', [GoLiveController::class, 'tick'], $super);
 $router->post('/api/old-system/{kind}/preview', [OldSystemImportController::class, 'preview'], $super);
 $router->post('/api/old-system/{kind}', [OldSystemImportController::class, 'import'], $super);

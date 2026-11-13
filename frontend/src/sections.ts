@@ -35,6 +35,7 @@ import {
   UsersIcon,
   WalletIcon,
   DocumentArrowUpIcon,
+  EnvelopeIcon,
 } from '@heroicons/vue/24/outline'
 import type { Waiting } from '@/stores/office'
 import { formatMoney } from '@/money'
@@ -177,6 +178,7 @@ export const sections: Section[] = [
       { name: 'account-ledger', label: 'Account ledger', description: 'Every entry in one account', icon: TableCellsIcon },
       { name: 'chart', label: 'Chart of accounts', description: 'The accounts in the books', icon: ListBulletIcon, figure: (s) => `${s.accounts} accounts` },
       { name: 'member-ledger', label: 'Member ledger', description: 'One member\'s statement, ready to print', icon: DocumentTextIcon },
+      { name: 'monthly-statements', label: 'Monthly statements', description: "Each member's month, to print or send", icon: EnvelopeIcon },
       { name: 'members-summary', label: 'Members summary', description: 'Every member\'s savings, shares and loans', icon: UserGroupIcon },
       { name: 'audit-report', label: 'Audit report', description: 'Who did what, when, from where', icon: ShieldCheckIcon },
       { name: 'reports', label: 'More reports', description: 'Arrears and the transactions journal', icon: PresentationChartLineIcon },

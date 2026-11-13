@@ -263,7 +263,7 @@ async function submit() {
         <li v-for="p in problems" :key="p">· {{ p }}</li>
       </ul>
 
-      <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+      <div class="form-actions flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <RouterLink :to="{ name: 'loans' }" class="btn-secondary">Cancel</RouterLink>
         <button type="submit" class="btn-primary" :disabled="busy || !ready">{{ busy ? 'Sending…' : 'Send application' }}</button>
       </div>

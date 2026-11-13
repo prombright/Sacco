@@ -223,7 +223,12 @@ final class OfficeController
                 (SELECT COUNT(*) FROM loans WHERE status = 'pending_guarantors') AS loans_waiting_guarantors,
                 (SELECT COUNT(*) FROM withdrawal_requests WHERE status = 'pending') AS withdrawals_to_approve,
                 (SELECT COUNT(*) FROM withdrawal_requests WHERE status = 'approved') AS withdrawals_to_pay,
-                (SELECT COUNT(*) FROM users WHERE status = 'active' AND role = 'member' AND must_change_password = 1) AS members_not_signed_in"
+                (SELECT COUNT(*) FROM users WHERE status = 'active' AND role = 'member' AND must_change_password = 1) AS members_not_signed_in,
+                (SELECT COUNT(DISTINCT i.loan_id) FROM loan_installments i JOIN loans l ON l.id = i.loan_id
+                  WHERE l.status = 'active' AND i.due_date < CURDATE() AND i.principal + i.interest > i.principal_paid + i.interest_paid) AS loans_behind,
+                (SELECT COUNT(*) FROM loan_securities s JOIN loans l ON l.id = s.loan_id WHERE s.returned_on IS NULL AND l.status = 'closed') AS securities_to_return,
+                (SELECT COUNT(*) FROM membership_fees WHERE kind = 'subscription' AND year = YEAR(CURDATE()) AND status = 'unpaid') AS subscriptions_unpaid,
+                (SELECT COUNT(*) = 0 FROM payroll_batches WHERE kind = 'payroll' AND status = 'posted' AND period = DATE_FORMAT(CURDATE() - INTERVAL 1 MONTH, '%Y-%m')) AS payroll_missing"
         )->fetch();
         return array_map('intval', $counts);
     }

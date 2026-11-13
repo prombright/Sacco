@@ -50,6 +50,7 @@ final class Activity
             'withdrawal.paid' => 'issued a withdrawal cheque',
             'payroll.posted' => 'posted the payroll for ' . ($d['period'] ?? ''),
             'payroll.reversed' => 'reversed an upload (payroll or transactions)',
+            'statements.sent' => 'sent ' . ($d['count'] ?? '') . ' monthly statements for ' . ($d['month'] ?? ''),
             'transactions.imported' => 'imported ' . ($d['rows'] ?? '') . ' transactions from Excel' . (!empty($d['quiet']) ? ' (members not messaged)' : ''),
             'go_live.ticked' => 'marked a switch-over step done',
             'go_live.unticked' => 'marked a switch-over step not done',

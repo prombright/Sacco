@@ -33,6 +33,8 @@ final class SettingsController
                 ['sliding' => 'Step by step as the repayment score falls below 80', 'fixed' => 'Only for slow payers (score under 50), straight to the lowest limit']],
             'slow_payer_limit_percent' => ['Lowest borrowing limit for the worst payers, % of the usual limit (100 = no cut)', $int(0, 100)],
             'loan_reminder_days' => ['Remind members this many days before an instalment is due', $int(1, 14)],
+            'monthly_statements' => ['A short statement to every member on the 1st of each month', fn ($v) => in_array($v, ['off', 'on'], true) ? $v : null,
+                ['off' => 'Off', 'on' => 'On: sent on the 1st, with an email copy where there is one']],
             'loan_reminders' => ['Loan reminders (due soon and late) to members and the super admin', fn ($v) => in_array($v, ['on', 'off'], true) ? $v : null,
                 ['on' => 'On', 'off' => 'Paused (e.g. until repayments since an import are entered)']],
             'withdrawal_fee_percent' => ['Withdrawal fee, % of the amount withdrawn', $decimal(0, 50)],

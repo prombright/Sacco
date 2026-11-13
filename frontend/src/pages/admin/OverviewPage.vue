@@ -64,6 +64,7 @@ const monthName = new Date().toLocaleDateString('en-GB', { month: 'long' })
 const funds = computed(() => (data.value ? Number(data.value.totals.savings) + Number(data.value.totals.shares) : 0))
 
 /** The to-do list: only what has something waiting */
+const lastMonth = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toLocaleDateString('en-GB', { month: 'long' })
 const tasks = computed(() => {
   const w = data.value?.waiting
   if (!w) return []
@@ -72,7 +73,11 @@ const tasks = computed(() => {
     { n: w.loans_to_pay_out, text: 'approved loan', verb: 'to pay out', to: { name: 'admin-loans' } },
     { n: w.withdrawals_to_approve, text: 'withdrawal request', verb: 'to approve', to: { name: 'admin-withdrawals' } },
     { n: w.withdrawals_to_pay, text: 'withdrawal cheque', verb: 'to issue', to: { name: 'admin-withdrawals' } },
+    { n: w.payroll_missing, text: `${lastMonth} payroll`, verb: 'not posted yet', to: { name: 'payroll' }, single: true },
+    { n: w.loans_behind, text: 'borrower', verb: 'behind on repayments', to: { name: 'loan-portfolio' } },
+    { n: w.securities_to_return, text: 'loan security', verb: 'to hand back (loan repaid)', to: { name: 'admin-loans' } },
     { n: w.loans_waiting_guarantors, text: 'loan', verb: 'waiting for guarantors', to: { name: 'admin-loans' }, quiet: true },
+    { n: w.subscriptions_unpaid, text: 'subscription', verb: 'unpaid this year', to: { name: 'membership-fees' }, quiet: true },
     { n: w.members_not_signed_in, text: 'member', verb: 'yet to log in for the first time', to: { name: 'users' }, quiet: true },
   ].filter((t) => t.n > 0)
 })
@@ -206,21 +211,24 @@ const money = (v: number) => formatMoney(String(v))
     <template v-if="data">
       <!-- Needs your attention -->
       <section class="mt-6" aria-labelledby="todo">
-        <h2 id="todo" class="sr-only">Needs your attention</h2>
+        <div class="mb-3 flex items-baseline justify-between gap-2">
+          <h2 id="todo" class="font-semibold">Today</h2>
+          <p class="text-sm text-gray-500">{{ urgent ? `${urgent} thing${urgent === 1 ? '' : 's'} to act on` : 'Nothing urgent' }}</p>
+        </div>
         <div v-if="tasks.length" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <RouterLink
             v-for="t in tasks"
             :key="t.text + t.verb"
             :to="t.to"
-            class="group flex items-center gap-4 rounded-2xl border p-4 transition hover:shadow-lift"
+            class="group flex items-center gap-4 rounded-2xl border p-4 transition hover:-translate-y-0.5 hover:shadow-lift active:scale-[0.99]"
             :class="t.quiet ? 'border-line bg-surface' : 'border-saffron-300 bg-saffron-50'"
           >
             <span
               class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-lg font-bold tabular-nums"
               :class="t.quiet ? 'bg-gray-100 text-gray-700' : 'bg-saffron-400 text-navy-950'"
-            >{{ t.n }}</span>
+            >{{ t.single ? '!' : t.n }}</span>
             <span class="flex-1 text-sm">
-              <span class="font-semibold">{{ t.text }}{{ t.n === 1 ? '' : 's' }}</span>&#32;<span class="text-gray-600">{{ t.verb }}</span>
+              <span class="font-semibold">{{ t.text }}{{ t.n === 1 || t.single ? '' : 's' }}</span>&#32;<span class="text-gray-600">{{ t.verb }}</span>
             </span>
             <ChevronRightIcon class="h-5 w-5 text-gray-400 transition group-hover:translate-x-0.5 group-hover:text-gray-700" aria-hidden="true" />
           </RouterLink>

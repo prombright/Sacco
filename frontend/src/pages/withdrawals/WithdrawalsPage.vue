@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import AmountWords from '@/components/AmountWords.vue'
+import AmountField from '@/components/AmountField.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { ask } from '@/confirm'
 import { computed, onMounted, ref } from 'vue'
@@ -96,10 +96,7 @@ onMounted(() => load().catch((e) => (error.value = e instanceof ApiError ? e.mes
       <h2 class="font-semibold">New request</h2>
       <div v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
       <div class="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label for="amount" class="label">Amount</label>
-          <input id="amount" v-model="amount" class="input tabular-nums" inputmode="numeric" autocomplete="off" /><AmountWords :value="amount" />
-        </div>
+        <AmountField id="amount" v-model="amount" :quick="[50000, 100000, 200000]" :max="Number(data.available)" max-label="All I can" />
         <div>
           <label for="reason" class="label">Reason <span class="font-normal text-gray-400">(optional)</span></label>
           <input id="reason" v-model="reason" class="input" maxlength="255" />
@@ -111,8 +108,8 @@ onMounted(() => load().catch((e) => (error.value = e instanceof ApiError ? e.mes
         <div><dt class="text-xs text-gray-500">Off your savings</dt><dd class="font-semibold tabular-nums">{{ formatMoney(String(quote.leaves)) }}</dd></div>
       </dl>
       <p v-if="quote?.tooMuch" class="text-sm text-amber-800">That's more than you can withdraw right now ({{ formatMoney(data!.available) }}).</p>
-      <div class="flex justify-end">
-        <button type="submit" class="btn-primary" :disabled="busy || !amount || quote?.tooMuch">{{ busy ? 'Sending…' : 'Send request' }}</button>
+      <div class="form-actions flex justify-end">
+        <button type="submit" class="btn-primary max-lg:flex-1" :disabled="busy || !amount || quote?.tooMuch">{{ busy ? 'Sending…' : 'Send request' }}</button>
       </div>
     </form>
     <p v-else-if="open" class="mt-4 rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-700">

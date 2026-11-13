@@ -26,7 +26,9 @@ use Sacco\Tenant;
 foreach (Database::platform()->query("SELECT * FROM saccos ORDER BY id") as $sacco) {
     $done = Tenant::actAs($sacco, function (PDO $db) {
         $db->prepare("INSERT INTO settings (`key`, value) VALUES ('daily_run_on', ?) ON DUPLICATE KEY UPDATE value = VALUES(value)")->execute([date('Y-m-d')]);
-        return Reminders::run($db);
+        $done = Reminders::run($db);
+        $done['statements'] = \Sacco\Loans\Statements::runIfDue($db);
+        return $done;
     });
-    echo "SACCO {$sacco['code']}: {$done['due_soon']} due soon, {$done['overdue']} late, {$done['borrowers']} borrowers checked\n";
+    echo "SACCO {$sacco['code']}: {$done['due_soon']} due soon, {$done['overdue']} late, {$done['borrowers']} borrowers checked, {$done['statements']} monthly statements sent\n";
 }

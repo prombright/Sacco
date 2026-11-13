@@ -10,6 +10,13 @@ export interface Waiting {
   withdrawals_to_approve: number
   withdrawals_to_pay: number
   members_not_signed_in: number
+  /** Running loans with an instalment past due */
+  loans_behind: number
+  /** Collateral of repaid loans not yet handed back */
+  securities_to_return: number
+  subscriptions_unpaid: number
+  /** 1 when last month's payroll hasn't been posted */
+  payroll_missing: number
 }
 
 export const useOffice = defineStore('office', () => {

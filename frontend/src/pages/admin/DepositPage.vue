@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import AmountField from '@/components/AmountField.vue'
 import { toast } from '@/toast'
-import AmountWords from '@/components/AmountWords.vue'
 import MoneyAccountSelect from '@/components/MoneyAccountSelect.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { XMarkIcon } from '@heroicons/vue/24/outline'
@@ -101,13 +101,17 @@ const report = computed<Report>(() => ({
           </label>
         </div>
       </fieldset>
-      <div><label for="d-amount" class="label">Amount</label><input id="d-amount" v-model="form.amount" inputmode="decimal" class="input text-lg tabular-nums" placeholder="50000" /><AmountWords :value="form.amount" /></div>
+      <AmountField id="d-amount" v-model="form.amount">
+        <p v-if="balances && Number(form.amount) > 0" class="mt-2 text-sm text-gray-600">
+          {{ form.account === 'savings' ? 'Savings' : 'Shares' }} will be <span class="font-semibold text-emerald-700 tabular-nums">{{ formatMoney(String(Number(balances[form.account as 'savings' | 'shares']) + Number(String(form.amount).replace(/[,\s]/g, '')))) }}</span>
+        </p>
+      </AmountField>
       <div><label for="d-date" class="label">Date received</label><input id="d-date" v-model="form.value_date" type="date" :max="today" class="input" /></div>
       <MoneyAccountSelect id="d-money" v-model="form.money_account_id" label="Received into" />
       <div><label for="d-ref" class="label">Receipt or bank slip no.</label><input id="d-ref" v-model="form.reference" class="input" /></div>
       <div class="lg:col-span-2"><label for="d-note" class="label">Note <span class="font-normal text-gray-500">(optional)</span></label><input id="d-note" v-model="form.narration" class="input" /></div>
-      <div class="flex flex-wrap items-center gap-3 lg:col-span-2">
-        <button type="submit" class="btn-primary" :disabled="busy || !member || !form.amount">{{ busy ? 'Saving…' : 'Record the deposit' }}</button>
+      <div class="form-actions flex flex-wrap items-center gap-3 lg:col-span-2">
+        <button type="submit" class="btn-primary max-lg:flex-1" :disabled="busy || !member || !form.amount">{{ busy ? 'Saving…' : 'Record the deposit' }}</button>
         <p v-if="done" class="text-sm text-emerald-700">{{ done }}</p>
         <button v-if="done && lastReceipt" type="button" class="btn-secondary" @click="receipt">Download receipt</button>
         <p v-if="error" class="text-sm text-red-700" role="alert">{{ error }}</p>

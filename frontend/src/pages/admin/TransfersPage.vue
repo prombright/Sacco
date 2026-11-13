@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import AmountField from '@/components/AmountField.vue'
 import { toast } from '@/toast'
-import AmountWords from '@/components/AmountWords.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ArrowRightIcon, ArrowUturnLeftIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { api, ApiError } from '@/api'
@@ -206,12 +206,12 @@ const byId = (id: unknown) => list.value?.transfers.find((t) => t.id === id)
         </div>
 
         <div class="grid gap-4 sm:grid-cols-3 lg:col-span-3">
-          <div><label for="t-amount" class="label">Amount</label><input id="t-amount" v-model="form.amount" inputmode="decimal" class="input tabular-nums" placeholder="40000" /><AmountWords :value="form.amount" /></div>
+          <AmountField id="t-amount" v-model="form.amount" :quick="[40000, 100000, 200000]" :max="fromBalances ? Number(chosen.from === 'shares' ? fromBalances.shares : fromBalances.savings) : null" max-label="All of it" />
           <div><label for="t-date" class="label">Date</label><input id="t-date" v-model="form.value_date" type="date" class="input" /></div>
           <div><label for="t-reason" class="label">Reason</label><input id="t-reason" v-model="form.reason" class="input" placeholder="e.g. Member's written request" /></div>
         </div>
-        <div class="flex flex-wrap items-center gap-3 lg:col-span-3">
-          <button type="submit" class="btn-primary" :disabled="busy || !from || !form.amount || !form.reason">{{ busy ? 'Moving…' : 'Make the transfer' }}</button>
+        <div class="form-actions flex flex-wrap items-center gap-3 lg:col-span-3">
+          <button type="submit" class="btn-primary max-lg:flex-1" :disabled="busy || !from || !form.amount || !form.reason">{{ busy ? 'Moving…' : 'Make the transfer' }}</button>
           <p v-if="done" class="text-sm text-emerald-700">{{ done }}</p>
           <p v-if="error" class="text-sm text-red-700" role="alert">{{ error }}</p>
         </div>

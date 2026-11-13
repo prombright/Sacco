@@ -102,6 +102,13 @@ h3 {
 }
 
 @layer components {
+  .form-actions {
+    @apply max-lg:sticky max-lg:z-20 max-lg:-mx-5 max-lg:border-t max-lg:border-line max-lg:bg-surface/95 max-lg:px-5 max-lg:py-3 max-lg:backdrop-blur;
+    bottom: calc(4rem + env(safe-area-inset-bottom));
+  }
+  @media (min-width: 1024px) {
+    .form-actions { bottom: auto; }
+  }
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-400 focus-visible:ring-offset-2 focus-visible:ring-offset-paper disabled:cursor-not-allowed disabled:opacity-50;
   }
@@ -151,12 +158,12 @@ h3 {
  * Dark mode for the coloured tints (status badges, alerts, banners): soft see-through fills and
  * lighter text, so they read on dark surfaces. Written once here instead of on every badge.
  */
-.dark :is(.bg-red-50, .bg-red-50\/40, .bg-red-50\/60) { background-color: rgb(248 113 113 / 0.12); }
+.dark :is(.bg-red-50, .bg-red-50\/40, .bg-red-50\/50, .bg-red-50\/60) { background-color: rgb(248 113 113 / 0.12); }
 .dark :is(.bg-amber-50, .bg-saffron-50, .bg-saffron-50\/40, .bg-saffron-50\/60, .bg-amber-50\/40) { background-color: rgb(242 185 52 / 0.12); }
 .dark .from-saffron-50 { --tw-gradient-from: rgb(242 185 52 / 0.12) var(--tw-gradient-from-position); --tw-gradient-to: rgb(242 185 52 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
 .dark .bg-saffron-100 { background-color: rgb(242 185 52 / 0.18); }
-.dark :is(.bg-green-50, .bg-emerald-50) { background-color: rgb(52 211 153 / 0.12); }
-.dark :is(.bg-navy-50, .bg-blue-50) { background-color: rgb(154 162 230 / 0.16); }
+.dark :is(.bg-green-50, .bg-emerald-50, .bg-emerald-50\/40) { background-color: rgb(52 211 153 / 0.12); }
+.dark :is(.bg-navy-50, .bg-navy-50\/50, .bg-navy-50\/60, .bg-navy-50\/70, .bg-blue-50) { background-color: rgb(154 162 230 / 0.16); }
 .dark .bg-navy-100 { background-color: rgb(154 162 230 / 0.24); }
 .dark .bg-brand\/10 { background-color: rgb(154 162 230 / 0.16); }
 .dark :is(.text-red-700, .text-red-800) { color: rgb(252 165 165); }

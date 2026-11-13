@@ -27,6 +27,7 @@ const LOOK: Record<string, { group: string; name: string; unit?: string; help?: 
   credit_limit_rule: { group: 'loans', name: 'Late repayments lower the limit', help: 'How a member\'s repayment record affects how much they can borrow.' },
   slow_payer_limit_percent: { group: 'loans', name: 'Lowest limit for slow payers', unit: '%', help: 'Of the usual limit. 100 means no cut.' },
   loan_reminder_days: { group: 'reminders', name: 'Remind before an instalment', unit: 'days', help: 'Members get a message this many days before it falls due.' },
+  monthly_statements: { group: 'reminders', name: 'Monthly statement', help: 'On the 1st of each month every member gets last month in a few lines. Leave off until the old records are caught up.' },
   loan_reminders: { group: 'reminders', name: 'Loan reminders', help: 'Due-soon and late messages to members and the super admin. Pause them while catching up old records.' },
   withdrawal_fee_percent: { group: 'savings', name: 'Withdrawal fee', unit: '%', help: 'Of the amount withdrawn.' },
   withdrawal_fee_mode: { group: 'savings', name: 'How the fee is taken' },

@@ -83,6 +83,7 @@ const router = createRouter({
         { path: 'accounts/journal', name: 'journal', component: () => import('@/pages/accounts/JournalPage.vue'), meta: { admin: true, title: 'Journal entries' } },
         // Member reports
         { path: 'reports/member-ledger', name: 'member-ledger', component: () => import('@/pages/accounts/MemberLedgerPage.vue'), meta: { admin: true, title: 'Member ledger' } },
+        { path: 'reports/statements', name: 'monthly-statements', component: () => import('@/pages/admin/MonthlyStatementsPage.vue'), meta: { admin: true, title: 'Monthly statements' } },
         { path: 'reports/members-summary', name: 'members-summary', component: () => import('@/pages/admin/ReportsPage.vue'), meta: { admin: true, title: 'Members summary', report: 'members' } },
         { path: 'reports/loan-portfolio', name: 'loan-portfolio', component: () => import('@/pages/admin/ReportsPage.vue'), meta: { admin: true, title: 'Loan portfolio', report: 'loans' } },
         // Financial reports
