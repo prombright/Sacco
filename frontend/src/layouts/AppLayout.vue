@@ -23,6 +23,7 @@ import {
   UserCircleIcon,
   WalletIcon,
   XMarkIcon,
+  QuestionMarkCircleIcon,
 } from '@heroicons/vue/24/outline'
 import { useAuth } from '@/stores/auth'
 import { useOffice } from '@/stores/office'
@@ -88,6 +89,7 @@ const groups = computed<NavGroup[]>(() => {
         { name: 'loans', label: t('Loans'), icon: BanknotesIcon, also: ['loan-apply', 'loan'] },
         { name: 'withdrawals', label: t('Withdraw savings'), icon: WalletIcon },
         { name: 'profile', label: t('Profile & next of kin'), icon: UserCircleIcon },
+        { name: 'help', label: t('Help'), icon: QuestionMarkCircleIcon },
       ],
     }]
   }

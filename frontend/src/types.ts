@@ -25,6 +25,8 @@ export interface User {
   status: UserStatus
   source: 'manual' | 'api'
   must_change_password: boolean
+  /** Members: whether they have seen the first-sign-in welcome */
+  welcomed?: boolean
   last_login_at: string | null
   created_at: string
   /** Included in the users list */

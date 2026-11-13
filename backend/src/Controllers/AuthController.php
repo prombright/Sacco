@@ -242,8 +242,17 @@ final class AuthController
             'must_change_password' => (bool) $user['must_change_password'],
             'two_step' => (bool) ($user['totp_enabled_at'] ?? false),
             'last_login_at' => $user['last_login_at'],
+            // Members see a short welcome once, on whichever device they first use
+            'welcomed' => !empty($user['welcomed_at']),
             'created_at' => $user['created_at'],
         ];
+    }
+
+    /** POST /api/me/welcomed - the first-sign-in welcome was seen (or skipped) */
+    public function welcomed(Request $request): never
+    {
+        Database::tenant()->prepare('UPDATE users SET welcomed_at = COALESCE(welcomed_at, NOW()) WHERE id = ?')->execute([Auth::id()]);
+        Response::ok();
     }
 
     private static function logAttempt(string $login, ?array $user, bool $success, ?string $reason): void

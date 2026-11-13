@@ -44,6 +44,7 @@ const router = createRouter({
         { path: 'members/import', name: 'member-import', component: () => import('@/pages/admin/MemberImportPage.vue'), meta: { admin: true, title: 'Import members' } },
         { path: 'messages', name: 'messages', component: () => import('@/pages/MessagesPage.vue'), meta: { title: 'Messages' } },
         { path: 'admin/committee', name: 'committee', component: () => import('@/pages/admin/CommitteePage.vue'), meta: { admin: true, title: 'Committee decisions' } },
+        { path: 'help', name: 'help', component: () => import('@/pages/HelpPage.vue'), meta: { title: 'Help' } },
         { path: 'profile', name: 'profile', component: () => import('@/pages/ProfilePage.vue'), meta: { member: true, title: 'My profile' } },
         { path: 'admin/cashbook', name: 'cashbook', redirect: { name: 'payments' } },
         { path: 'admin/notices', name: 'notices', component: () => import('@/pages/admin/NoticesPage.vue'), meta: { admin: true, title: 'Notices' } },

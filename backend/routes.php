@@ -204,6 +204,7 @@ $router->delete('/api/notices/{id}', [NoticeController::class, 'end'], $edit('no
 // Messages to members (the bell)
 $router->get('/api/me/notifications', [NotificationController::class, 'index']);
 $router->post('/api/me/notifications/read', [NotificationController::class, 'read']);
+$router->post('/api/me/welcomed', [AuthController::class, 'welcomed']);
 $router->get('/api/me/message-settings', [NotificationController::class, 'settings']);
 $router->patch('/api/me/message-settings', [NotificationController::class, 'saveSettings']);
 

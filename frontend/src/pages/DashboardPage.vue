@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import WelcomeTour from '@/components/WelcomeTour.vue'
 import { t } from '@/i18n'
 import { computed, onMounted, ref, watch } from 'vue'
 import {
@@ -148,11 +149,15 @@ const badges = computed(() => {
 })
 
 const actions = computed(() => [
-  { label: t('Apply for a loan'), to: { name: 'loan-apply' }, icon: BanknotesIcon },
-  { label: t('Withdraw savings'), to: { name: 'withdrawals' }, icon: ArrowUpTrayIcon },
-  { label: t('My statement'), to: { name: 'statement' }, icon: DocumentTextIcon },
-  { label: t('My profile'), to: { name: 'profile' }, icon: UserCircleIcon },
+  { label: t('Apply for a loan'), short: t('Borrow'), to: { name: 'loan-apply' }, icon: BanknotesIcon },
+  { label: t('Withdraw savings'), short: t('Withdraw'), to: { name: 'withdrawals' }, icon: ArrowUpTrayIcon },
+  { label: t('My statement'), short: t('Statement'), to: { name: 'statement' }, icon: DocumentTextIcon },
+  { label: t('My profile'), short: t('Profile'), to: { name: 'profile' }, icon: UserCircleIcon },
 ])
+/** Phones: the extras (saver level, growth chart, this year's estimate) wait behind one button */
+const more = ref(false)
+/** The first sign-in welcome, once */
+const welcome = ref(true)
 </script>
 
 <template>
@@ -162,9 +167,15 @@ const actions = computed(() => [
         <p class="eyebrow">{{ t('My account') }} · <span class="font-mono normal-case tracking-normal">{{ auth.user?.account_no }}</span></p>
         <h1 class="mt-1 text-2xl font-bold sm:text-3xl">{{ greeting }}, {{ firstName }}</h1>
       </div>
-      <nav class="flex flex-wrap gap-2" aria-label="Quick actions">
+      <nav class="hidden flex-wrap gap-2 sm:flex" aria-label="Quick actions">
         <RouterLink v-for="a in actions" :key="a.label" :to="a.to" class="btn-secondary !rounded-full !px-3.5">
           <component :is="a.icon" class="h-4 w-4 text-brand" aria-hidden="true" />{{ a.label }}
+        </RouterLink>
+      </nav>
+      <nav class="grid w-full grid-cols-4 gap-2 sm:hidden" aria-label="Quick actions">
+        <RouterLink v-for="a in actions" :key="a.label" :to="a.to" class="tap flex flex-col items-center gap-1.5 rounded-2xl border border-line bg-surface px-1 py-2.5 text-xs font-medium shadow-card">
+          <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-navy-50 text-brand"><component :is="a.icon" class="h-5 w-5" aria-hidden="true" /></span>
+          {{ a.short }}
         </RouterLink>
       </nav>
     </div>
@@ -198,6 +209,16 @@ const actions = computed(() => [
       Your <strong class="font-semibold">membership fee</strong> of {{ formatMoney(data.joining_fee.amount) }} is due. It is paid once. The office can take it from your savings, or pay it at the office.
     </div>
 
+    <WelcomeTour
+      v-if="data && welcome && auth.user && !auth.isAdmin && !auth.user.welcomed && !auth.user.must_change_password"
+      :savings="data.balances.savings"
+      :shares="data.balances.shares"
+      :withdrawable="data.withdrawable"
+      :loan-limit="data.loan_limit"
+      :wait-reason="data.loan_wait_reason"
+      @done="welcome = false"
+    />
+
     <template v-if="data">
       <!-- What I have, and what I can borrow -->
       <section class="mt-6 grid gap-4 lg:grid-cols-3" aria-label="Balances">
@@ -223,13 +244,13 @@ const actions = computed(() => [
             <div class="fill-bar h-full bg-navy-200" :style="{ width: savingsShare + '%' }" />
             <div class="ml-0.5 h-full flex-1 bg-saffron-400" />
           </div>
-          <div class="relative mt-3 grid gap-4 sm:grid-cols-2">
+          <div class="relative mt-3 grid grid-cols-2 gap-4">
             <div class="flex items-start gap-2.5">
               <span class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-navy-200" aria-hidden="true" />
               <div>
                 <p class="text-sm text-navy-100/80">{{ t('Savings') }}</p>
-                <p class="text-xl font-semibold"><CountUp :value="data.balances.savings" :format="show" :delay="200" /></p>
-                <Sparkline class="mt-1.5" :values="data.trend.savings.map((p) => Number(p.value))" color="#c2c7f2" label="Savings" :width="120" :height="26" />
+                <p class="whitespace-nowrap text-lg font-semibold sm:text-xl"><CountUp :value="data.balances.savings" :format="show" :delay="200" /></p>
+                <Sparkline class="mt-1.5 hidden sm:block" :values="data.trend.savings.map((p) => Number(p.value))" color="#c2c7f2" label="Savings" :width="120" :height="26" />
                 <p v-if="Number(data.pledged) > 0" class="mt-1 text-xs text-navy-100/80">
                   <span class="font-semibold text-white">−{{ show(data.pledged) }}</span> {{ t('held for guarantees') }}<br />
                   <span class="font-semibold text-white">{{ show(data.free_to_guarantee) }}</span> {{ t('free to guarantee') }}
@@ -240,8 +261,8 @@ const actions = computed(() => [
               <span class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-saffron-400" aria-hidden="true" />
               <div>
                 <p class="text-sm text-navy-100/80">{{ t('Share capital') }}</p>
-                <p class="text-xl font-semibold"><CountUp :value="data.balances.shares" :format="show" :delay="350" /></p>
-                <Sparkline class="mt-1.5" :values="data.trend.shares.map((p) => Number(p.value))" color="#f2b934" label="Share capital" :width="120" :height="26" />
+                <p class="whitespace-nowrap text-lg font-semibold sm:text-xl"><CountUp :value="data.balances.shares" :format="show" :delay="350" /></p>
+                <Sparkline class="mt-1.5 hidden sm:block" :values="data.trend.shares.map((p) => Number(p.value))" color="#f2b934" label="Share capital" :width="120" :height="26" />
                 <p v-if="data.share_position.min_shares > 0 && data.share_position.shares !== null" class="mt-0.5 flex items-center gap-1 text-xs" :class="Number(data.share_position.still_needed) > 0 ? 'text-saffron-300' : 'text-navy-100/80'">
                   <CheckCircleIcon v-if="Number(data.share_position.still_needed) <= 0" class="h-3.5 w-3.5" aria-hidden="true" />
                   {{ data.share_position.shares }} share{{ data.share_position.shares === 1 ? '' : 's' }}<template v-if="Number(data.share_position.still_needed) > 0"> · {{ show(data.share_position.still_needed) }} more to reach {{ data.share_position.min_shares }}</template><template v-else> · minimum of {{ data.share_position.min_shares }} reached</template>
@@ -270,6 +291,22 @@ const actions = computed(() => [
           </dl>
         </div>
 
+        <!-- Phones: what to pay next, straight after the money -->
+        <RouterLink
+          v-for="l in data.loans.slice(0, 2)"
+          :key="'next' + l.id"
+          :to="{ name: 'loan', params: { id: l.id } }"
+          class="card flex items-center gap-4 p-4 sm:hidden"
+        >
+          <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" :class="Number(l.overdue) > 0 ? 'bg-red-50 text-red-700' : 'bg-navy-50 text-navy-800'"><BanknotesIcon class="h-5 w-5" aria-hidden="true" /></span>
+          <span class="min-w-0 flex-1">
+            <span class="block text-xs text-gray-600">{{ l.loan_no }} · next payment</span>
+            <span class="block font-semibold tabular-nums">{{ l.next_due_date ? show(l.next_due_amount) : 'Fully repaid' }}</span>
+            <span v-if="l.next_due_date" class="block text-xs" :class="Number(l.overdue) > 0 ? 'font-semibold text-red-700' : 'text-gray-600'">{{ daysUntil(l.next_due_date) }} · {{ show(l.total_left) }} left</span>
+          </span>
+          <ArrowRightIcon class="h-4 w-4 text-gray-400" aria-hidden="true" />
+        </RouterLink>
+
         <!-- Borrowing power -->
         <div class="reveal card flex min-w-0 flex-col p-6" style="--i: 1">
           <p class="eyebrow">{{ t('Borrowing power') }}</p>
@@ -288,7 +325,7 @@ const actions = computed(() => [
                 <span class="text-xs font-medium text-gray-600">{{ t('Credit standing') }}</span>
                 <CreditBadge :credit="data.credit" />
               </div>
-              <p v-if="data.credit.grade !== 'good'" class="mt-1.5 text-xs" :class="data.credit.grade === 'poor' || data.credit.overdue_now ? 'text-red-700' : 'text-gray-600'">{{ data.credit.advice }}</p>
+              <p v-if="data.credit.grade !== 'good'" class="mt-1.5 text-xs max-sm:line-clamp-3" :class="data.credit.grade === 'poor' || data.credit.overdue_now ? 'text-red-700' : 'text-gray-600'">{{ data.credit.advice }}</p>
               <p v-else class="mt-1.5 text-xs text-gray-600">{{ data.credit.on_time }} of your last {{ data.credit.due }} instalments paid on time.</p>
             </div>
             <RouterLink :to="{ name: 'loan-apply' }" class="btn-primary mt-auto w-full !mt-6">Apply for a loan<ArrowRightIcon class="h-4 w-4" /></RouterLink>
@@ -301,8 +338,13 @@ const actions = computed(() => [
         </div>
       </section>
 
+      <button type="button" class="tap mt-4 flex w-full items-center justify-between rounded-2xl border border-line bg-surface px-5 py-3 text-sm font-semibold shadow-card sm:hidden" :aria-expanded="more" @click="more = !more">
+        {{ more ? 'Less about my account' : 'More about my account' }}
+        <span class="text-xs font-normal text-gray-500">{{ more ? '' : 'saver level, growth, this year' }}</span>
+      </button>
+
       <!-- Saver level and achievements -->
-      <section class="reveal mt-4 rounded-2xl border border-line bg-surface p-5 shadow-card" style="--i: 2">
+      <section class="reveal mt-4 rounded-2xl border border-line bg-surface p-5 shadow-card" :class="{ 'max-sm:hidden': !more }" style="--i: 2">
         <div class="flex flex-wrap items-center gap-5">
           <div class="min-w-[14rem] flex-1">
             <p class="eyebrow">{{ t('My saver level') }}</p>
@@ -322,7 +364,7 @@ const actions = computed(() => [
       </section>
 
       <!-- Growth, and loans -->
-      <section class="mt-4 grid gap-4 lg:grid-cols-3">
+      <section class="mt-4 grid gap-4 lg:grid-cols-3" :class="{ 'max-sm:hidden': !more }">
         <div class="reveal card min-w-0 p-5 lg:col-span-2" style="--i: 2">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -388,7 +430,7 @@ const actions = computed(() => [
         </div>
       </section>
 
-      <EarningsCard class="reveal mt-4" style="--i: 4" />
+      <EarningsCard class="reveal mt-4" :class="{ 'max-sm:hidden': !more }" style="--i: 4" />
 
       <section class="reveal mt-4" style="--i: 5">
         <div class="flex items-center justify-between">
