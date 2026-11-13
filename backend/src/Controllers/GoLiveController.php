@@ -85,7 +85,7 @@ final class GoLiveController
             }
         }
         $missing = array_values(array_filter($months, fn ($x) => !$x['payroll'] && $x['month'] < date('Y-m')));
-        // 6. Members signing in
+        // 6. Members logging in
         $members = (int) $one("SELECT COUNT(*) FROM users WHERE role = 'member' AND status = 'active'");
         $signedIn = (int) $one("SELECT COUNT(*) FROM users WHERE role = 'member' AND status = 'active' AND last_login_at IS NOT NULL");
         // 7. The super admin can be reached by email
@@ -122,8 +122,8 @@ final class GoLiveController
                 'link' => ['label' => 'Settings', 'to' => '/admin/settings']],
             ['key' => 'old_system_stopped', 'title' => 'Stop using the old system', 'done' => $ticked('old_system_stopped') !== '',
                 'detail' => 'From the day everything is entered, record new money only here, so the two never drift apart.', 'manual' => true],
-            ['key' => 'slips', 'title' => 'Hand out the sign-in slips', 'done' => $ticked('slips') !== '',
-                'detail' => "$signedIn of $members members have signed in. Members use SM and their old code (e.g. SM004) and choose their own password.", 'manual' => true,
+            ['key' => 'slips', 'title' => 'Hand out the login slips', 'done' => $ticked('slips') !== '',
+                'detail' => "$signedIn of $members members have logged in. Members use SM and their old code (e.g. SM004) and choose their own password.", 'manual' => true,
                 'link' => ['label' => 'Members', 'to' => '/users']],
             ['key' => 'email', 'title' => 'Give the super admin an email address', 'done' => $noEmail === 0,
                 'detail' => $noEmail ? 'Needed for password resets and copies of office messages. Add it on your profile.' : 'Every super admin has an email address.',

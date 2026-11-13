@@ -42,7 +42,7 @@ final class Tenant
         return $code ? self::find($code) : null;
     }
 
-    /** The SACCO for this request when nobody is signed in yet (the login page) */
+    /** The SACCO for this request when nobody is logged in yet (the login page) */
     public static function fromRequest(): ?array
     {
         return self::findByDomain($_SERVER['HTTP_HOST'] ?? '')

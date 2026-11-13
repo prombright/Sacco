@@ -108,7 +108,7 @@ async function submit(e: Event) {
       </div>
     </section>
 
-    <!-- Sign in -->
+    <!-- Log in -->
     <section class="relative flex flex-col">
       <!-- Language and light/dark, top right (over the photo band on phones) -->
       <div class="absolute right-3 top-3 z-10 flex items-center gap-0.5 rounded-xl border border-line bg-surface/90 p-1 shadow-sm backdrop-blur sm:right-5 sm:top-5">
@@ -133,7 +133,7 @@ async function submit(e: Event) {
       <div class="flex flex-1 items-start justify-center px-4 pb-10 pt-8 sm:pt-12 lg:items-center lg:pt-16">
         <div class="w-full max-w-sm">
           <h1 class="text-3xl font-bold">{{ t('Welcome back') }}</h1>
-          <p class="mt-1.5 text-gray-600">Sign in to {{ auth.sacco?.name ?? 'your SACCO' }}.</p>
+          <p class="mt-1.5 text-gray-600">Log in to {{ auth.sacco?.name ?? 'your SACCO' }}.</p>
 
           <form v-if="needCode" class="mt-8 space-y-4" novalidate @submit.prevent="submitCode">
             <div v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
@@ -173,13 +173,13 @@ async function submit(e: Event) {
             <label class="flex cursor-pointer items-start gap-2.5 text-sm text-gray-700">
               <input v-model="remember" type="checkbox" class="mt-0.5 h-4 w-4 accent-brand" />
               <span>
-                {{ t('Keep me signed in on this phone') }}
-                <span class="block text-xs text-gray-500">On your own phone only. Office accounts always sign out after a while.</span>
+                {{ t('Keep me logged in on this phone') }}
+                <span class="block text-xs text-gray-500">On your own phone only. Office accounts always log out after a while.</span>
               </span>
             </label>
 
             <button type="submit" class="btn-primary w-full py-3 text-base" :disabled="busy">
-              {{ busy ? t('Signing in…') : t('Sign in') }}
+              {{ busy ? t('Logging in…') : t('Log in') }}
             </button>
           </form>
 

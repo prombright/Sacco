@@ -14,7 +14,7 @@ onMounted(async () => {
   <div>
     <p class="eyebrow">Developer portal</p>
     <h1 class="mt-1 text-2xl font-bold sm:text-3xl">Portal log</h1>
-    <p class="mt-1 text-gray-600">Every sign-in and change made here. Changes to a SACCO are also in that SACCO's own audit log, and its office accounts were told.</p>
+    <p class="mt-1 text-gray-600">Every login and change made here. Changes to a SACCO are also in that SACCO's own audit log, and its office accounts were told.</p>
     <ol class="card mt-6 divide-y divide-line">
       <li v-for="(r, i) in rows ?? []" :key="i" class="flex gap-3 p-4 text-sm">
         <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full" :class="r.action.startsWith('developer.') ? 'bg-gray-300' : 'bg-saffron-500'" aria-hidden="true" />

@@ -205,7 +205,7 @@ function closeAdding() {
                 <span v-if="s.stats.waiting_total" class="rounded-full bg-saffron-100 px-2 py-0.5 font-semibold text-saffron-700">{{ s.stats.waiting_total }} waiting for the office</span>
                 <span v-if="Number(s.stats.arrears) > 0" class="rounded-full bg-red-50 px-2 py-0.5 font-semibold text-red-700">{{ s.stats.loans_in_arrears }} loan{{ s.stats.loans_in_arrears === 1 ? '' : 's' }} in arrears</span>
                 <span v-if="s.pending_updates" class="rounded-full bg-amber-50 px-2 py-0.5 font-semibold text-amber-800">{{ s.pending_updates }} system update{{ s.pending_updates === 1 ? '' : 's' }} to apply</span>
-                <span class="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-gray-600"><UsersIcon class="h-3.5 w-3.5" aria-hidden="true" />{{ s.stats.signed_in_30_days }} signed in this month</span>
+                <span class="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-gray-600"><UsersIcon class="h-3.5 w-3.5" aria-hidden="true" />{{ s.stats.signed_in_30_days }} logged in this month</span>
               </div>
               <p class="mt-3 flex items-center justify-between text-xs text-gray-500">
                 Last activity {{ ago(s.stats.last_activity) }}
@@ -229,10 +229,10 @@ function closeAdding() {
     <Modal v-if="adding" title="Set up a new SACCO" @close="closeAdding">
       <div v-if="made" class="space-y-3 text-sm">
         <p class="rounded-lg bg-emerald-50 px-3 py-2 text-emerald-800">The SACCO is ready, with its own database <span class="font-mono">{{ made.db_name }}</span>.</p>
-        <p>Give its first super admin these details. The password is shown <strong>once</strong>, and they must change it when they first sign in.</p>
+        <p>Give its first super admin these details. The password is shown <strong>once</strong>, and they must change it when they first log in.</p>
         <dl class="rounded-xl border border-line p-4">
           <div class="flex justify-between gap-3"><dt class="text-gray-500">SACCO code</dt><dd class="font-mono font-semibold">{{ made.code }}</dd></div>
-          <div class="mt-2 flex justify-between gap-3"><dt class="text-gray-500">Sign in with</dt><dd class="font-semibold">{{ made.admin_email }}</dd></div>
+          <div class="mt-2 flex justify-between gap-3"><dt class="text-gray-500">Log in with</dt><dd class="font-semibold">{{ made.admin_email }}</dd></div>
           <div class="mt-2 flex justify-between gap-3"><dt class="text-gray-500">Temporary password</dt><dd class="font-mono text-base font-bold">{{ made.temporary_password }}</dd></div>
         </dl>
         <button type="button" class="btn-primary w-full" @click="closeAdding">Done</button>

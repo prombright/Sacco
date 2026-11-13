@@ -158,7 +158,7 @@ function certificate() {
         <p class="eyebrow">{{ member.role_label }} · office account</p>
         <p class="mt-2 text-sm text-gray-700">
           This account runs the SACCO: {{ member.role === 'super_admin' ? 'everything, including the rules, loan products and other admins' : 'members, loans, withdrawals, payroll and reports' }}.
-          It has no savings, shares or loans, and can't apply for or guarantee a loan. If this person is also a member, they have a separate member account and sign in with that for their own money.
+          It has no savings, shares or loans, and can't apply for or guarantee a loan. If this person is also a member, they have a separate member account and log in with that for their own money.
         </p>
       </section>
 

@@ -14,12 +14,12 @@ use Sacco\Support\LedgerException;
  * Maps METHOD /api/path/{param} to [Controller::class, 'method']. {id} matches digits only.
  *
  * Route options:
- * - 'auth' => false        public route (default: signed in)
+ * - 'auth' => false        public route (default: logged in)
  * - 'roles' => [...]       only these roles (a super admin always passes, see Roles::allows)
  * - 'before_password' => true   allowed while the user still has to change their temporary password
  * - 'members_only' => true      a member's own money; office accounts (admins, super admin) are refused
  * - 'can' => 'money'       changes in an area: super admins, and admins the super admin allowed (Roles::can)
- * - 'dev' => true          the developer portal: signed in as a developer, not a SACCO user
+ * - 'dev' => true          the developer portal: logged in as a developer, not a SACCO user
  *
  * Signed-in POST/PATCH/PUT/DELETE requests must carry the session's X-CSRF-Token header.
  */
@@ -98,7 +98,7 @@ final class Router
         }
         $user = Auth::user();
         if (!$user) {
-            Response::error('Please sign in.', 401);
+            Response::error('Please log in.', 401);
         }
         if ($request->method !== 'GET' && !hash_equals(Auth::csrfToken(), $request->header('X-CSRF-Token'))) {
             Response::error('Your session has expired. Please refresh the page.', 403, ['code' => 'session_expired']);
@@ -114,7 +114,7 @@ final class Router
         }
         // A member's own money: office accounts (admins, super admin) have none of their own
         if (!empty($options['members_only']) && $user['role'] !== Roles::MEMBER) {
-            Response::error('This is an office account, which has no savings or loans. Sign in with your member account for that.', 403);
+            Response::error('This is an office account, which has no savings or loans. Log in with your member account for that.', 403);
         }
     }
 
@@ -122,7 +122,7 @@ final class Router
     {
         $developer = DevAuth::user();
         if (!$developer) {
-            Response::error('Please sign in to the developer portal.', 401);
+            Response::error('Please log in to the developer portal.', 401);
         }
         if ($request->method !== 'GET' && !hash_equals(Auth::csrfToken(), $request->header('X-CSRF-Token'))) {
             Response::error('Your session has expired. Please refresh the page.', 403, ['code' => 'session_expired']);

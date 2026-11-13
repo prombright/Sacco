@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 /**
- * Adds a developer: someone who signs in to the developer portal (/devportal) and looks after
- * every SACCO on this installation. Prints a temporary password, to change at first sign-in.
+ * Adds a developer: someone who logs in to the developer portal (/devportal) and looks after
+ * every SACCO on this installation. Prints a temporary password, to change at first login.
  *
  *   php backend/bin/create-developer.php --name="Jane Doe" --email=jane@example.com
  *   php backend/bin/create-developer.php --name="Jane Doe" --email=jane@example.com --password='Chosen2026'
@@ -62,5 +62,5 @@ if ($existing->fetchColumn()) {
 ";
 }
 echo $chosen === null
-    ? "Temporary password: $temporary   (shown once - change it at first sign-in to /devportal)\n"
-    : "Password set to the one you gave. Sign in at /devportal; change it any time with the key icon.\n";
+    ? "Temporary password: $temporary   (shown once - change it at first login to /devportal)\n"
+    : "Password set to the one you gave. Log in at /devportal; change it any time with the key icon.\n";

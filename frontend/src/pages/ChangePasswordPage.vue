@@ -9,7 +9,7 @@ import PasswordInput from '@/components/PasswordInput.vue'
 const auth = useAuth()
 const router = useRouter()
 
-// First sign-in (temporary password) or a change they chose to make
+// First login (temporary password) or a change they chose to make
 const firstTime = computed(() => auth.user?.must_change_password ?? false)
 
 const current = ref('')
@@ -52,7 +52,7 @@ async function signOut() {
         <SaccoMark :sacco="auth.sacco" size="lg" />
         <h1 class="mt-4 text-xl font-semibold">{{ firstTime ? 'Choose your own password' : 'Change your password' }}</h1>
         <p v-if="firstTime" class="mt-1 text-sm text-gray-600">
-          Welcome, {{ auth.user?.full_name }}. You signed in with a temporary password; replace it with one only you know.
+          Welcome, {{ auth.user?.full_name }}. You logged in with a temporary password; replace it with one only you know.
         </p>
       </div>
 
@@ -89,7 +89,7 @@ async function signOut() {
 
       <p class="mt-6 text-center text-sm">
         <RouterLink v-if="!firstTime" to="/" class="font-medium text-gray-600 underline hover:text-gray-900">Back</RouterLink>
-        <button v-else type="button" class="font-medium text-gray-600 underline hover:text-gray-900" @click="signOut">Sign out</button>
+        <button v-else type="button" class="font-medium text-gray-600 underline hover:text-gray-900" @click="signOut">Log out</button>
       </p>
     </div>
   </main>

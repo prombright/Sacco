@@ -79,8 +79,8 @@ async function submit() {
         <template v-else-if="state === 'done'">
           <CheckCircleIcon class="h-10 w-10 text-emerald-600" aria-hidden="true" />
           <h1 class="mt-3 text-2xl font-bold">{{ t('Password changed') }}</h1>
-          <p class="mt-2 text-sm text-gray-600">Sign in with your new password. You've been signed out everywhere else.</p>
-          <button type="button" class="btn-primary mt-6 w-full py-3" @click="router.push({ name: 'login' })">{{ t('Sign in') }}</button>
+          <p class="mt-2 text-sm text-gray-600">Log in with your new password. You've been logged out everywhere else.</p>
+          <button type="button" class="btn-primary mt-6 w-full py-3" @click="router.push({ name: 'login' })">{{ t('Log in') }}</button>
         </template>
 
         <template v-else>

@@ -90,7 +90,7 @@ const statusLabel: Record<string, string> = { active: 'Active', suspended: 'Susp
       <div>
         <p class="eyebrow">Members</p>
         <h1 class="mt-1 text-2xl font-bold">Member register <span v-if="total" class="text-base font-medium text-gray-500">· {{ total.toLocaleString() }}</span></h1>
-        <p class="mt-1 text-gray-600">Everyone who can sign in to the SACCO, with their balances. Click a name to open their account.</p>
+        <p class="mt-1 text-gray-600">Everyone who can log in to the SACCO, with their balances. Click a name to open their account.</p>
       </div>
       <div class="flex flex-wrap gap-2">
         <RouterLink :to="{ name: 'member-import' }" class="btn-secondary">Import from Excel</RouterLink>
@@ -150,7 +150,7 @@ const statusLabel: Record<string, string> = { active: 'Active', suspended: 'Susp
             <td v-else colspan="2" class="px-4 py-2.5 text-right text-xs font-medium text-gray-500">Office account</td>
             <td class="whitespace-nowrap px-4 py-2.5">
               <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="statusStyle[user.status]">{{ statusLabel[user.status] }}</span>
-              <span v-if="user.must_change_password" class="ml-2 text-xs text-gray-500">not signed in yet</span>
+              <span v-if="user.must_change_password" class="ml-2 text-xs text-gray-500">not logged in yet</span>
             </td>
             <td class="whitespace-nowrap px-4 py-2.5 text-right">
               <span v-if="canManage(user)" class="inline-flex gap-1">
@@ -178,7 +178,7 @@ const statusLabel: Record<string, string> = { active: 'Active', suspended: 'Susp
               <div v-if="canManage(user)" class="mt-2 flex flex-wrap items-center gap-2">
                 <button v-can="'members'" type="button" class="btn-secondary px-3 py-1.5 text-xs" @click="editing = user"><PencilSquareIcon class="h-4 w-4" />Edit</button>
                 <button v-can="'members'" v-if="user.id !== auth.user?.id" type="button" class="btn-secondary px-3 py-1.5 text-xs" @click="resetPassword(user)"><KeyIcon class="h-4 w-4" />New password</button>
-                <span v-if="user.must_change_password" class="text-xs text-gray-500">Not signed in yet</span>
+                <span v-if="user.must_change_password" class="text-xs text-gray-500">Not logged in yet</span>
               </div>
             </div>
           </div>

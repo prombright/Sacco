@@ -7,7 +7,7 @@ import { formatMoney } from '@/money'
 import { useAuth } from '@/stores/auth'
 
 /**
- * A member's first sign-in: four short steps with their own figures. Shown once (the server
+ * A member's first login: four short steps with their own figures. Shown once (the server
  * remembers), skippable, and the last step points to Help.
  */
 const props = defineProps<{ savings: string; shares: string; withdrawable: string; loanLimit: string; waitReason?: string | null }>()

@@ -56,7 +56,7 @@ async function change() {
           </button>
           <span class="mx-2 hidden text-sm text-navy-100/80 md:inline">{{ dev.developer?.full_name }}</span>
           <button type="button" class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-navy-100 hover:bg-white/10 hover:text-white" @click="signOut">
-            <ArrowRightOnRectangleIcon class="h-5 w-5" aria-hidden="true" /><span class="hidden sm:inline">Sign out</span>
+            <ArrowRightOnRectangleIcon class="h-5 w-5" aria-hidden="true" /><span class="hidden sm:inline">Log out</span>
           </button>
         </div>
       </div>

@@ -73,7 +73,7 @@ const tasks = computed(() => {
     { n: w.withdrawals_to_approve, text: 'withdrawal request', verb: 'to approve', to: { name: 'admin-withdrawals' } },
     { n: w.withdrawals_to_pay, text: 'withdrawal cheque', verb: 'to issue', to: { name: 'admin-withdrawals' } },
     { n: w.loans_waiting_guarantors, text: 'loan', verb: 'waiting for guarantors', to: { name: 'admin-loans' }, quiet: true },
-    { n: w.members_not_signed_in, text: 'member', verb: 'yet to sign in for the first time', to: { name: 'users' }, quiet: true },
+    { n: w.members_not_signed_in, text: 'member', verb: 'yet to log in for the first time', to: { name: 'users' }, quiet: true },
   ].filter((t) => t.n > 0)
 })
 const urgent = computed(() => tasks.value.filter((t) => !t.quiet).length)

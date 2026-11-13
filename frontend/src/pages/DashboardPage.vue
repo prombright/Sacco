@@ -156,7 +156,7 @@ const actions = computed(() => [
 ])
 /** Phones: the extras (saver level, growth chart, this year's estimate) wait behind one button */
 const more = ref(false)
-/** The first sign-in welcome, once */
+/** The first login welcome, once */
 const welcome = ref(true)
 </script>
 

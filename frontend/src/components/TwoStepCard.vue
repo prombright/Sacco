@@ -6,7 +6,7 @@ import { confetti } from '@/motion'
 import Modal from '@/components/Modal.vue'
 import PasswordInput from '@/components/PasswordInput.vue'
 
-/** Turning two-step sign-in on and off for your own account */
+/** Turning two-step login on and off for your own account */
 const status = ref<{ enabled: boolean; enabled_at: string | null; recovery_left: number } | null>(null)
 async function load() {
   status.value = await api.get('/me/two-step')
@@ -55,7 +55,7 @@ async function disable() {
   }
 }
 function saveCodes() {
-  const blob = new Blob([`Two-step sign-in recovery codes. Each works once.\n\n${recovery.value!.join('\n')}\n`], { type: 'text/plain' })
+  const blob = new Blob([`Two-step login recovery codes. Each works once.\n\n${recovery.value!.join('\n')}\n`], { type: 'text/plain' })
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
   a.download = 'recovery-codes.txt'
@@ -69,7 +69,7 @@ function saveCodes() {
     <div class="flex flex-wrap items-center gap-4">
       <span class="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl" :class="status.enabled ? 'bg-emerald-50 text-emerald-700' : 'bg-saffron-100 text-saffron-700'"><ShieldCheckIcon class="h-6 w-6" aria-hidden="true" /></span>
       <div class="min-w-0 flex-1">
-        <h2 class="font-semibold">Two-step sign-in</h2>
+        <h2 class="font-semibold">Two-step login</h2>
         <p class="text-sm text-gray-600">
           <template v-if="status.enabled">On for your account. {{ status.recovery_left }} recovery code{{ status.recovery_left === 1 ? '' : 's' }} left.</template>
           <template v-else>Off. Add a code from an app on your phone, so a stolen password alone can't open your account.</template>
@@ -80,7 +80,7 @@ function saveCodes() {
     </div>
     <p v-if="error && !setup && !disabling" class="mt-3 text-sm text-red-700" role="alert">{{ error }}</p>
 
-    <Modal v-if="setup" title="Turn on two-step sign-in" @close="setup = null">
+    <Modal v-if="setup" title="Turn on two-step login" @close="setup = null">
       <form class="space-y-4" @submit.prevent="confirm">
         <p class="text-sm text-gray-700">Open an authenticator app (Google Authenticator, Microsoft Authenticator or similar) and scan this code.</p>
         <img :src="setup.qr" alt="QR code to scan with your authenticator app" class="mx-auto h-52 w-52 rounded-xl border border-line bg-white p-2" />
@@ -92,7 +92,7 @@ function saveCodes() {
     </Modal>
 
     <Modal v-if="recovery" title="Save your recovery codes" @close="recovery = null">
-      <p class="flex items-center gap-2 text-sm font-semibold text-emerald-700"><CheckCircleIcon class="h-5 w-5" aria-hidden="true" />Two-step sign-in is on.</p>
+      <p class="flex items-center gap-2 text-sm font-semibold text-emerald-700"><CheckCircleIcon class="h-5 w-5" aria-hidden="true" />Two-step login is on.</p>
       <p class="mt-2 text-sm text-gray-700">If you lose your phone, each of these codes gets you in once. They are shown only now: save or print them and keep them somewhere safe.</p>
       <ul class="mt-4 grid grid-cols-2 gap-2 rounded-xl border border-line p-4 font-mono text-sm">
         <li v-for="c in recovery" :key="c">{{ c }}</li>
@@ -103,7 +103,7 @@ function saveCodes() {
       </div>
     </Modal>
 
-    <Modal v-if="disabling" title="Turn off two-step sign-in" @close="disabling = false">
+    <Modal v-if="disabling" title="Turn off two-step login" @close="disabling = false">
       <form class="space-y-4" @submit.prevent="disable">
         <div><label for="ts-pass" class="label">Your password</label><PasswordInput id="ts-pass" v-model="password" autocomplete="current-password" /></div>
         <p v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</p>

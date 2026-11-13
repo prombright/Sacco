@@ -11,14 +11,14 @@ use Sacco\Http\Request;
 use Sacco\Http\Response;
 use Sacco\Support\Audit;
 
-/** Who is using the system, when and on what; failed sign-ins; and how well it is protected */
+/** Who is using the system, when and on what; failed logins; and how well it is protected */
 final class UsageController
 {
     private const AREAS = [
         'loan' => 'Loans', 'loan_product' => 'Loans', 'withdrawal' => 'Withdrawals', 'transaction' => 'Deposits & entries', 'payroll' => 'Payroll',
         'dividend' => 'Dividends', 'profit_share' => 'Dividends', 'investment' => 'Investments', 'cashbook' => 'Income & expenses', 'journal' => 'Journal entries',
         'transfer' => 'Transfers', 'membership_fee' => 'Membership and subscription', 'bank_rec' => 'Bank reconciliation', 'user' => 'Member records', 'users' => 'Member records',
-        'next_of_kin' => 'Member records', 'member' => 'Member records', 'notice' => 'Notices', 'settings' => 'Rules', 'account' => 'Chart of accounts', 'password' => 'Passwords', 'two_step' => 'Two-step sign-in',
+        'next_of_kin' => 'Member records', 'member' => 'Member records', 'notice' => 'Notices', 'settings' => 'Rules', 'account' => 'Chart of accounts', 'password' => 'Passwords', 'two_step' => 'Two-step login',
     ];
 
     /** GET /api/office/usage?days=30 */
@@ -39,7 +39,7 @@ final class UsageController
             return $s->fetchAll();
         };
 
-        // Sign-ins and failures for every day of the period
+        // Logins and failures for every day of the period
         $byDay = [];
         foreach ($all('SELECT DATE(created_at) AS d, SUM(success = 1) AS ok, SUM(success = 0) AS failed FROM login_log WHERE created_at >= ? GROUP BY d', [$since]) as $r) {
             $byDay[$r['d']] = $r;
@@ -111,11 +111,11 @@ final class UsageController
                 'two_step' => (bool) $u['totp_enabled_at'],
             ], $office),
             'checks' => [
-                $check('The live-server setting is on', Config::isProduction(), Config::isProduction() ? 'Sign-in cookies only travel over HTTPS.' : 'APP_ENV is not "production" (fine on a test computer).'),
+                $check('The live-server setting is on', Config::isProduction(), Config::isProduction() ? 'Login cookies only travel over HTTPS.' : 'APP_ENV is not "production" (fine on a test computer).'),
                 $check('Error details are hidden', !Config::isDebug(), Config::isDebug() ? 'APP_DEBUG is on: turn it off on the live server.' : 'Visitors never see technical error messages.'),
                 $check('The connection is encrypted', $https, $https ? 'This page came over HTTPS.' : 'This page came over plain HTTP (fine on a test computer).'),
                 $check('One super admin', $supers === 1, "$supers active super admin" . ($supers === 1 ? '' : 's') . '.'),
-                $check('Office accounts use two-step sign-in', $withTwoStep === count($activeOffice) && $activeOffice, "$withTwoStep of " . count($activeOffice) . ' have it on.'),
+                $check('Office accounts use two-step login', $withTwoStep === count($activeOffice) && $activeOffice, "$withTwoStep of " . count($activeOffice) . ' have it on.'),
                 $check('No office account is on a temporary password', $tempOffice === 0, $tempOffice ? "$tempOffice still to change it." : 'All have chosen their own.'),
                 $check('A backup was downloaded in the last 30 days', $lastBackup && strtotime($lastBackup) > strtotime('-30 days'), $lastBackup ? 'Last: ' . date('j M Y', strtotime($lastBackup)) . '.' : 'None downloaded yet.'),
                 $check('The developer portal is limited to known addresses', trim((string) Config::get('DEV_ALLOWED_IPS', '')) !== '', trim((string) Config::get('DEV_ALLOWED_IPS', '')) !== '' ? 'Only listed addresses can reach it.' : 'Optional: set DEV_ALLOWED_IPS on the server.'),

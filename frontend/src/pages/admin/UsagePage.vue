@@ -94,39 +94,39 @@ function reports(): Report[] {
       totals: null,
     },
     {
-      title: 'Sign-in summary',
+      title: 'Login summary',
       subtitle: period,
       columns: [text('item', 'Item'), num('value', 'Number')],
       rows: [
         { item: 'Active members', value: d.totals.members },
-        { item: 'Members who signed in', value: d.totals.active_members },
-        { item: 'Members who have never signed in', value: d.totals.never_signed_in },
-        { item: 'Successful sign-ins', value: d.totals.sign_ins },
-        { item: 'Failed sign-ins', value: d.totals.failed },
+        { item: 'Members who logged in', value: d.totals.active_members },
+        { item: 'Members who have never logged in', value: d.totals.never_signed_in },
+        { item: 'Successful logins', value: d.totals.sign_ins },
+        { item: 'Failed logins', value: d.totals.failed },
         { item: 'Accounts locked now', value: d.totals.locked },
         { item: 'Actions recorded in the audit log', value: d.totals.actions },
-        ...Object.entries(d.devices).map(([k, v]) => ({ item: `Sign-ins from a ${k.toLowerCase()}`, value: v })),
+        ...Object.entries(d.devices).map(([k, v]) => ({ item: `Logins from a ${k.toLowerCase()}`, value: v })),
       ],
       totals: null,
     },
     {
       title: 'Office accounts',
       subtitle: 'Super admins and admins',
-      columns: [text('full_name', 'Name'), text('email', 'Email'), text('role', 'Role'), text('status', 'Status'), text('two_step', 'Two-step sign-in'), text('last', 'Last signed in')],
+      columns: [text('full_name', 'Name'), text('email', 'Email'), text('role', 'Role'), text('status', 'Status'), text('two_step', 'Two-step login'), text('last', 'Last logged in')],
       rows: d.office.map((u) => ({ ...u, two_step: u.two_step ? 'On' : 'Off', last: ago(u.last_login_at) })),
       totals: null,
     },
     {
-      title: 'Failed sign-ins',
+      title: 'Failed logins',
       subtitle: period,
       columns: [text('login', 'Login tried'), text('why', 'Reason'), text('ip', 'Internet address'), num('n', 'Times'), text('last', 'Last try')],
       rows: d.failures.map((f) => ({ login: f.login, why: why[f.reason ?? ''] ?? f.reason, ip: f.ip, n: f.n, last: f.last_at })),
       totals: null,
     },
     {
-      title: 'Sign-ins each day',
+      title: 'Logins each day',
       subtitle: period,
-      columns: [{ key: 'date', label: 'Date', type: 'date' }, num('ok', 'Signed in'), num('failed', 'Failed')],
+      columns: [{ key: 'date', label: 'Date', type: 'date' }, num('ok', 'Logged in'), num('failed', 'Failed')],
       rows: [...d.daily].reverse(),
       totals: { ok: String(d.totals.sign_ins), failed: String(d.daily.reduce((s, x) => s + x.failed, 0)) },
     },
@@ -152,9 +152,9 @@ async function exportReport(kind: 'pdf' | 'excel') {
         note: 'Who uses the system and how well it is protected',
         highlights: [
           ['Checks passed', `${score.value} of ${data.value.checks.length}`],
-          ['Members signing in', `${adoption.value}%`],
-          ['Successful sign-ins', String(data.value.totals.sign_ins)],
-          ['Failed sign-ins', String(data.value.totals.failed)],
+          ['Members logging in', `${adoption.value}%`],
+          ['Successful logins', String(data.value.totals.sign_ins)],
+          ['Failed logins', String(data.value.totals.failed)],
           ['Accounts locked', String(data.value.totals.locked)],
           ['Office accounts with two-step', `${data.value.office.filter((u) => u.two_step).length} of ${data.value.office.length}`],
         ],
@@ -197,7 +197,7 @@ async function unlock(u: { id: number }) {
             </svg>
             <span class="absolute text-2xl font-bold"><CountUp :value="adoption" :format="(n: number) => `${n}%`" /></span>
           </span>
-          <p class="max-w-[9rem] text-sm text-navy-100/85">of members signed in during the last {{ days }} days</p>
+          <p class="max-w-[9rem] text-sm text-navy-100/85">of members logged in during the last {{ days }} days</p>
         </div>
       </div>
     </div>
@@ -205,22 +205,22 @@ async function unlock(u: { id: number }) {
 
     <template v-if="data">
       <section class="mt-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <div class="card p-5"><p class="eyebrow">Sign-ins</p><p class="figure mt-2 text-3xl"><CountUp :value="data.totals.sign_ins" :format="(n: number) => n.toLocaleString()" /></p><p class="mt-1 text-xs text-gray-500">{{ data.totals.active_members }} of {{ data.totals.members }} members</p></div>
+        <div class="card p-5"><p class="eyebrow">Logins</p><p class="figure mt-2 text-3xl"><CountUp :value="data.totals.sign_ins" :format="(n: number) => n.toLocaleString()" /></p><p class="mt-1 text-xs text-gray-500">{{ data.totals.active_members }} of {{ data.totals.members }} members</p></div>
         <div class="card p-5"><p class="eyebrow">Actions recorded</p><p class="figure mt-2 text-3xl"><CountUp :value="data.totals.actions" :format="(n: number) => n.toLocaleString()" :delay="120" /></p><p class="mt-1 text-xs text-gray-500">In the audit log</p></div>
-        <div class="card p-5"><p class="eyebrow">Never signed in</p><p class="figure mt-2 text-3xl"><CountUp :value="data.totals.never_signed_in" :format="(n: number) => n.toLocaleString()" :delay="240" /></p><p class="mt-1 text-xs text-gray-500">Members yet to start</p></div>
-        <div class="card p-5" :class="{ '!border-red-200 !bg-red-50/60': data.totals.failed }"><p class="eyebrow">Failed sign-ins</p><p class="figure mt-2 text-3xl"><CountUp :value="data.totals.failed" :format="(n: number) => n.toLocaleString()" :delay="360" /></p><p class="mt-1 text-xs text-gray-500">{{ data.totals.locked }} account{{ data.totals.locked === 1 ? '' : 's' }} locked now</p></div>
+        <div class="card p-5"><p class="eyebrow">Never logged in</p><p class="figure mt-2 text-3xl"><CountUp :value="data.totals.never_signed_in" :format="(n: number) => n.toLocaleString()" :delay="240" /></p><p class="mt-1 text-xs text-gray-500">Members yet to start</p></div>
+        <div class="card p-5" :class="{ '!border-red-200 !bg-red-50/60': data.totals.failed }"><p class="eyebrow">Failed logins</p><p class="figure mt-2 text-3xl"><CountUp :value="data.totals.failed" :format="(n: number) => n.toLocaleString()" :delay="360" /></p><p class="mt-1 text-xs text-gray-500">{{ data.totals.locked }} account{{ data.totals.locked === 1 ? '' : 's' }} locked now</p></div>
       </section>
 
       <section class="mt-4 grid gap-4 xl:grid-cols-3">
         <div class="card min-w-0 p-5 xl:col-span-2">
           <div class="flex flex-wrap items-center justify-between gap-2">
-            <h2 class="font-semibold">Sign-ins each day</h2>
+            <h2 class="font-semibold">Logins each day</h2>
             <p class="flex items-center gap-3 text-xs text-gray-600">
-              <span class="flex items-center gap-1.5"><span class="inline-block h-2.5 w-2.5 rounded-sm" :style="{ background: colors.ok }" />Signed in</span>
+              <span class="flex items-center gap-1.5"><span class="inline-block h-2.5 w-2.5 rounded-sm" :style="{ background: colors.ok }" />Logged in</span>
               <span class="flex items-center gap-1.5"><span class="inline-block h-2.5 w-2.5 rounded-sm" :style="{ background: colors.failed }" />Failed</span>
             </p>
           </div>
-          <div class="relative mt-4 flex items-end gap-px sm:gap-0.5" :style="{ height: H + 'px' }" role="img" :aria-label="`Sign-ins over the last ${days} days`" @pointerleave="hover = null">
+          <div class="relative mt-4 flex items-end gap-px sm:gap-0.5" :style="{ height: H + 'px' }" role="img" :aria-label="`Logins over the last ${days} days`" @pointerleave="hover = null">
             <div v-for="(d, i) in data.daily" :key="d.date" class="flex h-full min-w-0 flex-1 flex-col justify-end" :class="{ 'rounded bg-navy-50/70': hover === i }" @pointerenter="hover = i">
               <div class="chart-bar mx-auto flex w-full max-w-[18px] flex-col justify-end gap-0.5" :style="{ '--i': Math.min(i, 30) }">
                 <div v-if="d.failed" class="w-full rounded-t-[3px]" :style="{ height: barH(d.failed) + 'px', background: colors.failed }" />
@@ -229,14 +229,14 @@ async function unlock(u: { id: number }) {
             </div>
             <div v-if="hover !== null" class="pointer-events-none absolute -top-2 z-10 -translate-x-1/2 whitespace-nowrap rounded-lg bg-navy-950 px-3 py-2 text-xs text-white shadow-lift" :style="{ left: Math.min(Math.max(((hover + 0.5) / data.daily.length) * 100, 16), 84) + '%' }">
               <p class="text-gray-300">{{ dayLabel(data.daily[hover].date) }}</p>
-              <p class="font-semibold">{{ data.daily[hover].ok }} signed in · {{ data.daily[hover].failed }} failed</p>
+              <p class="font-semibold">{{ data.daily[hover].ok }} logged in · {{ data.daily[hover].failed }} failed</p>
             </div>
           </div>
           <div class="mt-1 flex justify-between border-t border-line pt-1.5 text-[11px] text-gray-500"><span>{{ dayLabel(data.daily[0].date) }}</span><span>Today</span></div>
 
           <h3 class="mt-6 text-sm font-semibold">Busiest hours</h3>
           <div class="mt-2 grid gap-0.5" style="grid-template-columns: repeat(24, minmax(0, 1fr))">
-            <div v-for="(n, h) in data.hours" :key="h" class="chart-area h-9 rounded-[3px]" :style="{ background: colors.ok, opacity: n ? 0.18 + (n / maxHour) * 0.82 : 0.06 }" :title="`${hourLabel(h)}: ${n} sign-in${n === 1 ? '' : 's'}`" />
+            <div v-for="(n, h) in data.hours" :key="h" class="chart-area h-9 rounded-[3px]" :style="{ background: colors.ok, opacity: n ? 0.18 + (n / maxHour) * 0.82 : 0.06 }" :title="`${hourLabel(h)}: ${n} login${n === 1 ? '' : 's'}`" />
           </div>
           <div class="mt-1 flex justify-between text-[11px] text-gray-500"><span>Midnight</span><span>Noon</span><span>11 pm</span></div>
         </div>
@@ -289,7 +289,7 @@ async function unlock(u: { id: number }) {
             <h2 class="font-semibold">Office accounts</h2>
             <ul class="mt-3 divide-y divide-line">
               <li v-for="u in data.office" :key="u.full_name + u.email" class="flex items-center justify-between gap-3 py-2.5 text-sm">
-                <span class="min-w-0"><span class="block truncate font-medium">{{ u.full_name }}</span><span class="block text-xs text-gray-500">{{ u.role }} · last signed in {{ ago(u.last_login_at) }}</span></span>
+                <span class="min-w-0"><span class="block truncate font-medium">{{ u.full_name }}</span><span class="block text-xs text-gray-500">{{ u.role }} · last logged in {{ ago(u.last_login_at) }}</span></span>
                 <span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold" :class="u.two_step ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600'">{{ u.two_step ? 'Two-step on' : 'Two-step off' }}</span>
               </li>
             </ul>
@@ -299,7 +299,7 @@ async function unlock(u: { id: number }) {
 
       <section class="mt-4 grid gap-4 xl:grid-cols-2">
         <div class="card p-5">
-          <h2 class="font-semibold">Latest sign-ins</h2>
+          <h2 class="font-semibold">Latest logins</h2>
           <ul class="mt-3 divide-y divide-line">
             <li v-for="(r, i) in data.recent" :key="i" class="flex items-center justify-between gap-3 py-2 text-sm">
               <span class="min-w-0 truncate"><span class="font-medium">{{ r.full_name }}</span> <span class="text-gray-500">· {{ device(r.user_agent) }}</span></span>
@@ -309,7 +309,7 @@ async function unlock(u: { id: number }) {
           </ul>
         </div>
         <div class="card p-5">
-          <h2 class="font-semibold">Failed sign-ins</h2>
+          <h2 class="font-semibold">Failed logins</h2>
           <ul class="mt-3 divide-y divide-line">
             <li v-for="(f, i) in data.failures" :key="i" class="flex items-center justify-between gap-3 py-2 text-sm">
               <span class="min-w-0"><span class="block truncate font-medium">{{ f.login }}</span><span class="block truncate text-xs text-gray-500">{{ why[f.reason ?? ''] ?? f.reason }}<template v-if="f.ip"> · {{ f.ip }}</template></span></span>

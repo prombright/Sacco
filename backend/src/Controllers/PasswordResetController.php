@@ -119,7 +119,7 @@ final class PasswordResetController
                 'Your password was changed with a reset link sent to your email. If this wasn\'t you, contact your SACCO office straight away.', '/profile');
             Notify::$system = false;
         });
-        Response::ok(['message' => 'Your password is changed. Sign in with the new one.']);
+        Response::ok(['message' => 'Your password is changed. Log in with the new one.']);
     }
 
     private static function userFor(PDO $db, string $token): ?array

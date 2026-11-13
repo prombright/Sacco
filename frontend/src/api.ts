@@ -16,7 +16,7 @@ let csrfToken: string | null = null
 export function setCsrfToken(token: string | null) {
   csrfToken = token
 }
-// The developer portal signs in separately (its own session), so it has its own token
+// The developer portal logs in separately (its own session), so it has its own token
 let devCsrfToken: string | null = null
 export function setDevCsrfToken(token: string | null) {
   devCsrfToken = token
@@ -60,7 +60,7 @@ async function request<T>(method: string, url: string, body?: unknown, params?: 
     const err = e as AxiosError<{ message?: string; errors?: Record<string, string> }>
     const status = err.response?.status ?? 0
     const payload = err.response?.data
-    // The developer portal deals with its own sign-in
+    // The developer portal deals with its own login
     if (!isDev(url) && (status === 401 || payload?.errors?.code === 'session_expired' || payload?.errors?.code === 'must_change_password')) {
       onAuthProblem(payload?.errors?.code === 'session_expired' ? 419 : status, payload?.errors?.code)
     }

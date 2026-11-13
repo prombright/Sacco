@@ -123,8 +123,8 @@ const faqs = computed(() => {
       a: `Yes. Ask online and pick up a cheque once it is approved. A ${t.withdrawal_fee_percent}% fee applies, at least ${money(Number(t.savings_min_balance))} stays in your account, and savings you have pledged for a colleague's loan stay until that loan is repaid.`,
     },
     {
-      q: 'How do I sign in?',
-      a: 'With your email or employee number. The SACCO office gives you a temporary password the first time, and you choose your own when you sign in.',
+      q: 'How do I log in?',
+      a: 'With your email or employee number. The SACCO office gives you a temporary password the first time, and you choose your own when you log in.',
     },
   ]
 })
@@ -147,7 +147,7 @@ const loginTo = computed(() => (auth.user ? (auth.isAdmin ? '/office' : '/') : '
           <a href="#calculator" class="rounded-lg px-3 py-2 hover:bg-white/10">Loan calculator</a>
           <a href="#faq" class="rounded-lg px-3 py-2 hover:bg-white/10">Questions</a>
         </div>
-        <RouterLink :to="loginTo" class="btn-accent ml-auto md:ml-3">{{ auth.user ? 'My account' : 'Sign in' }}</RouterLink>
+        <RouterLink :to="loginTo" class="btn-accent ml-auto md:ml-3">{{ auth.user ? 'My account' : 'Log in' }}</RouterLink>
       </nav>
     </header>
 
@@ -164,7 +164,7 @@ const loginTo = computed(() => (auth.user ? (auth.isAdmin ? '/office' : '/') : '
           <h1 class="mt-5 text-4xl font-bold leading-[1.1] sm:text-6xl">{{ terms?.sacco.slogan ?? 'Save together. Grow together.' }}</h1>
           <p class="mt-5 max-w-xl text-lg text-navy-100/90">{{ terms?.sacco.about ?? 'Save a little every month, borrow at fair rates, and share in what we earn together.' }}</p>
           <div class="mt-8 flex flex-wrap gap-3">
-            <RouterLink :to="loginTo" class="btn-accent px-6 py-3 text-base">{{ auth.user ? 'Go to my account' : 'Sign in to my account' }}<ArrowRightIcon class="h-5 w-5" /></RouterLink>
+            <RouterLink :to="loginTo" class="btn-accent px-6 py-3 text-base">{{ auth.user ? 'Go to my account' : 'Log in to my account' }}<ArrowRightIcon class="h-5 w-5" /></RouterLink>
             <a href="#calculator" class="btn border border-white/30 bg-white/10 px-6 py-3 text-base text-white backdrop-blur hover:bg-white/20">See what I can borrow</a>
           </div>
         </div>
@@ -355,8 +355,8 @@ const loginTo = computed(() => (auth.user ? (auth.isAdmin ? '/office' : '/') : '
         <div class="absolute -left-20 -top-20 h-64 w-64 rounded-full border-2 border-saffron-400/50" aria-hidden="true" />
         <div class="absolute -bottom-24 -right-16 h-72 w-72 rounded-full bg-saffron-400/10" aria-hidden="true" />
         <h2 class="relative text-3xl font-bold sm:text-4xl">{{ terms?.sacco.slogan ?? 'Save together. Grow together.' }}</h2>
-        <p class="relative mx-auto mt-3 max-w-xl text-navy-100/90">Already a member? Sign in to see your savings, shares, loans and what you'll earn this year.</p>
-        <RouterLink :to="loginTo" class="btn-accent relative mt-8 px-8 py-3 text-base">{{ auth.user ? 'Go to my account' : 'Sign in' }}<ArrowRightIcon class="h-5 w-5" /></RouterLink>
+        <p class="relative mx-auto mt-3 max-w-xl text-navy-100/90">Already a member? Log in to see your savings, shares, loans and what you'll earn this year.</p>
+        <RouterLink :to="loginTo" class="btn-accent relative mt-8 px-8 py-3 text-base">{{ auth.user ? 'Go to my account' : 'Log in' }}<ArrowRightIcon class="h-5 w-5" /></RouterLink>
       </div>
     </section>
 

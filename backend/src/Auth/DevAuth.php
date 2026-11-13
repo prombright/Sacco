@@ -7,9 +7,9 @@ namespace Sacco\Auth;
 use Sacco\Database;
 
 /**
- * The developer signed in to the developer portal: the people who run this installation and
+ * The developer logged in to the developer portal: the people who run this installation and
  * look after every SACCO on it. Developers live in the platform database, not in any SACCO, and
- * sign in with their own session cookie (see public/index.php).
+ * log in with their own session cookie (see public/index.php).
  */
 final class DevAuth
 {

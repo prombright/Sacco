@@ -14,7 +14,7 @@ use Sacco\Support\Settings;
 use Sacco\Tenant;
 
 /**
- * What anyone may see about a SACCO before signing in: its terms, for the public homepage and its
+ * What anyone may see about a SACCO before logging in: its terms, for the public homepage and its
  * loan calculator. Rates and rules only - never members, balances or totals.
  */
 final class PublicController
@@ -118,7 +118,7 @@ final class PublicController
         if (!$sacco || $sacco['status'] !== 'active') {
             Response::error('SACCO not found.', 404);
         }
-        // Signed out, the database is the SACCO this web address belongs to (Tenant::current)
+        // Logged out, the database is the SACCO this web address belongs to (Tenant::current)
         $db = Database::tenant();
         $rules = Loans::rules();
 

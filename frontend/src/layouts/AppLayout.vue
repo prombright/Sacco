@@ -77,7 +77,7 @@ function toggleCollapsed() {
 
 /**
  * Members see their own money. Office accounts (admins, the super admin) run the SACCO and have
- * no savings or loans of their own - staff who are also members sign in with their member account.
+ * no savings or loans of their own - staff who are also members log in with their member account.
  */
 const groups = computed<NavGroup[]>(() => {
   if (!auth.isAdmin) {
@@ -295,7 +295,7 @@ async function signOut() {
               <KeyIcon class="h-4 w-4" />Change password
             </RouterLink>
             <button type="button" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-navy-100 hover:bg-white/10 hover:text-white" role="menuitem" @click="signOut">
-              <ArrowLeftStartOnRectangleIcon class="h-4 w-4" />{{ t('Sign out') }}
+              <ArrowLeftStartOnRectangleIcon class="h-4 w-4" />{{ t('Log out') }}
             </button>
             <button v-if="canInstall" type="button" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-navy-100 hover:bg-white/10 hover:text-white" role="menuitem" @click="install">
               <ArrowDownTrayIcon class="h-4 w-4" />{{ t('Install the app') }}

@@ -10,7 +10,7 @@ use Sacco\Http\Response;
 /**
  * Slows password guessing from one computer, across all accounts (each account also locks by
  * itself after repeated wrong passwords). The limit is generous because a whole school can share
- * one internet address. If the table is missing the check steps aside rather than block sign-in.
+ * one internet address. If the table is missing the check steps aside rather than block login.
  */
 final class Throttle
 {
@@ -28,7 +28,7 @@ final class Throttle
             return;
         }
         if ($row && $row['recent'] && (int) $row['failures'] >= self::MAX_FAILURES) {
-            Response::error('Too many failed sign-ins from this connection. Please wait ' . self::WINDOW_MINUTES . ' minutes and try again.', 429);
+            Response::error('Too many failed logins from this connection. Please wait ' . self::WINDOW_MINUTES . ' minutes and try again.', 429);
         }
     }
 

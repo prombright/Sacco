@@ -80,7 +80,7 @@ async function save() {
           <p v-if="errors.employee_no" class="field-error">{{ errors.employee_no }}</p>
         </div>
       </div>
-      <p class="-mt-2 text-xs text-gray-500">They sign in with either one, so at least one is needed.</p>
+      <p class="-mt-2 text-xs text-gray-500">They log in with either one, so at least one is needed.</p>
 
       <div class="grid gap-4 sm:grid-cols-2">
         <div>

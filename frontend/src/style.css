@@ -69,6 +69,20 @@ h3 {
   @apply tracking-tight;
 }
 
+/* Tabs and buttons in a sideways-scrolling row keep their words whole: the row scrolls instead of
+   squeezing them (the touch rule below would otherwise let them shrink and overlap) */
+[role='tab'],
+.overflow-x-auto > button,
+.overflow-x-auto > a {
+  flex-shrink: 0;
+}
+[role='tablist'].overflow-x-auto {
+  scrollbar-width: none;
+}
+[role='tablist'].overflow-x-auto::-webkit-scrollbar {
+  display: none;
+}
+
 /* Touch screens and phones: every toggle, tab and dropdown is at least 40px tall, so a thumb
    hits it (the "tap" class does the same for anything else small) */
 @media (pointer: coarse), (max-width: 640px) {

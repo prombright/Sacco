@@ -93,8 +93,8 @@ async function importAll() {
         <div>
           <h2 class="text-lg font-semibold">{{ created.length }} members added</h2>
           <p class="mt-1 text-sm text-gray-700">
-            Their sign-in details have been downloaded as an Excel file. Give each member their own line privately;
-            they choose their own password the first time they sign in. These temporary passwords can't be shown again.
+            Their login details have been downloaded as an Excel file. Give each member their own line privately;
+            they choose their own password the first time they log in. These temporary passwords can't be shown again.
           </p>
           <div class="mt-4 flex flex-wrap gap-2">
             <button type="button" class="btn-secondary" @click="downloadLoginSlips(created, auth.sacco?.name ?? 'SACCO')"><ArrowDownTrayIcon class="h-4 w-4" />Download again</button>
@@ -110,7 +110,7 @@ async function importAll() {
           <p class="eyebrow">Step 1</p>
           <p class="mt-1 font-semibold">Fill in the template</p>
           <p class="mt-1 text-sm text-gray-600">
-            One row per member: full name, email and/or employee number (they sign in with either), account number (or leave blank to give one),
+            One row per member: full name, email and/or employee number (they log in with either), account number (or leave blank to give one),
             phone, the date they joined, and their savings and shares from the old records.
           </p>
           <button type="button" class="btn-secondary mt-4" @click="downloadMemberTemplate"><ArrowDownTrayIcon class="h-4 w-4" />Download template</button>
@@ -151,7 +151,7 @@ async function importAll() {
         <div class="mt-4 max-h-[28rem] overflow-auto rounded-xl border border-line">
           <table class="w-full text-sm">
             <thead class="sticky top-0 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-              <tr><th class="px-3 py-2">Row</th><th class="px-3 py-2">Name</th><th class="px-3 py-2">Signs in with</th><th class="px-3 py-2">Member since</th><th class="px-3 py-2 text-right">Savings</th><th class="px-3 py-2 text-right">Shares</th></tr>
+              <tr><th class="px-3 py-2">Row</th><th class="px-3 py-2">Name</th><th class="px-3 py-2">Logs in with</th><th class="px-3 py-2">Member since</th><th class="px-3 py-2 text-right">Savings</th><th class="px-3 py-2 text-right">Shares</th></tr>
             </thead>
             <tbody class="divide-y divide-line">
               <template v-for="r in visible" :key="r.row">

@@ -35,7 +35,7 @@ final class DevController
     private const MAX_FAILED_ATTEMPTS = 5;
     private const LOCK_MINUTES = 15;
 
-    // --- Signing in ----------------------------------------------------------------------------
+    // --- Logging in ----------------------------------------------------------------------------
 
     /** GET /api/dev/me */
     public function me(Request $request): never
@@ -476,7 +476,7 @@ final class DevController
                 'sacco' => $r['sacco'],
                 'action' => $r['action'],
                 'text' => match ($r['action']) {
-                    'developer.signed_in' => 'signed in',
+                    'developer.signed_in' => 'logged in',
                     'developer.password_changed' => 'changed their password',
                     'platform.sacco_created' => 'set up a new SACCO (' . ($d['code'] ?? '') . ')',
                     'platform.migrated' => 'applied ' . count($d['files'] ?? []) . ' system update(s)',

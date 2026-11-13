@@ -8,7 +8,7 @@ import { formatMoney } from '@/money'
  */
 const props = defineProps<{ value?: string | number | null; text?: string; sign?: boolean }>()
 const written = computed(() => props.text ?? formatMoney(props.value === null || props.value === undefined ? '0' : String(props.value), { sign: props.sign }))
-/** "UGX 1,200" -> ["UGX", "1,200"], keeping any sign in front of the figure */
+/** "UGX 1,200" -> ["UGX", "1,200"], keeping any + or − in front of the figure */
 const parts = computed(() => {
   const m = written.value.match(/^([+−-]?)([A-Z]{3}) (.+)$/)
   return m ? { unit: m[2], figure: m[1] + m[3] } : null

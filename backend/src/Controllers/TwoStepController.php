@@ -12,7 +12,7 @@ use Sacco\Http\Response;
 use Sacco\Support\Audit;
 use Sacco\Tenant;
 
-/** Turning two-step sign-in on and off for your own account */
+/** Turning two-step login on and off for your own account */
 final class TwoStepController
 {
     /** GET /api/me/two-step */
@@ -31,7 +31,7 @@ final class TwoStepController
     {
         $u = Auth::user();
         if ($u['totp_enabled_at']) {
-            Response::error('Two-step sign-in is already on.', 422);
+            Response::error('Two-step login is already on.', 422);
         }
         $secret = Totp::secret();
         $_SESSION['totp_pending'] = $secret;

@@ -45,9 +45,9 @@ const topics = computed<{ key: string; title: string; icon: Component; items: { 
     {
       key: 'start', title: 'Getting started', icon: KeyIcon,
       items: [
-        { q: 'How do I sign in?', a: `Use your employee number from your sign-in slip (for example SM004) and the temporary password on it. The first time, you choose your own password. After that, sign in with your employee number or your email, if the office has added one.` },
-        { q: 'I forgot my password', a: `On the sign-in page, tap "Forgot password?". If your email is on your account you get a link to choose a new password. If not, the SACCO office can give you a new temporary password.` },
-        { q: 'Can I use it on my phone like an app?', a: `Yes. Open the site on your phone and tap "Install the app" (or "Add to home screen" in your browser's menu). It then opens like any other app. Only tick "Keep me signed in" on your own phone.` },
+        { q: 'How do I log in?', a: `Use your employee number from your login slip (for example SM004) and the temporary password on it. The first time, you choose your own password. After that, log in with your employee number or your email, if the office has added one.` },
+        { q: 'I forgot my password', a: `On the login page, tap "Forgot password?". If your email is on your account you get a link to choose a new password. If not, the SACCO office can give you a new temporary password.` },
+        { q: 'Can I use it on my phone like an app?', a: `Yes. Open the site on your phone and tap "Install the app" (or "Add to home screen" in your browser's menu). It then opens like any other app. Only tick "Keep me logged in" on your own phone.` },
         { q: 'Where do I see messages from the SACCO?', a: `Under Messages, and on the bell at the top. Money in and out of your account, loan news, reminders and notices from the office all arrive there. If your email is on your account, you get a copy there too.` },
       ],
     },

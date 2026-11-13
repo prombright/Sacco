@@ -40,7 +40,7 @@ final class Passwords
 
     /**
      * A one-time temporary password, hashed more cheaply so a bulk import of hundreds of members
-     * finishes in seconds (it is random, and replaced at first sign-in with a fully hashed one).
+     * finishes in seconds (it is random, and replaced at first login with a fully hashed one).
      */
     public static function hashTemporary(string $password): string
     {

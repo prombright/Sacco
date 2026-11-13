@@ -151,7 +151,7 @@ async function resetPassword(u: { id: number; full_name: string }) {
   await load()
 }
 async function setStatus(u: OfficeAccount, status: 'active' | 'suspended') {
-  if (status === 'suspended' && !await ask(`Suspend ${u.full_name}? They are signed out and can't sign in until reactivated.`)) return
+  if (status === 'suspended' && !await ask(`Suspend ${u.full_name}? They are logged out and can't log in until reactivated.`)) return
   data.value = await api.post<Detail>(`/dev/saccos/${id.value}/users/${u.id}/status`, { status })
 }
 
@@ -179,7 +179,7 @@ async function saveDetails() {
 }
 async function togglePaused() {
   const pausing = data.value?.sacco.status === 'active'
-  if (pausing && !await ask('Pause this SACCO? Nobody in it can sign in until it is made active again.')) return
+  if (pausing && !await ask('Pause this SACCO? Nobody in it can log in until it is made active again.')) return
   data.value = await api.patch<Detail>(`/dev/saccos/${id.value}`, { status: pausing ? 'paused' : 'active' })
 }
 
@@ -210,7 +210,7 @@ const waitingList = computed(() => {
     { n: w.loans_waiting_guarantors, t: 'Loans waiting for guarantors' },
     { n: w.withdrawals_to_approve, t: 'Withdrawals to approve' },
     { n: w.withdrawals_to_pay, t: 'Withdrawal cheques to issue' },
-    { n: w.members_not_signed_in, t: 'Members yet to sign in' },
+    { n: w.members_not_signed_in, t: 'Members yet to log in' },
   ]
 })
 </script>
@@ -276,7 +276,7 @@ const waitingList = computed(() => {
           <div class="card p-5">
             <p class="eyebrow">People</p>
             <p class="figure mt-2 text-2xl">{{ data.stats.members }}</p>
-            <p class="mt-1 text-xs text-gray-500">members · {{ data.stats.office_accounts }} office · {{ data.stats.signed_in_30_days }} signed in this month</p>
+            <p class="mt-1 text-xs text-gray-500">members · {{ data.stats.office_accounts }} office · {{ data.stats.signed_in_30_days }} logged in this month</p>
           </div>
         </div>
         <div class="grid gap-4 xl:grid-cols-3">
@@ -306,7 +306,7 @@ const waitingList = computed(() => {
             </ul>
           </div>
           <div class="card p-5">
-            <h2 class="font-semibold">Failed sign-ins</h2>
+            <h2 class="font-semibold">Failed logins</h2>
             <ul class="mt-3 divide-y divide-line text-sm">
               <li v-for="(f, i) in data.failed_sign_ins" :key="i" class="flex items-center justify-between gap-3 py-2">
                 <span class="min-w-0 truncate"><span class="font-medium">{{ f.login }}</span> <span class="text-gray-500">· {{ (f.reason ?? '').replace('_', ' ') }}</span></span>
@@ -327,7 +327,7 @@ const waitingList = computed(() => {
         <div class="card mt-4 overflow-x-auto">
           <table class="w-full min-w-[720px] text-sm">
             <thead class="border-b border-line text-left text-xs uppercase tracking-wider text-gray-500">
-              <tr><th class="px-4 py-3 font-semibold">Name</th><th class="px-4 py-3 font-semibold">Account</th><th class="px-4 py-3 text-right font-semibold">Savings</th><th class="px-4 py-3 text-right font-semibold">Shares</th><th class="px-4 py-3 text-right font-semibold">Loans</th><th class="px-4 py-3 font-semibold">Last signed in</th></tr>
+              <tr><th class="px-4 py-3 font-semibold">Name</th><th class="px-4 py-3 font-semibold">Account</th><th class="px-4 py-3 text-right font-semibold">Savings</th><th class="px-4 py-3 text-right font-semibold">Shares</th><th class="px-4 py-3 text-right font-semibold">Loans</th><th class="px-4 py-3 font-semibold">Last logged in</th></tr>
             </thead>
             <tbody class="divide-y divide-line">
               <tr v-for="m in members?.members ?? []" :key="m.id">
@@ -366,7 +366,7 @@ const waitingList = computed(() => {
             <div class="min-w-0 flex-1">
               <p class="font-semibold">{{ u.full_name }} <span class="ml-1 rounded px-1.5 py-0.5 text-xs font-semibold" :class="u.role === 'super_admin' ? 'bg-saffron-100 text-saffron-700' : 'bg-navy-50 text-navy-800'">{{ u.role_label }}</span></p>
               <p class="text-sm text-gray-500">
-                {{ u.email || u.employee_no }} · {{ u.status === 'active' ? (u.must_change_password ? 'yet to sign in' : 'last signed in ' + ago(u.last_login_at)) : 'suspended' }}
+                {{ u.email || u.employee_no }} · {{ u.status === 'active' ? (u.must_change_password ? 'yet to log in' : 'last logged in ' + ago(u.last_login_at)) : 'suspended' }}
               </p>
             </div>
             <button type="button" class="btn-ghost" @click="resetPassword(u)"><KeyIcon class="h-4 w-4" />Reset password</button>
@@ -418,7 +418,7 @@ const waitingList = computed(() => {
             <div class="flex gap-2"><input id="s-color" v-model="form.brand_color" type="color" class="h-10 w-14 cursor-pointer rounded-lg border border-line bg-surface p-1" /><input v-model="form.brand_color" class="input font-mono" aria-label="Brand colour code" /></div>
           </div>
           <div><label for="s-cur" class="label">Currency</label><input id="s-cur" v-model="form.currency" maxlength="3" class="input uppercase" /></div>
-          <div><label for="s-img" class="label">Sign-in photo</label><input id="s-img" v-model="form.login_image" class="input font-mono" placeholder="brand/photo.jpg" /></div>
+          <div><label for="s-img" class="label">Login photo</label><input id="s-img" v-model="form.login_image" class="input font-mono" placeholder="brand/photo.jpg" /></div>
           <div><label for="s-logo" class="label">Logo address</label><input id="s-logo" v-model="form.logo_url" class="input font-mono" /></div>
           <div class="flex flex-wrap items-center gap-3 sm:col-span-2">
             <button type="submit" class="btn-primary">Save changes</button>
@@ -459,7 +459,7 @@ const waitingList = computed(() => {
     <Modal v-if="adding" title="Add an office account" @close="adding = false">
       <form class="space-y-4" @submit.prevent="addAccount">
         <div><label for="o-name" class="label">Full name</label><input id="o-name" v-model="newAccount.full_name" class="input" /></div>
-        <div><label for="o-email" class="label">Email (they sign in with it)</label><input id="o-email" v-model="newAccount.email" type="email" class="input" /></div>
+        <div><label for="o-email" class="label">Email (they log in with it)</label><input id="o-email" v-model="newAccount.email" type="email" class="input" /></div>
         <fieldset>
           <legend class="label">Role</legend>
           <div class="grid gap-2 sm:grid-cols-2">
@@ -476,9 +476,9 @@ const waitingList = computed(() => {
 
     <!-- A temporary password, shown once -->
     <Modal v-if="secret" title="Temporary password" @close="secret = null">
-      <p class="text-sm">Give {{ secret.who }} these details. The password is shown <strong>once</strong>; they choose their own when they sign in.</p>
+      <p class="text-sm">Give {{ secret.who }} these details. The password is shown <strong>once</strong>; they choose their own when they log in.</p>
       <dl class="mt-4 rounded-xl border border-line p-4 text-sm">
-        <div class="flex justify-between gap-3"><dt class="text-gray-500">Sign in with</dt><dd class="font-semibold">{{ secret.login }}</dd></div>
+        <div class="flex justify-between gap-3"><dt class="text-gray-500">Log in with</dt><dd class="font-semibold">{{ secret.login }}</dd></div>
         <div class="mt-2 flex justify-between gap-3"><dt class="text-gray-500">Temporary password</dt><dd class="font-mono text-base font-bold">{{ secret.password }}</dd></div>
       </dl>
       <button type="button" class="btn-primary mt-4 w-full" @click="secret = null">Done</button>

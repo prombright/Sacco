@@ -34,7 +34,7 @@ export const useMessages = defineStore('messages', () => {
       unread.value = res.unread
       const newest = res.notifications[0]
       if (newest) {
-        // New since the last check, or (on signing in) one that arrived in the last ten minutes
+        // New since the last check, or (on logging in) one that arrived in the last ten minutes
         const fresh = seen
           ? res.notifications.find((m) => m.id > seen && !m.read_at)
           : !newest.read_at && Date.now() - new Date(newest.created_at.replace(' ', 'T')).getTime() < 10 * 60_000 ? newest : undefined

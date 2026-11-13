@@ -14,7 +14,7 @@ use Sacco\Support\Notify;
 use Sacco\Support\Audit;
 
 /**
- * Users = everyone who can sign in: members, admins and super admins. Admins manage members;
+ * Users = everyone who can log in: members, admins and super admins. Admins manage members;
  * only a super admin manages admins and super admins (Roles::canManage).
  */
 final class UserController
@@ -204,7 +204,7 @@ final class UserController
             $errors['full_name'] = 'Enter the full name.';
         }
         if ($data['email'] === null && $data['employee_no'] === null) {
-            $errors['email'] = 'Enter an email or an employee number - they sign in with one of these.';
+            $errors['email'] = 'Enter an email or an employee number - they log in with one of these.';
         }
         if ($data['email'] !== null && !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
             $errors['email'] = 'That email address doesn\'t look right.';
@@ -240,7 +240,7 @@ final class UserController
                 $errors[$field] = "Another user already has this $label.";
             }
         }
-        // An email or employee number that is someone else's login would make sign-in ambiguous
+        // An email or employee number that is someone else's login would make login ambiguous
         foreach (['email' => 'employee_no', 'employee_no' => 'email'] as $field => $other) {
             if ($data[$field] === null || isset($errors[$field])) {
                 continue;
@@ -248,7 +248,7 @@ final class UserController
             $stmt = Database::tenant()->prepare("SELECT id FROM users WHERE $other = ? AND id <> ?");
             $stmt->execute([$data[$field], $existing['id'] ?? 0]);
             if ($stmt->fetchColumn()) {
-                $errors[$field] = 'Another user signs in with this.';
+                $errors[$field] = 'Another user logs in with this.';
             }
         }
 

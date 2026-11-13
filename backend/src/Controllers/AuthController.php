@@ -32,7 +32,7 @@ final class AuthController
         Response::ok(Tenant::publicInfo($sacco));
     }
 
-    /** GET /api/auth/me - who is signed in (user is null when nobody is) */
+    /** GET /api/auth/me - who is logged in (user is null when nobody is) */
     public function me(Request $request): never
     {
         $user = Auth::user();
@@ -62,7 +62,7 @@ final class AuthController
         if ($sacco['status'] !== 'active') {
             Response::error('This SACCO is not available right now. Please contact your SACCO office.', 403);
         }
-        // Point this session at the SACCO's database; nobody is signed in until Auth::login below
+        // Point this session at the SACCO's database; nobody is logged in until Auth::login below
         Auth::logout();
         Auth::startSession();
         $_SESSION['sacco'] = $sacco['code'];
@@ -100,7 +100,7 @@ final class AuthController
             Response::error('Your account is not active. Please contact your SACCO office.', 403);
         }
 
-        // The password was right; with two-step sign-in on, the code comes next
+        // The password was right; with two-step login on, the code comes next
         if ($user['totp_enabled_at']) {
             session_regenerate_id(true);
             $_SESSION['two_step'] = ['user' => (int) $user['id'], 'login' => $login, 'at' => time(), 'tries' => 0, 'remember' => (bool) $request->input('remember')];
@@ -116,7 +116,7 @@ final class AuthController
         $pending = $_SESSION['two_step'] ?? null;
         if (!is_array($pending) || time() - $pending['at'] > self::TWO_STEP_SECONDS || !isset($_SESSION['sacco'])) {
             unset($_SESSION['two_step']);
-            Response::error('That took too long. Please sign in again.', 422, ['restart' => 'yes']);
+            Response::error('That took too long. Please log in again.', 422, ['restart' => 'yes']);
         }
         Throttle::check();
         $db = Database::tenant();
@@ -125,7 +125,7 @@ final class AuthController
         $user = $stmt->fetch();
         if (!$user || $user['status'] !== 'active' || !$user['totp_secret']) {
             unset($_SESSION['two_step']);
-            Response::error('Please sign in again.', 422, ['restart' => 'yes']);
+            Response::error('Please log in again.', 422, ['restart' => 'yes']);
         }
 
         $code = strtoupper(preg_replace('/\s+/', '', $request->string('code')));
@@ -138,7 +138,7 @@ final class AuthController
             $_SESSION['two_step']['tries'] = $pending['tries'] + 1;
             if ($_SESSION['two_step']['tries'] >= 5) {
                 unset($_SESSION['two_step']);
-                Response::error('Too many wrong codes. Please sign in again.', 422, ['restart' => 'yes']);
+                Response::error('Too many wrong codes. Please log in again.', 422, ['restart' => 'yes']);
             }
             Response::error('That code isn\'t right. Enter the newest code from your app, or a recovery code.', 422, ['code' => 'Wrong']);
         }
@@ -248,7 +248,7 @@ final class AuthController
         ];
     }
 
-    /** POST /api/me/welcomed - the first-sign-in welcome was seen (or skipped) */
+    /** POST /api/me/welcomed - the first-login welcome was seen (or skipped) */
     public function welcomed(Request $request): never
     {
         Database::tenant()->prepare('UPDATE users SET welcomed_at = COALESCE(welcomed_at, NOW()) WHERE id = ?')->execute([Auth::id()]);

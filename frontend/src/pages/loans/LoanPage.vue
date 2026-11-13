@@ -627,7 +627,7 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
         <div>
           <label for="amsg" class="label">Message to {{ loan.borrower_name.split(' ')[0] }}</label>
           <textarea id="amsg" v-model="form.message" class="input min-h-[6rem]" maxlength="2000" />
-          <p class="mt-1 text-xs text-gray-500">They see it under the bell when they sign in. Add when and where to pick up the cheque.</p>
+          <p class="mt-1 text-xs text-gray-500">They see it under the bell when they log in. Add when and where to pick up the cheque.</p>
         </div>
         <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>

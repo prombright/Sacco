@@ -13,12 +13,12 @@ use Sacco\Database;
  */
 final class Auth
 {
-    /** "Keep me signed in" on a member's own phone: 30 days */
+    /** "Keep me logged in" on a member's own phone: 30 days */
     public const REMEMBER_SECONDS = 2592000;
 
     private static array|false|null $user = null;
 
-    /** The developer portal uses its own cookie, so it never mixes with a SACCO sign-in */
+    /** The developer portal uses its own cookie, so it never mixes with a SACCO login */
     public static function startSession(string $name = 'sacco_session'): void
     {
         if (session_status() === PHP_SESSION_ACTIVE) {
@@ -26,7 +26,7 @@ final class Auth
         }
         ini_set('session.use_strict_mode', '1');
         ini_set('session.use_only_cookies', '1');
-        // Our own folder, kept as long as a remembered sign-in lasts (the server's shared folder
+        // Our own folder, kept as long as a remembered login lasts (the server's shared folder
         // may be cleaned much sooner); short sessions still end after SESSION_IDLE_MINUTES
         $dir = __DIR__ . '/../../storage/sessions';
         if (!is_dir($dir)) {
@@ -46,7 +46,7 @@ final class Auth
         ]);
         session_start();
 
-        // Signed out after IDLE_MINUTES without activity, or REMEMBER_SECONDS on a remembered device
+        // Logged out after IDLE_MINUTES without activity, or REMEMBER_SECONDS on a remembered device
         $idle = !empty($_SESSION['remember']) ? self::REMEMBER_SECONDS : (int) Config::get('SESSION_IDLE_MINUTES', 30) * 60;
         if ((isset($_SESSION['user_id']) || isset($_SESSION['dev_id'])) && isset($_SESSION['last_seen']) && time() - $_SESSION['last_seen'] > $idle) {
             self::logout();
@@ -89,7 +89,7 @@ final class Auth
         self::$user = null;
     }
 
-    /** Keeps this sign-in for REMEMBER_SECONDS, even after the browser closes */
+    /** Keeps this login for REMEMBER_SECONDS, even after the browser closes */
     public static function remember(): void
     {
         $_SESSION['remember'] = true;

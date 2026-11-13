@@ -100,7 +100,7 @@ final class MemberImportController
                 }
             }
         }
-        // Someone's email can't be someone else's employee number: either could be typed to sign in
+        // Someone's email can't be someone else's employee number: either could be typed to log in
         $logins = $taken['email'] + $taken['employee_no'];
 
         $out = [];
@@ -129,7 +129,7 @@ final class MemberImportController
                 $r['errors'][] = 'No name.';
             }
             if (!$r['email'] && !$r['employee_no']) {
-                $r['errors'][] = 'Needs an email or an employee number to sign in with.';
+                $r['errors'][] = 'Needs an email or an employee number to log in with.';
             }
             if ($r['email'] && !filter_var($r['email'], FILTER_VALIDATE_EMAIL)) {
                 $r['errors'][] = "\"{$r['email']}\" isn't a valid email.";

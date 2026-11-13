@@ -60,9 +60,9 @@ async function submit() {
         </div>
         <div class="mt-6 rounded-xl border border-line p-4 text-sm text-gray-600">
           <p class="font-medium text-ink">{{ t('No email on your account?') }}</p>
-          <p class="mt-1">Ask your SACCO office or the system admin. They'll give you a temporary password, and you choose your own when you sign in.</p>
+          <p class="mt-1">Ask your SACCO office or the system admin. They'll give you a temporary password, and you choose your own when you log in.</p>
         </div>
-        <RouterLink :to="{ name: 'login' }" class="mt-6 inline-block text-sm font-semibold text-brand hover:underline">← {{ t('Back to sign in') }}</RouterLink>
+        <RouterLink :to="{ name: 'login' }" class="mt-6 inline-block text-sm font-semibold text-brand hover:underline">← {{ t('Back to log in') }}</RouterLink>
       </div>
     </div>
   </main>

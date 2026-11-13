@@ -10,7 +10,7 @@ const emit = defineEmits<{ close: [] }>()
 const copied = ref(false)
 async function copy() {
   const login = props.user.email ?? props.user.employee_no
-  await navigator.clipboard.writeText(`Sign in: ${login}\nTemporary password: ${props.password}`)
+  await navigator.clipboard.writeText(`Log in: ${login}\nTemporary password: ${props.password}`)
   copied.value = true
 }
 </script>
@@ -18,12 +18,12 @@ async function copy() {
 <template>
   <Modal title="Temporary password" @close="emit('close')">
     <p class="text-sm text-gray-700">
-      Give this to <strong class="font-semibold">{{ user.full_name }}</strong> privately. They'll be asked to choose their own password the first time they sign in.
+      Give this to <strong class="font-semibold">{{ user.full_name }}</strong> privately. They'll be asked to choose their own password the first time they log in.
     </p>
 
     <dl class="mt-4 space-y-3 rounded-xl bg-gray-50 p-4">
       <div>
-        <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">Sign in with</dt>
+        <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">Log in with</dt>
         <dd class="mt-0.5 text-sm">{{ user.email ?? user.employee_no }}<template v-if="user.email && user.employee_no"> or {{ user.employee_no }}</template></dd>
       </div>
       <div>

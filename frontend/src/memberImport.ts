@@ -69,17 +69,17 @@ export function downloadMemberTemplate() {
   XLSX.writeFile(book, 'members-import-template.xlsx')
 }
 
-/** The new members' sign-in details, to print and hand out privately */
+/** The new members' login details, to print and hand out privately */
 export function downloadLoginSlips(created: { full_name: string; account_no: string; login: string; temporary_password: string }[], saccoName: string) {
   const sheet = XLSX.utils.aoa_to_sheet([
-    [`${saccoName}: sign-in details for new members`],
-    ['Give each member their own line privately. They choose their own password the first time they sign in.'],
+    [`${saccoName}: login details for new members`],
+    ['Give each member their own line privately. They choose their own password the first time they log in.'],
     [],
-    ['Name', 'Account no', 'Sign in with', 'Temporary password'],
+    ['Name', 'Account no', 'Log in with', 'Temporary password'],
     ...created.map((c) => [c.full_name, c.account_no, c.login, c.temporary_password]),
   ])
   sheet['!cols'] = [{ wch: 28 }, { wch: 12 }, { wch: 28 }, { wch: 20 }]
   const book = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(book, sheet, 'Sign-in details')
+  XLSX.utils.book_append_sheet(book, sheet, 'Login details')
   XLSX.writeFile(book, `new-member-logins-${new Date().toLocaleDateString('en-CA')}.xlsx`)
 }

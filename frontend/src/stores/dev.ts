@@ -14,7 +14,7 @@ interface DevSession {
   csrf_token: string | null
 }
 
-/** The developer signed in to the developer portal (separate from any SACCO sign-in) */
+/** The developer logged in to the developer portal (separate from any SACCO login) */
 export const useDev = defineStore('dev', () => {
   const developer = ref<Developer | null>(null)
   const loaded = ref(false)
