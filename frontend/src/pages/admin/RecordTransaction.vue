@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AmountWords from '@/components/AmountWords.vue'
 import { computed, reactive, ref } from 'vue'
 import { api, ApiError } from '@/api'
 import type { Account, Balances, User } from '@/types'
@@ -84,7 +85,7 @@ async function save() {
       <div class="grid gap-4 sm:grid-cols-2">
         <div>
           <label for="amount" class="label">Amount</label>
-          <input id="amount" v-model="form.amount" class="input tabular-nums" inputmode="decimal" autocomplete="off" placeholder="0" />
+          <input id="amount" v-model="form.amount" class="input tabular-nums" inputmode="decimal" autocomplete="off" placeholder="0" /><AmountWords :value="form.amount" />
           <p v-if="errors.amount" class="field-error">{{ errors.amount }}</p>
         </div>
         <div>

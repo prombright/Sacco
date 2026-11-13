@@ -46,7 +46,7 @@ onMounted(async () => {
         v-for="loan in loans ?? []"
         :key="loan.id"
         :to="{ name: 'loan', params: { id: loan.id } }"
-        class="card block p-4 transition hover:border-gray-300 hover:shadow-sm"
+        class="card-link block p-4"
       >
         <div class="flex flex-wrap items-start justify-between gap-2">
           <div>

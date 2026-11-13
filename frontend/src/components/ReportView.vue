@@ -63,6 +63,26 @@ async function exportAs(kind: 'excel' | 'pdf') {
   }
 }
 
+/**
+ * Phones: each row as a card. The title is the row's first words (a name, an account), the
+ * headline is its main amount, and the rest sits underneath as small details.
+ */
+const isCode = (c: ReportColumn) => ['code', 'account_no', 'loan_no', 'entry', 'no', 'ref', 'reference'].includes(c.key)
+const titleCol = computed(() => props.report?.columns.find((c) => c.type === 'text' && !isCode(c)) ?? null)
+const moneyCols = computed(() => props.report?.columns.filter(numeric) ?? [])
+function card(row: ReportRow) {
+  const cols = props.report?.columns ?? []
+  const filled = moneyCols.value.filter((c) => row[c.key] !== null && row[c.key] !== undefined && row[c.key] !== '' && Number(row[c.key]) !== 0)
+  // The last filled amount is usually the one that matters (balance, credit, total)
+  const head = filled.at(-1) ?? null
+  return {
+    title: titleCol.value ? show(titleCol.value, row[titleCol.value.key]) : '',
+    head: head ? { label: head.label, value: show(head, row[head.key]) } : null,
+    meta: cols.filter((c) => c !== titleCol.value && !numeric(c) && row[c.key]).map((c) => show(c, row[c.key])).join(' · '),
+    more: filled.filter((c) => c !== head).map((c) => ({ label: c.label, value: show(c, row[c.key]) })),
+  }
+}
+
 const printedAt = computed(() => new Date().toLocaleString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }))
 </script>
 
@@ -108,9 +128,56 @@ const printedAt = computed(() => new Date().toLocaleString('en-GB', { day: 'nume
     </div>
 
     <div v-if="error" class="m-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 print:hidden" role="alert">{{ error }}</div>
-    <p v-if="busy && !report" class="p-6 text-sm text-gray-500">Working it out…</p>
+    <!-- While it is worked out: shimmering placeholder rows -->
+    <div v-if="busy && !report" class="space-y-3 p-4" aria-label="Loading">
+      <div v-for="n in 5" :key="n" class="flex items-center justify-between gap-4">
+        <div class="h-4 flex-1 animate-pulse rounded bg-gray-100" :style="{ maxWidth: 40 + ((n * 17) % 40) + '%' }" />
+        <div class="h-4 w-24 animate-pulse rounded bg-gray-100" />
+      </div>
+    </div>
 
-    <div v-if="report" class="max-h-[40rem] overflow-auto print:max-h-none print:overflow-visible" :class="{ 'opacity-60': busy }">
+    <!-- Phones: rows as cards (printing and wider screens use the table) -->
+    <ul v-if="report && !printing" class="divide-y divide-line sm:hidden print:hidden" :class="{ 'opacity-60': busy }">
+      <template v-for="(row, i) in rows" :key="'c' + i">
+        <li v-if="row._kind === 'heading'" class="bg-gray-50 px-4 pb-1.5 pt-4 text-xs font-bold uppercase tracking-wider text-gray-600">
+          {{ report.columns.map((c) => row[c.key]).find((v) => v) }}
+        </li>
+        <li
+          v-else
+          class="px-4 py-3"
+          :class="[
+            row._kind === 'total' && 'bg-navy-50/60 font-bold',
+            row._kind === 'subtotal' && 'bg-gray-50 font-semibold',
+            clickable?.(row) && 'cursor-pointer active:bg-navy-50/60',
+          ]"
+          @click="clickable?.(row) && emit('rowClick', row)"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="truncate text-sm font-medium" :class="{ 'pl-3': String(row[titleCol?.key ?? ''] ?? '').startsWith('  ') }">{{ card(row).title || '—' }}</p>
+              <p v-if="card(row).meta" class="truncate text-xs text-gray-500">{{ card(row).meta }}</p>
+            </div>
+            <div v-if="card(row).head" class="shrink-0 text-right">
+              <p class="text-sm font-semibold tabular-nums">{{ card(row).head!.value }}</p>
+              <p v-if="moneyCols.length > 1" class="text-[11px] uppercase tracking-wide text-gray-500">{{ card(row).head!.label }}</p>
+            </div>
+          </div>
+          <p v-if="card(row).more.length" class="mt-1 flex flex-wrap gap-x-3 text-xs text-gray-600">
+            <span v-for="m in card(row).more" :key="m.label">{{ m.label }} <span class="font-medium tabular-nums text-ink">{{ m.value }}</span></span>
+          </p>
+          <div v-if="slots.actions" class="mt-2 flex justify-end"><slot name="actions" :row="row" /></div>
+        </li>
+      </template>
+      <li v-if="!report.rows.length" class="px-4 py-10 text-center text-sm text-gray-500"><slot name="empty">Nothing to show for this period.</slot></li>
+      <li v-if="report.totals && report.rows.length" class="bg-gray-50 px-4 py-3">
+        <p class="text-sm font-bold">Total</p>
+        <p class="mt-1 flex flex-wrap gap-x-4 text-sm">
+          <span v-for="c in report.columns.filter((c) => c.key in (report?.totals ?? {}))" :key="c.key">{{ c.label }} <span class="font-bold tabular-nums">{{ formatMoney(report.totals[c.key]) }}</span></span>
+        </p>
+      </li>
+    </ul>
+
+    <div v-if="report" class="max-h-[40rem] overflow-auto max-sm:hidden print:block print:max-h-none print:overflow-visible" :class="{ 'opacity-60': busy }">
       <table class="w-full text-sm print:text-[11px]">
         <thead class="sticky top-0 z-10 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 print:static print:bg-white print:text-gray-800">
           <tr class="print:border-b print:border-gray-800">

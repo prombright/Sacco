@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AmountWords from '@/components/AmountWords.vue'
 import MoneyAccountSelect from '@/components/MoneyAccountSelect.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { XMarkIcon } from '@heroicons/vue/24/outline'
@@ -98,7 +99,7 @@ const report = computed<Report>(() => ({
           </label>
         </div>
       </fieldset>
-      <div><label for="d-amount" class="label">Amount</label><input id="d-amount" v-model="form.amount" inputmode="decimal" class="input text-lg tabular-nums" placeholder="50000" /></div>
+      <div><label for="d-amount" class="label">Amount</label><input id="d-amount" v-model="form.amount" inputmode="decimal" class="input text-lg tabular-nums" placeholder="50000" /><AmountWords :value="form.amount" /></div>
       <div><label for="d-date" class="label">Date received</label><input id="d-date" v-model="form.value_date" type="date" :max="today" class="input" /></div>
       <MoneyAccountSelect id="d-money" v-model="form.money_account_id" label="Received into" />
       <div><label for="d-ref" class="label">Receipt or bank slip no.</label><input id="d-ref" v-model="form.reference" class="input" /></div>

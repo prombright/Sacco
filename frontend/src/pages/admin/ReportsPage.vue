@@ -71,7 +71,7 @@ async function run() {
           v-for="r in list"
           :key="r.key"
           type="button"
-          class="card p-4 text-left transition hover:border-gray-300"
+          class="card-link p-4 text-left"
           :class="{ '!border-brand ring-2 ring-brand/20': selected?.key === r.key }"
           @click="open(r)"
         >

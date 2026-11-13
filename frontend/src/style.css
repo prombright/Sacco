@@ -112,6 +112,14 @@ h3 {
   .card {
     @apply rounded-2xl border border-line bg-surface shadow-card;
   }
+  /* A card you can tap: lifts on hover, presses on touch */
+  .card-link {
+    @apply card transition duration-200 hover:-translate-y-0.5 hover:border-navy-100 hover:shadow-lift focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-saffron-400 active:translate-y-0 active:scale-[0.99];
+  }
+  /* A figure as the eye reads it: "UGX" small and quiet, the amount bold */
+  .money-unit {
+    @apply mr-1 align-[0.12em] text-[0.62em] font-semibold tracking-wide opacity-60;
+  }
   .field-error {
     @apply mt-1 text-sm text-red-700;
   }
@@ -147,6 +155,7 @@ h3 {
 .dark .border-emerald-100 { border-color: rgb(52 211 153 / 0.25); }
 .dark .fill-navy-50 { fill: rgb(154 162 230 / 0.12); }
 .dark .shadow-card { box-shadow: none; }
+.dark .card-link:hover { border-color: rgb(154 162 230 / 0.35); }
 .dark .shadow-lift { box-shadow: 0 10px 30px -12px rgb(0 0 0 / 0.6); }
 
 @media print {

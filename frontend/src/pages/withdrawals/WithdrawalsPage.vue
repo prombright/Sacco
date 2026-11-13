@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AmountWords from '@/components/AmountWords.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { ask } from '@/confirm'
 import { computed, onMounted, ref } from 'vue'
@@ -97,7 +98,7 @@ onMounted(() => load().catch((e) => (error.value = e instanceof ApiError ? e.mes
       <div class="grid gap-4 sm:grid-cols-2">
         <div>
           <label for="amount" class="label">Amount</label>
-          <input id="amount" v-model="amount" class="input tabular-nums" inputmode="numeric" autocomplete="off" />
+          <input id="amount" v-model="amount" class="input tabular-nums" inputmode="numeric" autocomplete="off" /><AmountWords :value="amount" />
         </div>
         <div>
           <label for="reason" class="label">Reason <span class="font-normal text-gray-400">(optional)</span></label>

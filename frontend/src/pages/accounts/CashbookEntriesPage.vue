@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AmountWords from '@/components/AmountWords.vue'
 import MoneyAccountSelect from '@/components/MoneyAccountSelect.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
@@ -145,7 +146,7 @@ const byId = (id: unknown) => entries.value.find((e) => e.id === id)
           <p class="mt-1 text-xs text-gray-500">Need another? The super admin can add it in the chart of accounts.</p>
         </div>
         <div class="grid gap-3 sm:grid-cols-2">
-          <div><label for="e-amount" class="label">Amount</label><input id="e-amount" v-model="form.amount" inputmode="decimal" class="input tabular-nums" /></div>
+          <div><label for="e-amount" class="label">Amount</label><input id="e-amount" v-model="form.amount" inputmode="decimal" class="input tabular-nums" /><AmountWords :value="form.amount" /></div>
           <div><label for="e-date" class="label">Date</label><input id="e-date" v-model="form.entry_date" type="date" :max="today" class="input" /></div>
         </div>
         <MoneyAccountSelect id="e-money" v-model="form.money_account_id" :label="isIncome ? 'Received into' : 'Paid from'" />

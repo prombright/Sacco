@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AmountWords from '@/components/AmountWords.vue'
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { api, ApiError } from '@/api'
@@ -68,7 +69,7 @@ async function save() {
           </select>
         </div>
         <div><label for="xr" class="label">Interest (% a month)</label><input id="xr" v-model="form.interest_rate_monthly" class="input tabular-nums" inputmode="decimal" /></div>
-        <div><label for="xa" class="label">Amount lent</label><input id="xa" v-model="form.amount" class="input tabular-nums" inputmode="numeric" /></div>
+        <div><label for="xa" class="label">Amount lent</label><input id="xa" v-model="form.amount" class="input tabular-nums" inputmode="numeric" /><AmountWords :value="form.amount" /></div>
         <div><label for="xm" class="label">Over how many months</label><input id="xm" v-model="form.months" class="input tabular-nums" inputmode="numeric" /></div>
         <div><label for="xd" class="label">Paid out on</label><input id="xd" v-model="form.disbursed_on" type="date" :max="new Date().toLocaleDateString('en-CA')" class="input" /></div>
         <div><label for="xpaid" class="label">Repaid so far (total)</label><input id="xpaid" v-model="form.repaid_so_far" class="input tabular-nums" inputmode="numeric" placeholder="0" /></div>

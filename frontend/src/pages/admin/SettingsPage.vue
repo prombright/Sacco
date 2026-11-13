@@ -181,7 +181,7 @@ async function removeLogo() {
       </section>
 
       <!-- Appears once something has changed, and stays in view while scrolling -->
-      <div v-if="auth.isSuperAdmin && changed" class="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-surface px-5 py-3 shadow-lift">
+      <div v-if="auth.isSuperAdmin && changed" class="sticky bottom-20 z-10 lg:bottom-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-surface px-5 py-3 shadow-lift">
         <p class="text-sm"><span class="font-semibold">{{ changed }} rule{{ changed === 1 ? '' : 's' }} changed.</span> <span class="text-gray-600">New loan applications use the new rules; existing loans keep theirs.</span></p>
         <div class="flex gap-2">
           <button type="button" class="btn-secondary" :disabled="busy" @click="values = { ...saved }">Undo changes</button>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AmountWords from '@/components/AmountWords.vue'
 import { ask } from '@/confirm'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { PlusIcon } from '@heroicons/vue/24/outline'
@@ -330,7 +331,7 @@ const progress = computed(() => {
             <select id="ikind" v-model="form.kind" class="input"><option v-for="(label, k) in book.kinds" :key="k" :value="k">{{ label }}</option></select>
           </div>
           <div><label for="iinst" class="label">Held with <span class="font-normal text-gray-400">(optional)</span></label><input id="iinst" v-model="form.institution" class="input" maxlength="120" placeholder="Fund manager or bank" /></div>
-          <div><label for="iamt" class="label">Amount invested</label><input id="iamt" v-model="form.amount" class="input tabular-nums" inputmode="decimal" placeholder="e.g. 50,000,000" /></div>
+          <div><label for="iamt" class="label">Amount invested</label><input id="iamt" v-model="form.amount" class="input tabular-nums" inputmode="decimal" placeholder="e.g. 50,000,000" /><AmountWords :value="form.amount" /></div>
           <div><label for="irate" class="label">Expected return (% a year)</label><input id="irate" v-model="form.expected_return_percent" class="input tabular-nums" inputmode="decimal" placeholder="e.g. 12" /></div>
           <div><label for="istart" class="label">Invested on</label><input id="istart" v-model="form.started_on" type="date" :max="today" class="input" /></div>
         </div>

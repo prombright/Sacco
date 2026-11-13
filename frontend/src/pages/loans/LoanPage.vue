@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AmountWords from '@/components/AmountWords.vue'
 import CreditBadge from '@/components/CreditBadge.vue'
 import { downloadLoanLetter } from '@/documents'
 import MoneyAccountSelect from '@/components/MoneyAccountSelect.vue'
@@ -14,6 +15,7 @@ import { guarantorStatus, loanStatus, creditSummary, loanFigures } from '@/loans
 import StatusBadge from '@/components/StatusBadge.vue'
 import Modal from '@/components/Modal.vue'
 import MemberPicker from '@/components/MemberPicker.vue'
+import Money from '@/components/Money.vue'
 import SecurityFields from '@/components/SecurityFields.vue'
 
 /** One loan. The borrower can cancel it or ask another guarantor; admins move it along. */
@@ -210,7 +212,7 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
     <template v-if="loan">
       <div class="mt-3 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 class="text-2xl font-bold tabular-nums">{{ formatMoney(loan.amount) }} <span class="font-normal text-gray-500">over {{ loan.months }} months</span></h1>
+          <h1 class="text-2xl font-bold tabular-nums"><Money :value="loan.amount" /> <span class="font-normal text-gray-500">over {{ loan.months }} months</span></h1>
           <p class="mt-1 text-sm text-gray-600">
             {{ loan.loan_no }}<template v-if="loan.product_name"> · {{ loan.product_name }}</template><template v-if="!isOwner"> · {{ loan.borrower_name }} (<span class="font-mono">{{ loan.borrower_account_no }}</span>)</template>
             · {{ loan.purpose }} · {{ loan.interest_rate_monthly }}% a month, reducing balance
@@ -289,12 +291,12 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
         <!-- The money: borrowed, interest, total, paid, left -->
         <template v-if="figures?.known && !['rejected', 'cancelled'].includes(loan.status)">
           <dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3" :class="loan.position ? 'lg:grid-cols-5' : ''">
-            <div><dt class="text-sm text-gray-600">Amount borrowed</dt><dd class="text-lg font-semibold tabular-nums">{{ formatMoney(String(figures.borrowed)) }}</dd></div>
-            <div><dt class="text-sm text-gray-600">Interest{{ loan.position ? '' : ' (expected)' }}</dt><dd class="text-lg font-semibold tabular-nums">{{ formatMoney(String(figures.interest)) }}</dd></div>
-            <div><dt class="text-sm text-gray-600">Total to repay</dt><dd class="text-lg font-semibold tabular-nums">{{ formatMoney(String(figures.total)) }}</dd></div>
+            <div><dt class="text-sm text-gray-600">Amount borrowed</dt><dd class="text-lg font-semibold"><Money :value="figures.borrowed" /></dd></div>
+            <div><dt class="text-sm text-gray-600">Interest{{ loan.position ? '' : ' (expected)' }}</dt><dd class="text-lg font-semibold"><Money :value="figures.interest" /></dd></div>
+            <div><dt class="text-sm text-gray-600">Total to repay</dt><dd class="text-lg font-semibold"><Money :value="figures.total" /></dd></div>
             <template v-if="loan.position">
-              <div><dt class="text-sm text-gray-600">Amount paid</dt><dd class="text-lg font-semibold tabular-nums">{{ formatMoney(String(figures.paid)) }}</dd></div>
-              <div><dt class="text-sm text-gray-600">Still to pay</dt><dd class="text-lg font-semibold tabular-nums">{{ formatMoney(String(figures.left)) }}</dd>
+              <div><dt class="text-sm text-gray-600">Amount paid</dt><dd class="text-lg font-semibold"><Money :value="figures.paid" /></dd></div>
+              <div><dt class="text-sm text-gray-600">Still to pay</dt><dd class="text-lg font-semibold"><Money :value="figures.left" /></dd>
                 <p v-if="figures.penalties > 0" class="text-xs text-amber-800">includes {{ formatMoney(String(figures.penalties)) }} penalties</p></div>
             </template>
           </dl>
@@ -549,7 +551,7 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
           {{ formatMoney(loan.position.total_left) }} still owed. A repayment clears any penalty first, then the oldest instalment: its interest, then principal.
         </p>
         <div class="grid gap-4 sm:grid-cols-2">
-          <div><label for="amt" class="label">Amount</label><input id="amt" v-model="form.amount" class="input tabular-nums" inputmode="decimal" /></div>
+          <div><label for="amt" class="label">Amount</label><input id="amt" v-model="form.amount" class="input tabular-nums" inputmode="decimal" /><AmountWords :value="form.amount" /></div>
           <div><label for="pdate" class="label">Date paid</label><input id="pdate" v-model="form.date" type="date" :max="today" class="input" /></div>
         </div>
         <MoneyAccountSelect id="p-money" v-model="form.money_account_id" label="Paid into" />

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { formatMoney } from '@/money'
+import Money from '@/components/Money.vue'
 
 /** A figure that counts up to its value when it first shows, and glides when the value changes */
 const props = withDefaults(
@@ -49,5 +50,6 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <span class="tabular-nums" :aria-label="write(Number(value) || 0)">{{ write(shown) }}</span>
+  <!-- Money is drawn with its currency small; other figures (percentages, counts) as they are -->
+  <Money :text="write(shown)" :aria-label="write(Number(value) || 0)" />
 </template>

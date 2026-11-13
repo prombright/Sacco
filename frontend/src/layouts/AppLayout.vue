@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import BottomTabs from '@/components/BottomTabs.vue'
 import SmsToast from '@/components/SmsToast.vue'
 import { useMessages } from '@/stores/messages'
 import UserAvatar from '@/components/UserAvatar.vue'
@@ -339,7 +340,7 @@ async function signOut() {
       </div>
     </header>
 
-    <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+    <main class="mx-auto max-w-7xl px-4 pb-28 pt-6 sm:px-6 lg:px-8 lg:py-8">
       <SmsToast />
       <RouterView v-slot="{ Component, route: page }">
         <Transition name="page" mode="out-in">
@@ -347,5 +348,6 @@ async function signOut() {
         </Transition>
       </RouterView>
     </main>
+    <BottomTabs @more="drawer = true" />
   </div>
 </template>

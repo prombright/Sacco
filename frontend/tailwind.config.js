@@ -17,7 +17,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+        sans: ['"Inter Variable"', 'Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
       },
       colors: {
         gray: Object.fromEntries([50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950].map((n) => [n, v(`g-${n}`)])),
@@ -55,7 +55,7 @@ export default {
         },
       },
       boxShadow: {
-        card: '0 1px 2px rgba(21, 24, 33, 0.04), 0 1px 1px rgba(21, 24, 33, 0.02)',
+        card: '0 1px 2px rgba(21, 24, 33, 0.04), 0 6px 16px -10px rgba(16, 36, 74, 0.14)',
         lift: '0 10px 30px -12px rgba(16, 36, 74, 0.25)',
       },
     },

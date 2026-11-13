@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AmountWords from '@/components/AmountWords.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ArrowRightIcon, ArrowUturnLeftIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { api, ApiError } from '@/api'
@@ -203,7 +204,7 @@ const byId = (id: unknown) => list.value?.transfers.find((t) => t.id === id)
         </div>
 
         <div class="grid gap-4 sm:grid-cols-3 lg:col-span-3">
-          <div><label for="t-amount" class="label">Amount</label><input id="t-amount" v-model="form.amount" inputmode="decimal" class="input tabular-nums" placeholder="40000" /></div>
+          <div><label for="t-amount" class="label">Amount</label><input id="t-amount" v-model="form.amount" inputmode="decimal" class="input tabular-nums" placeholder="40000" /><AmountWords :value="form.amount" /></div>
           <div><label for="t-date" class="label">Date</label><input id="t-date" v-model="form.value_date" type="date" class="input" /></div>
           <div><label for="t-reason" class="label">Reason</label><input id="t-reason" v-model="form.reason" class="input" placeholder="e.g. Member's written request" /></div>
         </div>
