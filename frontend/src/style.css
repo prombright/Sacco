@@ -69,6 +69,48 @@ h3 {
   @apply tracking-tight;
 }
 
+/* Sliders (loan calculator): a filled track up to the thumb, and a thumb big enough for a thumb */
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 2.25rem;
+  background: transparent;
+  cursor: pointer;
+  touch-action: pan-y;
+}
+.slider::-webkit-slider-runnable-track {
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, rgb(var(--brand)) var(--fill, 0%), rgb(var(--g-200)) var(--fill, 0%));
+}
+.slider::-moz-range-track {
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, rgb(var(--brand)) var(--fill, 0%), rgb(var(--g-200)) var(--fill, 0%));
+}
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  margin-top: -0.6rem;
+  height: 1.7rem;
+  width: 1.7rem;
+  border-radius: 9999px;
+  background: #fff;
+  border: 3px solid rgb(var(--brand));
+  box-shadow: 0 2px 8px rgba(16, 36, 74, 0.3);
+  transition: transform 0.15s;
+}
+.slider::-moz-range-thumb {
+  height: 1.4rem;
+  width: 1.4rem;
+  border-radius: 9999px;
+  background: #fff;
+  border: 3px solid rgb(var(--brand));
+  box-shadow: 0 2px 8px rgba(16, 36, 74, 0.3);
+}
+.slider:active::-webkit-slider-thumb { transform: scale(1.12); }
+.slider:focus-visible { outline: none; }
+.slider:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px rgb(242 185 52 / 0.6); }
+
 /* Tabs and buttons in a sideways-scrolling row keep their words whole: the row scrolls instead of
    squeezing them (the touch rule below would otherwise let them shrink and overlap) */
 [role='tab'],
