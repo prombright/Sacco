@@ -19,15 +19,14 @@ interface Step {
 interface Checklist { steps: Step[]; done: number; total: number; balance_date: string | null }
 
 const list = ref<Checklist | null>(null)
-const open = ref(true)
+/** Folded by default (just the progress bar); opens with a tap */
+const open = ref(false)
 const error = ref('')
 const busy = ref('')
 
 async function load() {
   try {
     list.value = await api.get<Checklist>('/go-live')
-    // Folded away once there is little left, open while there is a lot to do
-    open.value = list.value.done < list.value.total
   } catch {
     list.value = null
   }
