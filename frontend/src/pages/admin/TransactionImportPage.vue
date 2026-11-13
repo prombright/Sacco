@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { toast } from '@/toast'
 import EmptyState from '@/components/EmptyState.vue'
 import { computed, onMounted, ref } from 'vue'
 import { ArrowDownTrayIcon, ArrowUpTrayIcon, ArrowUturnLeftIcon, CheckCircleIcon } from '@heroicons/vue/24/outline'
@@ -109,6 +110,7 @@ async function save() {
   try {
     const res = await api.post<{ upload: Upload }>('/transaction-imports', { rows: rows.value, money_account_id: moneyAccount.value || undefined, quiet: quiet.value, file_name: fileName.value })
     done.value = `Upload ${res.upload.upload_no}: ${res.upload.row_count} entries recorded.`
+    toast(`${res.upload.row_count} entries recorded (${res.upload.upload_no})`)
     report.value = null
     rows.value = []
     await load()

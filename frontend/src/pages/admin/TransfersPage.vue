@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { toast } from '@/toast'
 import AmountWords from '@/components/AmountWords.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ArrowRightIcon, ArrowUturnLeftIcon, XMarkIcon } from '@heroicons/vue/24/outline'
@@ -82,6 +83,7 @@ async function submit() {
       reason: form.reason,
     })
     done.value = `Transfer ${res.transfer.transfer_no} done: ${formatMoney(res.transfer.amount)}. Both members have been told.`
+    toast(`Transfer ${res.transfer.transfer_no} done: ${formatMoney(res.transfer.amount)}`)
     Object.assign(form, { amount: '', reason: '' })
     from.value = { ...from.value! }
     await load()

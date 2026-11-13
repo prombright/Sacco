@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import BottomTabs from '@/components/BottomTabs.vue'
+import ToastHost from '@/components/ToastHost.vue'
 import SmsToast from '@/components/SmsToast.vue'
 import { useMessages } from '@/stores/messages'
 import UserAvatar from '@/components/UserAvatar.vue'
@@ -349,5 +350,6 @@ async function signOut() {
       </RouterView>
     </main>
     <BottomTabs @more="drawer = true" />
+    <ToastHost />
   </div>
 </template>

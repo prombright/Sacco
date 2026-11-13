@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { toast } from '@/toast'
 import SaccoMark from '@/components/SaccoMark.vue'
 import { computed, onMounted, ref } from 'vue'
 import type { Component } from 'vue'
@@ -88,6 +89,7 @@ async function save() {
   try {
     apply((await api.patch<{ settings: Setting[] }>('/settings', values.value)).settings)
     message.value = 'Saved. New loan applications use these rules; existing loans keep theirs.'
+    toast('Rules saved')
   } catch (e) {
     if (e instanceof ApiError) {
       errors.value = e.errors

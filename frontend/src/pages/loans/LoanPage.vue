@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { toast } from '@/toast'
 import AmountWords from '@/components/AmountWords.vue'
 import CreditBadge from '@/components/CreditBadge.vue'
 import { downloadLoanLetter } from '@/documents'
@@ -66,6 +67,20 @@ function open(d: Dialog, payment?: LoanPayment) {
   dialog.value = d
 }
 
+/** What the short note says after each action */
+const DONE: Record<string, string> = {
+  approve: 'Loan approved; the member has been told',
+  disburse: 'Payout recorded; the repayment schedule has started',
+  payment: 'Repayment recorded',
+  reverse: 'Repayment reversed',
+  reject: 'Loan rejected; the member has been told',
+  settle: 'Loan paid off',
+  waive: 'Penalty waived',
+  guarantor: 'Your colleague has been asked',
+  replace: 'The new guarantor has been asked',
+  '': 'Done',
+}
+
 async function act(path: string, body: Record<string, unknown> = {}, confirmText?: string) {
   if (confirmText && !await ask(confirmText)) return
   formError.value = ''
@@ -76,6 +91,7 @@ async function act(path: string, body: Record<string, unknown> = {}, confirmText
     if (res && 'loan' in res) loan.value = res.loan
     else await load()
     receipt.value = res && 'receipt' in res ? res.receipt ?? null : null
+    toast(DONE[dialog.value ?? ''] ?? 'Done')
     dialog.value = null
   } catch (e) {
     const message = e instanceof ApiError ? e.message : 'Something went wrong. Please try again.'

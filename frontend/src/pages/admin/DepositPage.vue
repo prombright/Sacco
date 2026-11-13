@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { toast } from '@/toast'
 import AmountWords from '@/components/AmountWords.vue'
 import MoneyAccountSelect from '@/components/MoneyAccountSelect.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
@@ -38,6 +39,7 @@ async function save() {
     coins()
     lastReceipt.value = 'RCT-T' + String(res.transaction.id).padStart(6, '0')
     done.value = `${formatMoney(form.amount)} added to ${member.value!.full_name}'s ${form.account}. They have been told.`
+    toast(`Deposit recorded: ${formatMoney(form.amount)} to ${member.value!.full_name}`)
     balances.value = res.balances
     Object.assign(form, { amount: '', reference: '', narration: '' })
     await load()
