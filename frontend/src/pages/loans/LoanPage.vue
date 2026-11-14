@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SkeletonRows from '@/components/SkeletonRows.vue'
 import { toast } from '@/toast'
 import AmountWords from '@/components/AmountWords.vue'
 import CreditBadge from '@/components/CreditBadge.vue'
@@ -225,6 +226,11 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
 
     <div v-if="error" class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
 
+    <div v-if="!loan && !error" class="mt-4 space-y-4" aria-busy="true">
+      <div class="h-8 w-64 animate-pulse rounded-lg bg-gray-100" />
+      <div class="card h-40 animate-pulse" />
+      <div class="card"><SkeletonRows :rows="6" /></div>
+    </div>
     <template v-if="loan">
       <div class="mt-3 flex flex-wrap items-start justify-between gap-3">
         <div>

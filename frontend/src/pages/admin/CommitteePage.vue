@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SkeletonRows from '@/components/SkeletonRows.vue'
 import { computed, onMounted, ref } from 'vue'
 import { CheckCircleIcon, ClockIcon, DocumentArrowDownIcon, PlusIcon } from '@heroicons/vue/24/outline'
 import { api, ApiError } from '@/api'
@@ -145,7 +146,7 @@ function agenda() {
     </div>
 
     <div v-if="error" class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
-    <p v-if="loading" class="mt-8 text-sm text-gray-500">Loading…</p>
+    <div v-if="loading" class="card mt-8"><SkeletonRows :rows="4" :amount="false" /></div>
 
     <template v-else>
       <dl class="mt-6 grid grid-cols-2 gap-3 sm:max-w-md">

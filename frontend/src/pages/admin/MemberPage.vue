@@ -1,9 +1,10 @@
 <script setup lang="ts">
+import SkeletonRows from '@/components/SkeletonRows.vue'
 import UserAvatar from '@/components/UserAvatar.vue'
 import CreditBadge from '@/components/CreditBadge.vue'
 import { creditSummary } from '@/loans'
 import type { CreditStanding } from '@/types'
-import { downloadMemberCard, downloadShareCertificate } from '@/documents'
+import { downloadMemberCard, downloadMembershipForm, downloadShareCertificate } from '@/documents'
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { api, ApiError } from '@/api'
@@ -145,6 +146,7 @@ function certificate() {
           <button v-can="'members'" type="button" class="btn-secondary" @click="editingDetails = true">Edit details</button>
           <template v-if="isMember">
             <RouterLink :to="{ name: 'member-receipts', params: { id: member.id } }" class="btn-secondary">Receipts</RouterLink>
+            <button type="button" class="btn-secondary" @click="downloadMembershipForm(member, kin, balances, who())">Membership form</button>
             <button type="button" class="btn-secondary" @click="downloadMemberCard(member, who())">Member card</button>
             <button type="button" class="btn-secondary" @click="certificate">Share certificate</button>
             <RouterLink :to="{ name: 'member-statement', params: { id: member.id } }" class="btn-secondary">Print statement</RouterLink>
@@ -169,7 +171,7 @@ function certificate() {
 
       <div class="mt-8"><AccountTabs v-model="account" /></div>
       <div class="card mt-3 overflow-hidden">
-        <TransactionList :transactions="ledger?.transactions ?? []" :can-reverse="!isSelf" @reverse="reversing = $event" />
+        <SkeletonRows v-if="!ledger" :rows="5" /><TransactionList v-else by-month :transactions="ledger.transactions" :can-reverse="!isSelf" @reverse="reversing = $event" />
       </div>
       <Pager v-if="ledger" :page="ledger.page" :per-page="ledger.per_page" :total="ledger.total" @go="page = $event" />
 

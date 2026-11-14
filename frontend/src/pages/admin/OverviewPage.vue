@@ -45,7 +45,7 @@ interface Overview {
 const auth = useAuth()
 const theme = useTheme()
 // Validated for colour-blind separation and contrast on each theme's surface
-const chartColors = computed(() => (theme.dark ? { blue: '#6b78ec', amber: '#b8800c' } : { blue: '#3a46c4', amber: '#c98a08' }))
+const chartColors = computed(() => theme.chart)
 const data = ref<Overview | null>(null)
 const error = ref('')
 

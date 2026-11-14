@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import DeviceShowcase from '@/components/DeviceShowcase.vue'
 import { loanFee } from '@/loanFee'
 import { computed, onMounted, ref, watch } from 'vue'
 import {
@@ -240,6 +241,18 @@ const loginTo = computed(() => (auth.user ? (auth.isAdmin ? '/office' : '/') : '
             <p class="mt-2 text-navy-100/80">{{ s.d }}</p>
           </li>
         </ol>
+      </div>
+    </section>
+
+    <!-- On any screen -->
+    <section id="screens" class="scroll-mt-8 overflow-hidden bg-gradient-to-b from-paper to-navy-50/60 py-24">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-2xl text-center">
+          <p class="eyebrow">On any screen</p>
+          <h2 class="mt-2 text-3xl font-bold sm:text-4xl">Your SACCO in your pocket, the office on the desk</h2>
+          <p class="mt-3 text-gray-600">Members follow their savings, loans and guarantees on their phone, installed like any app. The office runs the books on a laptop, and both see the same figures, as they happen.</p>
+        </div>
+        <DeviceShowcase class="mt-14" />
       </div>
     </section>
 

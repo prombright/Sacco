@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { CameraIcon, ChatBubbleLeftRightIcon, DevicePhoneMobileIcon, DocumentCheckIcon, IdentificationIcon } from '@heroicons/vue/24/outline'
+import { CameraIcon, ChatBubbleLeftRightIcon, DevicePhoneMobileIcon, DocumentCheckIcon, DocumentTextIcon, IdentificationIcon } from '@heroicons/vue/24/outline'
 import UserAvatar from '@/components/UserAvatar.vue'
 import MemberCardView from '@/components/MemberCardView.vue'
 import { removePhoto, uploadPhoto } from '@/photos'
 import { useAuth } from '@/stores/auth'
 import { t } from '@/i18n'
 import { canInstall, install, installed, isIos } from '@/pwa'
-import { downloadMemberCard, downloadShareCertificate } from '@/documents'
+import { downloadMemberCard, downloadMembershipForm, downloadShareCertificate } from '@/documents'
 import LanguagePicker from '@/components/LanguagePicker.vue'
 import { onMounted, ref } from 'vue'
 import { api, ApiError } from '@/api'
@@ -27,6 +27,16 @@ async function card() {
   making.value = true
   try {
     await downloadMemberCard(user.value!, who())
+  } finally {
+    making.value = false
+  }
+}
+/** Everything the SACCO holds about me, to keep or correct and hand in */
+async function form() {
+  making.value = true
+  try {
+    const s = await api.get<{ balances: { savings: string; shares: string } }>('/me/summary').catch(() => null)
+    await downloadMembershipForm(user.value!, kin.value, s?.balances ?? null, who())
   } finally {
     making.value = false
   }
@@ -106,6 +116,7 @@ onMounted(async () => {
         <h1 class="mt-1 text-2xl font-bold">{{ t('My profile') }}</h1>
       </div>
       <div class="flex flex-wrap gap-2">
+        <button type="button" class="btn-secondary" :disabled="!user || making" @click="form"><DocumentTextIcon class="h-4 w-4" />My membership form</button>
         <button type="button" class="btn-secondary" :disabled="!user || making" @click="certificate"><DocumentCheckIcon class="h-4 w-4" />{{ t('Share certificate') }}</button>
       </div>
     </div>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SkeletonRows from '@/components/SkeletonRows.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { computed, onMounted, ref } from 'vue'
 import { api, ApiError } from '@/api'
@@ -75,6 +76,7 @@ onMounted(async () => {
           <template v-if="Number(loan.guarantee_shortfall.amount) > 0">{{ formatMoney(loan.guarantee_shortfall.amount) }} more in guarantees</template>.
         </p>
       </RouterLink>
+      <div v-if="!loans" class="card"><SkeletonRows :rows="2" /></div>
       <div v-if="loans && !loans.length" class="card">
         <EmptyState title="You haven't taken a loan yet" text="See how much you can borrow and what it would cost each month, before you apply.">
           <RouterLink :to="{ name: 'loan-apply' }" class="btn-primary">Apply for a loan</RouterLink>

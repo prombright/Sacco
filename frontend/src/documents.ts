@@ -403,3 +403,160 @@ export async function downloadShareCertificate(m: CardMember, shares: number, sh
   doc.text('Secretary', W - 75, 181, { align: 'center' })
   doc.save(`share-certificate-${m.account_no ?? 'member'}.pdf`)
 }
+
+// --- The membership form ----------------------------------------------------------------------
+
+export interface FormMember {
+  full_name: string
+  account_no: string | null
+  employee_no: string | null
+  joined_on: string | null
+  date_of_birth: string | null
+  gender: string | null
+  national_id: string | null
+  phone: string | null
+  email: string | null
+  department: string | null
+  position: string | null
+  address: string | null
+  photo_url?: string | null
+}
+export interface FormKin { full_name: string; relationship: string; phone: string | null; share: string }
+
+/**
+ * Everything the SACCO holds about a member, on one page in the shape of a membership form:
+ * their details, their photo, their next of kin, savings and shares on the day, and a place to
+ * sign. Members keep it, or correct it in pen and hand it to the office.
+ */
+export async function downloadMembershipForm(m: FormMember, kin: FormKin[], money: { savings: string; shares: string } | null, who: Who) {
+  const doc = await newDoc()
+  const W = doc.internal.pageSize.getWidth()
+  const brand = brandRgb(who)
+  let y = await letterhead(doc, who)
+  const dash = (v: string | null | undefined) => (v && String(v).trim() ? String(v) : '—')
+
+  // Title, and the photo on the right
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(18)
+  doc.setTextColor(...INK)
+  doc.text('Membership form', 18, y + 4)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
+  doc.setTextColor(...MUTED)
+  doc.text(`The member's details as ${who.sacco?.name ?? 'the SACCO'} holds them on ${longDate(new Date())}.`, 18, y + 10)
+  const photo = await loadPhoto(m.photo_url)
+  const px = W - 18 - 30
+  doc.setDrawColor(214, 211, 209)
+  doc.setLineWidth(0.3)
+  doc.roundedRect(px, y - 6, 30, 36, 2, 2, 'S')
+  if (photo) {
+    doc.addImage(photo, 'JPEG', px + 1, y - 5, 28, 34)
+  } else {
+    doc.setFontSize(8)
+    doc.text('Photo', px + 15, y + 13, { align: 'center' })
+  }
+  y += 18
+
+  // A titled section: a band in the brand colour with the title in white
+  const section = (title: string) => {
+    if (y > 250) {
+      footer(doc, who, `${who.sacco?.name ?? 'SACCO'} · Membership form · ${m.account_no ?? ''}`)
+      doc.addPage()
+      y = 20
+    }
+    doc.setFillColor(...brand)
+    doc.roundedRect(18, y, W - 36 - (y < 70 ? 34 : 0), 7, 1.2, 1.2, 'F')
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(9)
+    doc.setTextColor(255, 255, 255)
+    doc.text(title.toUpperCase(), 21, y + 4.8)
+    y += 11
+  }
+  // Two labelled fields side by side, with a line under each, like a filled-in form
+  const pair = (a: [string, string], b?: [string, string]) => {
+    const colW = (W - 36 - 8) / 2
+    for (const [i, f] of [a, b].entries()) {
+      if (!f) continue
+      const x = 18 + i * (colW + 8)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(7.5)
+      doc.setTextColor(...MUTED)
+      doc.text(f[0].toUpperCase(), x, y)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(10.5)
+      doc.setTextColor(...INK)
+      doc.text(doc.splitTextToSize(f[1], colW)[0], x, y + 5.2)
+      doc.setDrawColor(231, 227, 218)
+      doc.line(x, y + 7.2, x + colW, y + 7.2)
+    }
+    y += 12.5
+  }
+
+  section('1. The member')
+  pair(['Full name', dash(m.full_name)])
+  pair(['Account number', dash(m.account_no)], ['Employee number', dash(m.employee_no)])
+  pair(['Member since', m.joined_on ? longDate(m.joined_on) : '—'], ['Date of birth', m.date_of_birth ? longDate(m.date_of_birth) : '—'])
+  pair(['Gender', m.gender ? m.gender[0].toUpperCase() + m.gender.slice(1) : '—'], ['National ID number', dash(m.national_id)])
+  pair(['Phone', dash(m.phone)], ['Email', dash(m.email)])
+  pair(['Department', dash(m.department)], ['Position', dash(m.position)])
+  pair(['Address', dash(m.address)])
+
+  section('2. Next of kin')
+  doc.setFontSize(8)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(...MUTED)
+  const cols = [18, 82, 128, W - 18]
+  doc.text('NAME', cols[0], y)
+  doc.text('RELATIONSHIP', cols[1], y)
+  doc.text('PHONE', cols[2], y)
+  doc.text('SHARE', cols[3], y, { align: 'right' })
+  y += 2.5
+  const rows = kin.length ? kin : [null, null]
+  for (const k of rows) {
+    doc.setDrawColor(231, 227, 218)
+    doc.line(18, y + 6, W - 18, y + 6)
+    if (k) {
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(10)
+      doc.setTextColor(...INK)
+      doc.text(doc.splitTextToSize(k.full_name, 60)[0], cols[0], y + 4.5)
+      doc.text(k.relationship, cols[1], y + 4.5)
+      doc.text(k.phone ?? '—', cols[2], y + 4.5)
+      doc.text(`${Number(k.share)}%`, cols[3], y + 4.5, { align: 'right' })
+    }
+    y += 8
+  }
+  if (!kin.length) {
+    doc.setFont('helvetica', 'italic')
+    doc.setFontSize(8)
+    doc.setTextColor(...MUTED)
+    doc.text('None recorded yet: write them in and hand the form to the SACCO office.', 18, y + 1)
+    y += 4
+  }
+  y += 6
+
+  if (money) {
+    section(`3. Savings and shares on ${longDate(new Date())}`)
+    const fmt = (v: string) => `UGX ${Math.round(Number(v)).toLocaleString('en-GB')}`
+    pair(['Savings', fmt(money.savings)], ['Share capital', fmt(money.shares)])
+  }
+
+  section(`${money ? 4 : 3}. Declaration`)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
+  doc.setTextColor(...INK)
+  const text = 'I confirm that the details above are correct. Where something is wrong or missing, I have written the correction on this form.'
+  doc.text(doc.splitTextToSize(text, W - 36), 18, y)
+  y += 22
+  doc.setDrawColor(120, 113, 108)
+  const half = (W - 36 - 12) / 2
+  doc.line(18, y, 18 + half, y)
+  doc.line(18 + half + 12, y, W - 18, y)
+  doc.setFontSize(8)
+  doc.setTextColor(...MUTED)
+  doc.text("Member's signature and date", 18, y + 4.5)
+  doc.text('For the SACCO (name, signature, stamp)', 18 + half + 12, y + 4.5)
+
+  footer(doc, who, `${who.sacco?.name ?? 'SACCO'} · Membership form · ${m.account_no ?? ''}`)
+  doc.save(`membership-form-${m.account_no ?? 'member'}.pdf`)
+}

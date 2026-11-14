@@ -102,7 +102,7 @@ const total = computed(() => savings.value + shares.value)
 const savingsShare = computed(() => (total.value > 0 ? (savings.value / total.value) * 100 : 50))
 
 // Validated for colour-blind separation and contrast on each theme's surface
-const colors = computed(() => (theme.dark ? { blue: '#6b78ec', amber: '#b8800c' } : { blue: '#3a46c4', amber: '#c98a08' }))
+const colors = computed(() => theme.chart)
 const series = ref<'savings' | 'shares'>('savings')
 const range = ref<6 | 12>(12)
 const points = computed(() => (data.value ? data.value.trend[series.value].slice(-range.value) : []))

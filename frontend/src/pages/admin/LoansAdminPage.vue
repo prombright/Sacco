@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SkeletonRows from '@/components/SkeletonRows.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { ClipboardDocumentCheckIcon } from '@heroicons/vue/24/outline'
 import { ask } from '@/confirm'
@@ -131,6 +132,7 @@ onMounted(load)
           </div>
         </RouterLink>
       </li>
+      <li v-if="loading && !loans.length"><SkeletonRows :rows="5" avatar /></li>
       <li v-if="!loading && !loans.length">
         <EmptyState v-if="q" title="No loans match" :text="`Nothing in this list matches “${q}”.`" />
         <EmptyState v-else :title="EMPTY[status]?.[0] ?? 'Nothing here'" :text="EMPTY[status]?.[1]" :icon="ClipboardDocumentCheckIcon" />

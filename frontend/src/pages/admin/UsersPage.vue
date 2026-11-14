@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SkeletonRows from '@/components/SkeletonRows.vue'
 import { ask } from '@/confirm'
 import { onMounted, ref, watch } from 'vue'
 import { api, ApiError } from '@/api'
@@ -186,7 +187,7 @@ const statusLabel: Record<string, string> = { active: 'Active', suspended: 'Susp
       </ul>
 
       <p v-if="!loading && !users.length" class="px-4 py-10 text-center text-sm text-gray-500">No users match.</p>
-      <p v-if="loading && !users.length" class="px-4 py-10 text-center text-sm text-gray-500">Loading…</p>
+      <SkeletonRows v-if="loading && !users.length" :rows="8" avatar />
     </div>
 
     <div v-if="total > perPage" class="mt-4 flex items-center justify-between text-sm text-gray-600">

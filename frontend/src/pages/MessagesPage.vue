@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SkeletonRows from '@/components/SkeletonRows.vue'
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowRightIcon, EnvelopeIcon } from '@heroicons/vue/24/outline'
@@ -117,7 +118,7 @@ onMounted(async () => {
             {{ loadingOlder ? t('Loading…') : t('Earlier messages') }}
           </button>
         </div>
-        <p v-if="loading" class="py-16 text-center text-sm text-gray-500">{{ t('Loading…') }}</p>
+        <SkeletonRows v-if="loading" :rows="5" avatar :amount="false" />
         <p v-else-if="!days.length" class="py-16 text-center text-sm text-gray-500">
           {{ auth.isAdmin ? 'No messages yet. When a super admin changes the rules or the books, it shows here.' : t('No messages yet. Money in and out of your account, loan news and reminders will show here.') }}
         </p>

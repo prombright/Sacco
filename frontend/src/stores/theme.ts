@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
 /**
  * Light (the default) or dark, switched with one button. Remembered on this device only;
@@ -42,5 +42,8 @@ export const useTheme = defineStore('theme', () => {
 
   apply()
 
-  return { mode, dark, set, toggle }
+  /** Chart colours, one set for every chart: deeper in light mode, brighter on dark cards */
+  const chart = computed(() => (dark.value ? { blue: '#6b78ec', amber: '#d69a1b' } : { blue: '#3a46c4', amber: '#c98a08' }))
+
+  return { mode, dark, chart, set, toggle }
 })

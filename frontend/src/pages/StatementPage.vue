@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SkeletonRows from '@/components/SkeletonRows.vue'
 import { ref, watch } from 'vue'
 import { api, ApiError } from '@/api'
 import type { Account, Page, Transaction } from '@/types'
@@ -41,7 +42,7 @@ load()
     <div v-if="error" class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
 
     <div class="card mt-4 overflow-hidden">
-      <TransactionList :transactions="data?.transactions ?? []" />
+      <TransactionList v-if="data" :transactions="data.transactions" by-month /><SkeletonRows v-else :rows="6" />
     </div>
     <Pager v-if="data" :page="data.page" :per-page="data.per_page" :total="data.total" @go="page = $event" />
     <OldHistory url="/me/old-history" />
