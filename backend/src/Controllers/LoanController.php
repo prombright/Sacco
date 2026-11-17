@@ -62,13 +62,18 @@ final class LoanController
         $membership = Loans::membership(Database::tenant(), (int) Auth::id());
         $fee = $amount ? Loans::processingFee($rules, $amount) : 0;
         if ($schedule) {
+            $fromSavings = Loans::feeFromSavings();
             $schedule['processing_fee'] = Money::toDecimal($fee);
-            $schedule['you_receive'] = Money::toDecimal($amount - $fee);
+            $schedule['fee_from_savings'] = $fromSavings;
+            $schedule['you_receive'] = Money::toDecimal($amount - ($fromSavings ? 0 : $fee));
         }
         Response::ok([
             'products' => $products,
             'rules' => $rules,
-            'eligibility' => array_map([Money::class, 'toDecimal'], $eligibility),
+            'eligibility' => array_map([Money::class, 'toDecimal'], $eligibility + [
+                // What the member's own savings can cover; guarantors cover only the rest
+                'self_cover' => Savings::free(Database::tenant(), (int) Auth::id()),
+            ]),
             'membership' => $membership + ['wait_reason' => Loans::productBlock(Database::tenant(), (int) Auth::id(), $rules, (int) $request->query('replaces_loan_id', 0) ?: null)],
             'top_ups' => Loans::topUps(Database::tenant(), (int) Auth::id(), $rules),
             'schedule' => $schedule,
@@ -128,13 +133,16 @@ final class LoanController
         }
 
         $guarantors = $this->guarantors($request->input('guarantors', []), $me, $errors);
+        // The member's own free savings cover the loan first; guarantors cover only the rest
+        $selfCover = $amount !== null ? min($amount, Savings::free(Database::tenant(), $me)) : 0;
         if (!$errors && $amount !== null) {
-            $needed = intdiv($amount * $rules['guarantee_cover_percent'], 100);
+            $needed = Loans::coverNeeded($amount, $selfCover, $rules);
             $pledged = array_sum(array_column($guarantors, 'amount'));
-            if (count($guarantors) < $rules['min_guarantors']) {
-                $errors['guarantors'] = "Choose at least {$rules['min_guarantors']} guarantor" . ($rules['min_guarantors'] === 1 ? '' : 's') . '.';
+            $people = Loans::guarantorsNeeded($needed, $rules);
+            if (count($guarantors) < $people) {
+                $errors['guarantors'] = 'The loan is ' . number_format($needed / 100) . ' more than your savings: choose at least ' . ($people === 1 ? 'one guarantor' : "$people guarantors") . ' to cover it.';
             } elseif ($pledged < $needed) {
-                $errors['guarantors'] = 'Your guarantors\' amounts must add up to at least ' . number_format($needed / 100) . '.';
+                $errors['guarantors'] = 'Your guarantors\' amounts must add up to at least ' . number_format($needed / 100) . ' (the loan less your savings).';
             }
         }
 
@@ -148,9 +156,9 @@ final class LoanController
             Response::error(reset($errors), 422, $errors);
         }
 
-        $loanId = Database::transaction(function (\PDO $db) use ($me, $amount, $months, $purpose, $rules, $guarantors, $replacing) {
-            $db->prepare('INSERT INTO loans (user_id, product_id, replaces_loan_id, amount, months, interest_rate_monthly, interest_method, purpose) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-                ->execute([$me, $rules['product_id'], $replacing, Money::toDecimal($amount), $months, $rules['interest_rate_monthly'], $rules['interest_method'], $purpose]);
+        $loanId = Database::transaction(function (\PDO $db) use ($me, $amount, $months, $purpose, $rules, $guarantors, $replacing, $selfCover) {
+            $db->prepare('INSERT INTO loans (user_id, product_id, replaces_loan_id, amount, self_cover, months, interest_rate_monthly, interest_method, purpose) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+                ->execute([$me, $rules['product_id'], $replacing, Money::toDecimal($amount), Money::toDecimal($selfCover), $months, $rules['interest_rate_monthly'], $rules['interest_method'], $purpose]);
             $id = (int) $db->lastInsertId();
             $db->prepare('UPDATE loans SET loan_no = ? WHERE id = ?')->execute(['L' . str_pad((string) $id, 5, '0', STR_PAD_LEFT), $id]);
             $insert = $db->prepare('INSERT INTO loan_guarantors (loan_id, guarantor_id, amount, requested_amount) VALUES (?, ?, ?, ?)');
@@ -338,11 +346,13 @@ final class LoanController
             Response::error('Enter the cheque number or payment reference.', 422, ['reference' => 'Required']);
         }
 
-        // The product's processing fee comes off the cheque; the loan itself is the full amount
+        // The product's processing fee: from the borrower's savings (the cheque is the full loan), or
+        // off the cheque, as the SACCO's rule says; the loan itself is the full amount either way
+        $fromSavings = Loans::feeFromSavings();
         $fee = Loans::processingFee(Loans::productRules(Database::tenant(), $loan['product_id'] ? (int) $loan['product_id'] : null), Money::fromDecimal($loan['amount']));
         Periods::check($date);
         $moneyAccount = Periods::moneyAccount($request);
-        $cleared = Database::transaction(function (\PDO $db) use ($loan, $date, $reference, $fee, $moneyAccount) {
+        $cleared = Database::transaction(function (\PDO $db) use ($loan, $date, $reference, $fee, $moneyAccount, $fromSavings) {
             $cleared = 0;
             if ($loan['replaces_loan_id']) {
                 $old = $db->prepare("SELECT * FROM loans WHERE id = ? AND status = 'active' FOR UPDATE");
@@ -350,7 +360,7 @@ final class LoanController
                 if ($old = $old->fetch()) {
                     $quote = Loans::settlementQuote($db, (int) $old['id']);
                     $cleared = $quote['amount'];
-                    if ($cleared + $fee > Money::fromDecimal($loan['amount'])) {
+                    if ($cleared + ($fromSavings ? 0 : $fee) > Money::fromDecimal($loan['amount'])) {
                         throw new LedgerException('The new loan no longer covers what is owed on ' . $old['loan_no'] . ' (' . number_format($cleared / 100) . ') and the fee.');
                     }
                     Loans::waiveFutureInterest($db, (int) $old['id'], $quote['keep']);
@@ -360,15 +370,24 @@ final class LoanController
                     $db->prepare('UPDATE loans SET settled_early_on = ? WHERE id = ?')->execute([$date, $old['id']]);
                 }
             }
-            $db->prepare("UPDATE loans SET status = 'active', disbursed_by = ?, disbursed_on = ?, disbursement_ref = ?, money_account_id = ?, processing_fee = ?, settled_amount = ? WHERE id = ? AND status = 'approved'")
-                ->execute([Auth::id(), $date, $reference, $moneyAccount, Money::toDecimal($fee), Money::toDecimal($cleared), $loan['id']]);
+            if ($fromSavings && $fee > 0) {
+                if (Ledger::balance($db, (int) $loan['user_id'], 'savings') < $fee) {
+                    throw new LedgerException('The borrower\'s savings can\'t cover the ' . number_format($fee / 100) . ' processing fee.');
+                }
+                Ledger::post($db, (int) $loan['user_id'], 'savings', 'loan_fee', -$fee, [
+                    'value_date' => $date, 'reference' => $loan['loan_no'], 'narration' => "Processing fee for loan {$loan['loan_no']}",
+                ]);
+            }
+            $db->prepare("UPDATE loans SET status = 'active', disbursed_by = ?, disbursed_on = ?, disbursement_ref = ?, money_account_id = ?, processing_fee = ?, fee_from_savings = ?, settled_amount = ? WHERE id = ? AND status = 'approved'")
+                ->execute([Auth::id(), $date, $reference, $moneyAccount, Money::toDecimal($fee), $fromSavings ? 1 : 0, Money::toDecimal($cleared), $loan['id']]);
             Loans::createSchedule($db, $loan, $date);
             return $cleared;
         });
-        $fee += $cleared;
-        Audit::log('loan.disbursed', 'loan', (int) $loan['id'], ['on' => $date, 'reference' => $reference, 'fee' => Money::toDecimal($fee)]);
+        Audit::log('loan.disbursed', 'loan', (int) $loan['id'], ['on' => $date, 'reference' => $reference, 'fee' => Money::toDecimal($fee), 'fee_from_savings' => $fromSavings]);
+        $offCheque = ($fromSavings ? 0 : $fee) + $cleared;
         Notify::member((int) $loan['user_id'], 'loan_disbursed', 'Your loan has been paid out',
-            'Cheque ' . $reference . ' for ' . Notify::money(Money::toDecimal(Money::fromDecimal($loan['amount']) - $fee)) . ' has been issued for loan ' . $loan['loan_no']
+            'Cheque ' . $reference . ' for ' . Notify::money(Money::toDecimal(Money::fromDecimal($loan['amount']) - $offCheque)) . ' has been issued for loan ' . $loan['loan_no']
+            . ($fromSavings && $fee ? '. The ' . Notify::cents($fee) . ' processing fee was taken from your savings' : '')
             . ($cleared ? '. It first cleared the ' . Notify::cents($cleared) . ' still owed on your earlier loan' : '')
             . '. Your repayment schedule starts now; see it under Loans.', '/loans/' . $loan['id']);
         Response::ok(['loan' => $this->detail((int) $loan['id'])]);
@@ -1070,6 +1089,8 @@ final class LoanController
             'disbursement_ref' => $l['disbursement_ref'],
             'product_name' => $l['product_name'],
             'processing_fee' => $l['processing_fee'],
+            // Paid out: how its fee was taken; not yet: how it will be
+            'fee_from_savings' => $l['disbursed_on'] ? (bool) $l['fee_from_savings'] : Loans::feeFromSavings(),
             'settled_early_on' => $l['settled_early_on'],
             'replaces_loan_id' => $l['replaces_loan_id'] ? (int) $l['replaces_loan_id'] : null,
             'settled_amount' => $l['settled_amount'],

@@ -207,7 +207,7 @@ final class WithdrawalController
     // ----------------------------------------------------------------------
 
     /** The biggest request that fits in what can leave savings, once the fee is counted */
-    private static function maxRequest(int $withdrawable): int
+    public static function maxRequest(int $withdrawable): int
     {
         if (!Savings::feeOnTop()) {
             return $withdrawable;

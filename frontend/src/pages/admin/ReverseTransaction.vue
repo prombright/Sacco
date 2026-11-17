@@ -9,6 +9,8 @@ const props = defineProps<{ transaction: Transaction }>()
 const emit = defineEmits<{ close: []; saved: [balances: Balances] }>()
 
 const reason = ref('')
+/** On the wrong member or a typing slip: the entry and its correction are hidden from the member */
+const inError = ref(false)
 const error = ref('')
 const busy = ref(false)
 
@@ -16,7 +18,7 @@ async function save() {
   error.value = ''
   busy.value = true
   try {
-    const res = await api.post<{ balances: Balances }>(`/transactions/${props.transaction.id}/reverse`, { reason: reason.value })
+    const res = await api.post<{ balances: Balances }>(`/transactions/${props.transaction.id}/reverse`, { reason: reason.value, entered_in_error: inError.value })
     emit('saved', res.balances)
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Something went wrong. Please try again.'
@@ -37,17 +39,29 @@ async function save() {
       </div>
       <p class="text-sm text-gray-700">
         This adds an entry of <strong class="font-semibold">{{ formatMoney(String(-Number(transaction.amount)), { sign: true }) }}</strong>
-        that cancels it. Both stay in the history.
+        that cancels it.
       </p>
+
+      <fieldset class="space-y-2">
+        <legend class="sr-only">What kind of mistake</legend>
+        <label class="flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-sm" :class="!inError ? 'border-brand bg-navy-50/60' : 'border-line'">
+          <input v-model="inError" type="radio" :value="false" class="mt-0.5 accent-brand" />
+          <span><span class="font-medium">Reverse it</span><span class="block text-gray-600">The member sees the entry and the reversal on their statement, with your reason.</span></span>
+        </label>
+        <label class="flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-sm" :class="inError ? 'border-brand bg-navy-50/60' : 'border-line'">
+          <input v-model="inError" type="radio" :value="true" class="mt-0.5 accent-brand" />
+          <span><span class="font-medium">Entered in error</span><span class="block text-gray-600">On the wrong member, or a typing slip. The member sees neither the entry nor the correction, only a message that a mistake was removed and nothing was taken. The office and the books keep both.</span></span>
+        </label>
+      </fieldset>
 
       <div>
         <label for="reason" class="label">Why is it being reversed?</label>
-        <input id="reason" v-model="reason" class="input" maxlength="255" placeholder="e.g. Entered twice" />
+        <input id="reason" v-model="reason" class="input" maxlength="255" :placeholder="inError ? 'e.g. Meant for account 104, not 014' : 'e.g. Entered twice'" />
       </div>
 
       <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <button type="button" class="btn-secondary" @click="emit('close')">Cancel</button>
-        <button type="submit" class="btn-primary" :disabled="busy || !reason.trim()">{{ busy ? 'Reversing…' : 'Reverse entry' }}</button>
+        <button type="submit" class="btn-primary" :disabled="busy || !reason.trim()">{{ busy ? 'Saving…' : inError ? 'Remove the mistake' : 'Reverse entry' }}</button>
       </div>
     </form>
   </Modal>

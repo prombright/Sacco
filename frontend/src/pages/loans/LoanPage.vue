@@ -61,7 +61,7 @@ function open(d: Dialog, payment?: LoanPayment) {
   formError.value = ''
   if (d === 'payment' && loan.value?.position) form.amount = loan.value.position.next_due_amount
   if (d === 'approve' && loan.value) {
-    const fee = Number(loan.value.processing_fee || 0)
+    const fee = loan.value.fee_from_savings ? 0 : Number(loan.value.processing_fee || 0)
     form.message = `Your loan ${loan.value.loan_no} of ${formatMoney(loan.value.amount)} has been approved. `
       + `Please pick up your cheque${fee ? ` for ${formatMoney(String(Number(loan.value.amount) - fee))} (after the ${formatMoney(loan.value.processing_fee)} processing fee)` : ''} from the SACCO office.`
   }
@@ -139,6 +139,17 @@ const shown = computed(() => {
   return schedule.value.slice(from, from + 6)
 })
 const paidCount = computed(() => schedule.value.filter(isPaid).length)
+/** What was paid against each instalment, and the loan's balance once it is paid (principal left) */
+const paidOn = (i: Installment) => Number(i.principal_paid ?? 0) + Number(i.interest_paid ?? 0)
+const balanceAfter = computed(() => {
+  let left = Number(loan.value?.amount ?? 0)
+  const out: Record<number, number> = {}
+  for (const i of schedule.value) {
+    left -= Number(i.principal)
+    out[i.number] = Math.max(0, left)
+  }
+  return out
+})
 function installmentState(i: Installment) {
   if (!i.principal_paid) return null
   const due = Number(i.principal) + Number(i.interest)
@@ -435,12 +446,14 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
                 <th class="px-4 py-3 text-right">Principal</th>
                 <th class="px-4 py-3 text-right">Interest</th>
                 <th class="px-4 py-3 text-right">Payment</th>
+                <th v-if="loan.installments?.length" class="px-4 py-3 text-right">Paid</th>
+                <th class="px-4 py-3 text-right">Balance</th>
                 <th v-if="loan.installments?.length" class="px-4 py-3">Status</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
               <tr v-if="shown[0] && shown[0].number > 1 && !showAll" class="bg-gray-50/60">
-                <td colspan="6" class="px-4 py-2 text-xs text-gray-600">{{ paidCount }} instalment{{ paidCount === 1 ? '' : 's' }} before this already paid</td>
+                <td colspan="8" class="px-4 py-2 text-xs text-gray-600">{{ paidCount }} instalment{{ paidCount === 1 ? '' : 's' }} before this already paid</td>
               </tr>
               <tr
                 v-for="i in shown"
@@ -455,6 +468,8 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
                 <td class="px-4 py-2 text-right">{{ formatMoney(i.principal) }}</td>
                 <td class="px-4 py-2 text-right">{{ formatMoney(i.interest) }}</td>
                 <td class="px-4 py-2 text-right font-medium">{{ formatMoney(String(Number(i.principal) + Number(i.interest))) }}</td>
+                <td v-if="loan.installments?.length" class="px-4 py-2 text-right" :class="paidOn(i) > 0 ? 'text-green-700' : 'text-gray-400'">{{ paidOn(i) > 0 ? formatMoney(String(paidOn(i))) : '—' }}</td>
+                <td class="px-4 py-2 text-right text-gray-700">{{ formatMoney(String(balanceAfter[i.number])) }}</td>
                 <td v-if="loan.installments?.length" class="whitespace-nowrap px-4 py-2 text-sm" :class="isPaid(i) ? 'text-emerald-700' : installmentState(i)?.style">{{ isPaid(i) ? '✓ Paid' : installmentState(i)?.label }}</td>
               </tr>
             </tbody>
@@ -528,9 +543,9 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
         <dl class="grid grid-cols-2 gap-y-1 rounded-xl bg-gray-50 p-3 text-sm">
           <dt class="text-gray-600">Loan</dt><dd class="text-right tabular-nums">{{ formatMoney(loan.amount) }}</dd>
           <template v-if="Number(loan.processing_fee) > 0">
-            <dt class="text-gray-600">Processing fee</dt><dd class="text-right tabular-nums">−{{ formatMoney(loan.processing_fee) }}</dd>
+            <dt class="text-gray-600">Processing fee{{ loan.fee_from_savings ? ' (from their savings)' : '' }}</dt><dd class="text-right tabular-nums">{{ loan.fee_from_savings ? '' : '−' }}{{ formatMoney(loan.processing_fee) }}</dd>
           </template>
-          <dt class="font-semibold">Cheque amount</dt><dd class="text-right font-semibold tabular-nums">{{ formatMoney(String(Number(loan.amount) - Number(loan.processing_fee || 0))) }}</dd>
+          <dt class="font-semibold">Cheque amount</dt><dd class="text-right font-semibold tabular-nums">{{ formatMoney(String(Number(loan.amount) - (loan.fee_from_savings ? 0 : Number(loan.processing_fee || 0)))) }}</dd>
         </dl>
         <div class="grid gap-4 sm:grid-cols-2">
           <div><label for="ref" class="label">Cheque number</label><input id="ref" v-model="form.reference" class="input" maxlength="80" /></div>

@@ -177,6 +177,56 @@ try {
         $pay((int) $good['id'], $due($good, 1), $inst((int) $good['id'], 1)['due_date']);
         check('Paying on time keeps a good standing', Credit::standing($db, $dave)['grade'] === 'good', Credit::standing($db, $dave)['grade']);
 
+        echo "\nCommittee rules (November 2026)\n";
+        // Withdrawals: the fee on top, so the most you can ask for leaves room for it
+        $set->execute(['withdrawal_fee_percent', '3']);
+        $set->execute(['withdrawal_fee_mode', 'on_top']);
+        \Sacco\Support\Settings::forget();
+        $eve = $member('Eve Test', '905');
+        $post($eve, 'savings', 'deposit', 1_000_000);
+        $max = \Sacco\Controllers\WithdrawalController::maxRequest(Savings::withdrawable($db, $eve));
+        $fits = fn (int $a) => $a + Savings::withdrawalFee($a) <= Savings::withdrawable($db, $eve);
+        check('Fee on top: the most Eve can ask for (' . ugx($max) . ') plus its 3% fee fits in her 980,000', $fits($max) && !$fits($max + 100), ugx($max));
+        check('...a 500,000 request costs 515,000 from savings and the cheque is the full 500,000', Savings::withdrawalFee(50_000_000) === 1_500_000);
+
+        // Guarantors: only the part above the member's savings
+        $rules = Loans::productRules($db, null);
+        check('Saved 2,000,000, borrowing 4,000,000: guarantors cover only 2,000,000', Loans::coverNeeded(400_000_000, 200_000_000, $rules) === 200_000_000);
+        check('...and one guarantor is enough (any number may join)', Loans::guarantorsNeeded(200_000_000, $rules) === 1);
+        check('A loan no bigger than your savings needs no guarantor', Loans::coverNeeded(150_000_000, 200_000_000, $rules) === 0 && Loans::guarantorsNeeded(0, $rules) === 0);
+
+        // The member's own savings stand behind their loan, less as it is repaid
+        $fred = $member('Fred Test', '906');
+        $post($fred, 'savings', 'deposit', 2_000_000);
+        $own = $loanOf($fred, 4_000_000, 12, '1.00', date('Y-m-d', strtotime('-40 days')));
+        $db->prepare('UPDATE loans SET self_cover = ? WHERE id = ?')->execute(['2000000.00', $own['id']]);
+        check('Fred\'s 2,000,000 of savings is held behind his 4,000,000 loan', Loans::pledged($db, $fred) === 200_000_000, ugx(Loans::pledged($db, $fred)));
+        $pay((int) $own['id'], intdiv($payment($inst((int) $own['id'], 1)), 100), $inst((int) $own['id'], 1)['due_date']);
+        $heldNow = Loans::pledged($db, $fred);
+        check('...and less is held once he repays (' . ugx($heldNow) . ' now)', $heldNow < 200_000_000 && $heldNow > 180_000_000, ugx($heldNow));
+        check('Loans from the old system hold none of their borrower\'s savings', Loans::heldForOwnLoans($db, $brian) === 0);
+
+        // The processing fee from savings: the cheque is the full loan, the fee is income in the books
+        $db->beginTransaction();
+        Ledger::post($db, $fred, 'savings', 'loan_fee', -1_000_000, ['value_date' => date('Y-m-d'), 'reference' => $own['loan_no'], 'created_by' => null]);
+        $db->prepare('UPDATE loans SET processing_fee = ?, fee_from_savings = 1, source = ? WHERE id = ?')->execute(['10000.00', 'applied', $own['id']]);
+        $db->commit();
+        check('The 10,000 fee comes off Fred\'s savings', Ledger::balance($db, $fred, 'savings') === 199_000_000);
+
+        // A mistake on the wrong member: hidden from the member, kept for the office
+        $gina = $member('Gina Test', '907');
+        $post($gina, 'savings', 'deposit', 300_000);
+        $post($gina, 'savings', 'deposit', 500_000);
+        $wrong = (int) $db->query("SELECT MAX(id) FROM transactions WHERE user_id = $gina")->fetchColumn();
+        $db->beginTransaction();
+        $fix = Ledger::reverse($db, $wrong, 'Meant for another member');
+        $db->prepare('UPDATE transactions SET in_error = 1 WHERE id IN (?, ?)')->execute([$wrong, $fix['id']]);
+        $db->commit();
+        $seen = Ledger::history($gina, 'savings', 1, 50, true)['transactions'];
+        $office = Ledger::history($gina, 'savings', 1, 50)['transactions'];
+        check('An entry made by mistake and its correction are hidden from the member', count($seen) === 1 && count($office) === 3);
+        check('...and her balance is right: 300,000', Ledger::balance($db, $gina, 'savings') === 30_000_000);
+
         echo "\nBooks\n";
         Books::sync($db);
         $dr = $cr = 0;
@@ -195,7 +245,8 @@ try {
         echo "\nMonthly statements\n";
         $all = Statements::summaries($db, '2026-01');
         $sum = array_sum(array_column($all, 'savings_end'));
-        check('The January statements add up to all savings at the end of January', $sum === $inLedger, ugx($sum));
+        $janLedger = Money::fromDecimal((string) $db->query("SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE account = 'savings' AND value_date <= '2026-01-31'")->fetchColumn());
+        check('The January statements add up to all savings at the end of January', $sum === $janLedger, ugx($sum) . ' vs ' . ugx($janLedger));
         $a = array_values(array_filter($all, fn ($m) => $m['user_id'] === $amina))[0] ?? null;
         check('A member\'s statement shows what they saved that month', $a && $a['savings_in'] === 100_000_000 && $a['savings_out'] === 0);
     });

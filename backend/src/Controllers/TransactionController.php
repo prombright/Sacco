@@ -92,11 +92,12 @@ final class TransactionController
             'credit' => Credit::standing($db, $id),
             'share_price' => Settings::get('share_price', '0'),
             'share_position' => Savings::sharePosition($db, $id),
-            'withdrawable' => Money::toDecimal(Savings::withdrawable($db, $id)),
+            // What a withdrawal request can ask for: savings only (shares never), leaving room for a fee charged on top
+            'withdrawable' => Money::toDecimal(WithdrawalController::maxRequest(Savings::withdrawable($db, $id))),
             'loan_owed' => Money::toDecimal($owed),
             'next_repayment' => $next,
             'guarantee_requests' => (int) $requests->fetchColumn(),
-            'recent' => Ledger::history($id, null, 1, 6)['transactions'],
+            'recent' => Ledger::history($id, null, 1, 6, true)['transactions'],
             'loans' => $loans,
             // What the main loan type allows now: savings x its multiplier, less what is owed
             'loan_limit' => Money::toDecimal(Loans::eligibility($id, null, (int) (Loans::products($db)[0]['id'] ?? 0) ?: null)['limit']),
@@ -149,14 +150,14 @@ final class TransactionController
 
         $accounts = [];
         foreach (Ledger::ACCOUNTS as $account) {
-            $open = $db->prepare('SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE user_id = ? AND account = ? AND value_date < ?');
+            $open = $db->prepare('SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE user_id = ? AND account = ? AND value_date < ? AND in_error = 0');
             $open->execute([$id, $account, $from]);
             $balance = Money::fromDecimal($open->fetchColumn());
             $opening = $balance;
 
             $stmt = $db->prepare(
                 'SELECT value_date, type, amount, reference, narration FROM transactions
-                 WHERE user_id = ? AND account = ? AND value_date BETWEEN ? AND ? ORDER BY value_date, id'
+                 WHERE user_id = ? AND account = ? AND value_date BETWEEN ? AND ? AND in_error = 0 ORDER BY value_date, id'
             );
             $stmt->execute([$id, $account, $from, $to]);
             $in = 0;
@@ -218,7 +219,7 @@ final class TransactionController
     /** GET /api/me/transactions?account=&page= */
     public function myTransactions(Request $request): never
     {
-        Response::ok(Ledger::history((int) Auth::id(), $this->account($request), $this->page($request)));
+        Response::ok(Ledger::history((int) Auth::id(), $this->account($request), $this->page($request), 50, true));
     }
 
     /** GET /api/members/{id} - a member with their balances (admin) */
@@ -397,16 +398,32 @@ final class TransactionController
             Response::error('This is part of a transfer. Reverse the whole transfer on the Internal transfers page.', 422);
         }
 
+        // Entered in error (e.g. on the wrong member): the entry and its correction are hidden from the member
+        $inError = (bool) $request->input('entered_in_error', false);
         try {
-            $row = Database::transaction(fn (\PDO $db) => Ledger::reverse($db, (int) $original['id'], $reason));
+            $row = Database::transaction(function (\PDO $db) use ($original, $reason, $inError) {
+                $row = Ledger::reverse($db, (int) $original['id'], $reason);
+                if ($inError) {
+                    $db->prepare('UPDATE transactions SET in_error = 1 WHERE id IN (?, ?)')->execute([$original['id'], $row['id']]);
+                    $row['in_error'] = 1;
+                }
+                return $row;
+            });
         } catch (LedgerException $e) {
             Response::error($e->getMessage(), 422);
         }
-        Audit::log('transaction.reversed', 'transaction', (int) $original['id'], ['member' => (int) $original['user_id'], 'reversal' => (int) $row['id'], 'reason' => $reason]);
+        Audit::log($inError ? 'transaction.entered_in_error' : 'transaction.reversed', 'transaction', (int) $original['id'], ['member' => (int) $original['user_id'], 'reversal' => (int) $row['id'], 'reason' => $reason]);
         $account = $original['account'];
-        Notify::member((int) $original['user_id'], 'money_reversed', "An entry on your $account was reversed",
-            'The ' . str_replace('_', ' ', $original['type']) . ' of ' . Notify::money(ltrim($original['amount'], '-')) . ' dated ' . date('j M Y', strtotime($original['value_date']))
-            . " was reversed: $reason. Your $account balance is now " . Notify::money(Ledger::balances((int) $original['user_id'])[$account]) . '.', '/statement');
+        $balance = Notify::money(Ledger::balances((int) $original['user_id'])[$account]);
+        if ($inError) {
+            Notify::member((int) $original['user_id'], 'money_reversed', 'A mistaken entry was removed',
+                'An entry of ' . Notify::money(ltrim($original['amount'], '-')) . ' recorded on your ' . $account . ' by mistake on ' . date('j M Y', strtotime($original['created_at'] ?? $original['value_date']))
+                . " has been removed. Nothing was taken from your money. Your $account balance is $balance.", '/statement');
+        } else {
+            Notify::member((int) $original['user_id'], 'money_reversed', "An entry on your $account was reversed",
+                'The ' . str_replace('_', ' ', $original['type']) . ' of ' . Notify::money(ltrim($original['amount'], '-')) . ' dated ' . date('j M Y', strtotime($original['value_date']))
+                . " was reversed: $reason. Your $account balance is now $balance.", '/statement');
+        }
 
         Response::ok(['transaction' => Ledger::present($row), 'balances' => Ledger::balances((int) $original['user_id'])], 201);
     }

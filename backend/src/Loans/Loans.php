@@ -261,7 +261,44 @@ final class Loans
      */
     public static function pledged(PDO $db, int $userId): int
     {
-        return array_sum(array_map(fn ($p) => $p['held'], self::pledges($db, $userId)));
+        return array_sum(array_map(fn ($p) => $p['held'], self::pledges($db, $userId))) + self::heldForOwnLoans($db, $userId);
+    }
+
+    /**
+     * Savings standing behind the member's own loans: the part their savings covered when they
+     * applied, held while the loan runs and less as it is repaid. (Loans from the old system have
+     * none, so their borrowers' savings aren't suddenly frozen.)
+     */
+    public static function heldForOwnLoans(PDO $db, int $userId): int
+    {
+        $stmt = $db->prepare(
+            "SELECT l.status, l.amount, l.self_cover,
+                    (SELECT COALESCE(SUM(i.principal - i.principal_paid), 0) FROM loan_installments i WHERE i.loan_id = l.id) AS principal_left
+             FROM loans l WHERE l.user_id = ? AND l.self_cover > 0 AND l.status IN ('" . implode("','", self::OPEN) . "')"
+        );
+        $stmt->execute([$userId]);
+        $held = 0;
+        foreach ($stmt->fetchAll() as $l) {
+            $cover = Money::fromDecimal($l['self_cover']);
+            if ($l['status'] === 'active') {
+                $loan = Money::fromDecimal($l['amount']);
+                $cover = $loan > 0 ? (int) (ceil($cover * (Money::fromDecimal($l['principal_left']) / $loan) / LoanMath::UNIT) * LoanMath::UNIT) : 0;
+            }
+            $held += $cover;
+        }
+        return $held;
+    }
+
+    /** The part of a loan guarantors must cover: what the member's savings don't, at the cover rate */
+    public static function coverNeeded(int $amount, int $selfCover, array $rules): int
+    {
+        return intdiv(max(0, $amount - $selfCover) * (int) $rules['guarantee_cover_percent'], 100);
+    }
+
+    /** How many guarantors at least: none when savings cover the loan, otherwise one (or the type's minimum) */
+    public static function guarantorsNeeded(int $coverNeeded, array $rules): int
+    {
+        return $coverNeeded > 0 ? max(1, (int) $rules['min_guarantors']) : 0;
     }
 
     /**
@@ -354,8 +391,8 @@ final class Loans
         $stmt = $db->prepare("SELECT COUNT(*) AS n, COALESCE(SUM(amount), 0) AS total FROM loan_guarantors WHERE loan_id = ? AND status = 'accepted'");
         $stmt->execute([$loan['id']]);
         $accepted = $stmt->fetch();
-        $needed = intdiv(Money::fromDecimal($loan['amount']) * $rules['guarantee_cover_percent'], 100);
-        $missingPeople = max(0, $rules['min_guarantors'] - (int) $accepted['n']);
+        $needed = self::coverNeeded(Money::fromDecimal($loan['amount']), Money::fromDecimal((string) ($loan['self_cover'] ?? '0')), $rules);
+        $missingPeople = max(0, self::guarantorsNeeded($needed, $rules) - (int) $accepted['n']);
         $missingCover = max(0, $needed - Money::fromDecimal($accepted['total']));
         return $missingPeople === 0 && $missingCover === 0 ? null : ['guarantors' => $missingPeople, 'amount' => $missingCover];
     }
@@ -467,6 +504,12 @@ final class Loans
     }
 
     /** Totals for a disbursed loan, in cents. Unpaid charges (penalties) count as owed and overdue. */
+    /** Whether a loan's processing fee comes from the borrower's savings (the SACCO's rule) */
+    public static function feeFromSavings(): bool
+    {
+        return \Sacco\Support\Settings::get('loan_fee_from', 'savings') === 'savings';
+    }
+
     public static function position(PDO $db, int $loanId): array
     {
         $stmt = $db->prepare(

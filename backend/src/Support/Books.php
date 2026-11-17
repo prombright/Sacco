@@ -179,6 +179,7 @@ final class Books
                 'deposit', 'withdrawal' => 'bank',
                 'charge' => 'withdrawal_fee_income',
                 'membership_fee' => 'membership_fee_income',
+                'loan_fee' => 'loan_fee_income',
                 'subscription' => 'subscription_income',
                 'adjustment' => 'suspense',
                 'opening_balance' => 'opening',
@@ -255,8 +256,12 @@ final class Books
             if ($l['source'] === 'old_records') {
                 $lines[] = [self::account($db, 'opening'), -$amount, $member, 'Loan from the old records'];
             } else {
-                $lines[] = [(int) ($l['money_account_id'] ?: self::account($db, 'bank')), -($amount - $fee), null, $l['disbursement_ref'] ? 'Cheque ' . $l['disbursement_ref'] : null];
-                $lines[] = [self::account($db, 'loan_fee_income'), -$fee, $member, 'Processing fee'];
+                // A fee taken from savings is in the books with the savings entry; otherwise it comes off the cheque
+                $offCheque = $l['fee_from_savings'] ? 0 : $fee;
+                $lines[] = [(int) ($l['money_account_id'] ?: self::account($db, 'bank')), -($amount - $offCheque), null, $l['disbursement_ref'] ? 'Cheque ' . $l['disbursement_ref'] : null];
+                if ($offCheque) {
+                    $lines[] = [self::account($db, 'loan_fee_income'), -$offCheque, $member, 'Processing fee'];
+                }
             }
             self::add($db, $l['disbursed_on'], "Loan {$l['loan_no']} paid out to {$l['full_name']}", 'loan_disbursement', (int) $id, $lines, $l['disbursement_ref']);
         }

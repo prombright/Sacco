@@ -245,6 +245,7 @@ export interface LetterLoan {
   interest_rate_monthly: string
   purpose: string | null
   processing_fee: string
+  fee_from_savings?: boolean
   decided_at?: string | null
   disbursed_on: string | null
   borrower_name: string
@@ -296,9 +297,9 @@ export async function downloadLoanLetter(l: LetterLoan, who: Who) {
     ['Interest', `${l.interest_rate_monthly}% a month on the reducing balance`],
     ['Repayment period', `${l.months} months`],
     ['Monthly instalment', `${cur} ${money(instalment)}`],
-    ['Processing fee', fee ? `${cur} ${money(fee)} (taken from the payout)` : 'None'],
+    ['Processing fee', fee ? `${cur} ${money(fee)} (${l.fee_from_savings ? 'taken from your savings' : 'taken from the payout'})` : 'None'],
     ...(cleared ? ([['Used to clear your earlier loan', `${cur} ${money(cleared)}`]] as [string, string][]) : []),
-    ['Amount you receive', `${cur} ${money(amount - fee - cleared)}`],
+    ['Amount you receive', `${cur} ${money(amount - (l.fee_from_savings ? 0 : fee) - cleared)}`],
   ]
   const brand = brandRgb(who)
   autoTable(doc, {

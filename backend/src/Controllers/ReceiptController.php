@@ -82,7 +82,7 @@ final class ReceiptController
              FROM transactions t LEFT JOIN users c ON c.id = t.created_by
              LEFT JOIN transactions r ON r.reversal_of = t.id
              LEFT JOIN withdrawal_requests w ON w.transaction_id = t.id
-             WHERE $where AND t.type <> 'reversal' ORDER BY t.id DESC"
+             WHERE $where AND t.type <> 'reversal' AND t.in_error = 0 ORDER BY t.id DESC"
         );
         $stmt->execute($args);
         return array_map(function ($t) {

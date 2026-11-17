@@ -52,6 +52,8 @@ export interface Transaction {
   narration: string | null
   reversal_of: number | null
   reversed_by: number | null
+  /** A mistake and its correction: hidden from the member */
+  in_error?: boolean
   created_by_name: string | null
   created_at: string
 }
@@ -175,6 +177,8 @@ export interface Loan {
   borrower_credit?: CreditStanding
   product_name: string | null
   /** Taken off the cheque at payout (an estimate until then) */
+  /** The fee comes from the borrower's savings (the cheque is the full loan) */
+  fee_from_savings?: boolean
   processing_fee: string
   settled_early_on: string | null
   /** A top-up: the loan it cleared, and how much went to clear it */

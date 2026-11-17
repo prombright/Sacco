@@ -252,7 +252,7 @@ const welcome = ref(true)
                 <p class="whitespace-nowrap text-lg font-semibold sm:text-xl"><CountUp :value="data.balances.savings" :format="show" :delay="200" /></p>
                 <Sparkline class="mt-1.5 hidden sm:block" :values="data.trend.savings.map((p) => Number(p.value))" color="#c2c7f2" label="Savings" :width="120" :height="26" />
                 <p v-if="Number(data.pledged) > 0" class="mt-1 text-xs text-navy-100/80">
-                  <span class="font-semibold text-white">−{{ show(data.pledged) }}</span> {{ t('held for guarantees') }}<br />
+                  <span class="font-semibold text-white">−{{ show(data.pledged) }}</span> {{ t('held for loans and guarantees') }}<br />
                   <span class="font-semibold text-white">{{ show(data.free_to_guarantee) }}</span> {{ t('free to guarantee') }}
                 </p>
               </div>
@@ -275,13 +275,14 @@ const welcome = ref(true)
             <div>
               <dt class="text-navy-100/70">{{ t('You can withdraw') }}</dt>
               <dd class="mt-0.5 font-semibold"><CountUp :value="data.withdrawable" :format="show" :delay="500" /></dd>
+              <dd class="text-[11px] text-navy-100/60">from savings · shares stay</dd>
             </div>
             <div>
               <dt class="text-navy-100/70">{{ t('Saved this year') }}</dt>
               <dd class="mt-0.5 font-semibold"><CountUp :value="data.saved_this_year" :format="show" :delay="600" /></dd>
             </div>
             <div v-if="Number(data.pledged) > 0">
-              <dt class="flex items-center gap-1 text-navy-100/70"><LockClosedIcon class="h-3.5 w-3.5" aria-hidden="true" />{{ t('Pledged for colleagues') }}</dt>
+              <dt class="flex items-center gap-1 text-navy-100/70"><LockClosedIcon class="h-3.5 w-3.5" aria-hidden="true" />{{ t('Held for loans and guarantees') }}</dt>
               <dd class="mt-0.5 font-semibold"><CountUp :value="data.pledged" :format="show" :delay="700" /></dd>
             </div>
             <div v-else>

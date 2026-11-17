@@ -51,6 +51,7 @@ final class Activity
             'payroll.posted' => 'posted the payroll for ' . ($d['period'] ?? ''),
             'payroll.reversed' => 'reversed an upload (payroll or transactions)',
             'statements.sent' => 'sent ' . ($d['count'] ?? '') . ' monthly statements for ' . ($d['month'] ?? ''),
+            'transaction.entered_in_error' => 'removed an entry made by mistake (hidden from the member)',
             'transactions.imported' => 'imported ' . ($d['rows'] ?? '') . ' transactions from Excel' . (!empty($d['quiet']) ? ' (members not messaged)' : ''),
             'go_live.ticked' => 'marked a switch-over step done',
             'go_live.unticked' => 'marked a switch-over step not done',

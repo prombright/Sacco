@@ -67,13 +67,14 @@ function asReports(): Report[] {
       { key: 'date', label: 'Date', type: 'date' },
       { key: 'entry', label: 'Entry', type: 'text' },
       { key: 'details', label: 'Details', type: 'text' },
-      { key: 'amount', label: 'Amount', type: 'money' },
+      { key: 'in', label: `${title} in`, type: 'money' },
+      { key: 'out', label: `${title} out`, type: 'money' },
       { key: 'balance', label: 'Balance', type: 'money' },
     ],
     rows: [
-      { date: d.from, entry: '', details: 'Opening balance', amount: null, balance: a.opening, _kind: 'subtotal' },
-      ...a.rows.map((r) => ({ date: r.date, entry: transactionTypeLabel[r.type] ?? r.type, details: r.details, amount: r.amount, balance: r.balance })),
-      { date: d.to, entry: '', details: 'Closing balance', amount: null, balance: a.closing, _kind: 'total' },
+      { date: d.from, entry: '', details: 'Opening balance', in: null, out: null, balance: a.opening, _kind: 'subtotal' },
+      ...a.rows.map((r) => ({ date: r.date, entry: transactionTypeLabel[r.type] ?? r.type, details: r.details, in: Number(r.amount) > 0 ? r.amount : null, out: Number(r.amount) < 0 ? String(-Number(r.amount)) : null, balance: r.balance })),
+      { date: d.to, entry: '', details: 'Closing balance', in: a.money_in, out: a.money_out, balance: a.closing, _kind: 'total' },
     ],
     totals: null,
   })
@@ -158,18 +159,19 @@ async function download(kind: 'pdf' | 'excel') {
         </div>
         <div class="overflow-x-auto print:overflow-visible"><table class="mt-2 w-full min-w-[32rem] text-sm print:min-w-0">
           <thead class="border-y border-gray-300 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-            <tr><th class="py-2 pr-3">Date</th><th class="py-2 pr-3">Entry</th><th class="py-2 pr-3">Details</th><th class="py-2 pr-3 text-right">Amount</th><th class="py-2 text-right">Balance</th></tr>
+            <tr><th class="py-2 pr-3">Date</th><th class="py-2 pr-3">Entry</th><th class="py-2 pr-3">Details</th><th class="py-2 pr-3 text-right">{{ acc === data.accounts.shares ? 'Shares' : 'Savings' }} in</th><th class="py-2 pr-3 text-right">{{ acc === data.accounts.shares ? 'Shares' : 'Savings' }} out</th><th class="py-2 text-right">Balance</th></tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
-            <tr class="text-gray-500"><td class="py-1.5 pr-3">{{ formatDate(data.from) }}</td><td class="py-1.5 pr-3" colspan="3">Balance brought forward</td><td class="py-1.5 text-right tabular-nums">{{ formatMoney(acc.opening) }}</td></tr>
+            <tr class="text-gray-500"><td class="py-1.5 pr-3">{{ formatDate(data.from) }}</td><td class="py-1.5 pr-3" colspan="4">Balance brought forward</td><td class="py-1.5 text-right tabular-nums">{{ formatMoney(acc.opening) }}</td></tr>
             <tr v-for="(r, i) in acc.rows" :key="i">
               <td class="whitespace-nowrap py-1.5 pr-3">{{ formatDate(r.date) }}</td>
               <td class="py-1.5 pr-3">{{ transactionTypeLabel[r.type] ?? r.type }}</td>
               <td class="py-1.5 pr-3 text-gray-600">{{ r.details }}</td>
-              <td class="whitespace-nowrap py-1.5 pr-3 text-right tabular-nums">{{ formatMoney(r.amount, { sign: true }) }}</td>
+              <td class="whitespace-nowrap py-1.5 pr-3 text-right tabular-nums text-green-700">{{ Number(r.amount) > 0 ? formatMoney(r.amount) : '' }}</td>
+              <td class="whitespace-nowrap py-1.5 pr-3 text-right tabular-nums text-red-700">{{ Number(r.amount) < 0 ? formatMoney(String(-Number(r.amount))) : '' }}</td>
               <td class="whitespace-nowrap py-1.5 text-right tabular-nums">{{ formatMoney(r.balance) }}</td>
             </tr>
-            <tr class="border-t border-gray-300 font-semibold"><td class="py-2 pr-3" colspan="4">Closing balance</td><td class="py-2 text-right tabular-nums">{{ formatMoney(acc.closing) }}</td></tr>
+            <tr class="border-t border-gray-300 font-semibold"><td class="py-2 pr-3" colspan="3">Closing balance</td><td class="py-2 pr-3 text-right tabular-nums text-green-700">{{ formatMoney(acc.money_in) }}</td><td class="py-2 pr-3 text-right tabular-nums text-red-700">{{ formatMoney(acc.money_out) }}</td><td class="py-2 text-right tabular-nums">{{ formatMoney(acc.closing) }}</td></tr>
           </tbody>
         </table></div>
       </section>

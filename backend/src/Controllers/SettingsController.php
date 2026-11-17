@@ -37,6 +37,8 @@ final class SettingsController
                 ['off' => 'Off', 'on' => 'On: sent on the 1st, with an email copy where there is one']],
             'loan_reminders' => ['Loan reminders (due soon and late) to members and the super admin', fn ($v) => in_array($v, ['on', 'off'], true) ? $v : null,
                 ['on' => 'On', 'off' => 'Paused (e.g. until repayments since an import are entered)']],
+            'loan_fee_from' => ['Where a loan\'s processing fee is taken from', fn ($v) => in_array($v, ['savings', 'loan'], true) ? $v : null,
+                ['savings' => 'The member\'s savings (the cheque is the full loan)', 'loan' => 'The cheque (the member receives the loan less the fee)']],
             'withdrawal_fee_percent' => ['Withdrawal fee, % of the amount withdrawn', $decimal(0, 50)],
             'withdrawal_fee_mode' => ['How the withdrawal fee is taken', fn ($v) => in_array($v, ['from_amount', 'on_top'], true) ? $v : null,
                 ['from_amount' => 'Out of the amount (smaller cheque)', 'on_top' => 'On top (savings go down by amount + fee)']],

@@ -130,15 +130,20 @@ final class Ledger
             'narration' => $t['narration'],
             'reversal_of' => $t['reversal_of'] ? (int) $t['reversal_of'] : null,
             'reversed_by' => $t['reversed_by'] ? (int) $t['reversed_by'] : null,
+            'in_error' => (bool) ($t['in_error'] ?? false),
             'created_by_name' => $t['created_by_name'],
             'created_at' => $t['created_at'],
         ];
     }
 
     /** A page of an account's rows, newest first */
-    public static function history(int $userId, ?string $account, int $page, int $perPage = 50): array
+    public static function history(int $userId, ?string $account, int $page, int $perPage = 50, bool $forMember = false): array
     {
         $where = 't.user_id = ?';
+        // Members never see an entry made by mistake, nor its correction
+        if ($forMember) {
+            $where .= ' AND t.in_error = 0';
+        }
         $args = [$userId];
         if ($account !== null) {
             $where .= ' AND t.account = ?';

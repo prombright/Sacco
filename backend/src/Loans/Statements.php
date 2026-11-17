@@ -78,8 +78,8 @@ final class Statements
         $money = $db->prepare(
             "SELECT u.id, u.full_name, u.account_no, u.employee_no,
                     COALESCE(SUM(CASE WHEN t.account = 'savings' AND t.value_date <= :to1 THEN t.amount END), 0) AS savings_end,
-                    COALESCE(SUM(CASE WHEN t.account = 'savings' AND t.value_date BETWEEN :from1 AND :to2 AND t.amount > 0 AND t.type <> 'opening_balance' THEN t.amount END), 0) AS savings_in,
-                    COALESCE(SUM(CASE WHEN t.account = 'savings' AND t.value_date BETWEEN :from2 AND :to3 AND t.amount < 0 AND t.type <> 'opening_balance' THEN -t.amount END), 0) AS savings_out,
+                    COALESCE(SUM(CASE WHEN t.account = 'savings' AND t.value_date BETWEEN :from1 AND :to2 AND t.amount > 0 AND t.type <> 'opening_balance' AND t.in_error = 0 THEN t.amount END), 0) AS savings_in,
+                    COALESCE(SUM(CASE WHEN t.account = 'savings' AND t.value_date BETWEEN :from2 AND :to3 AND t.amount < 0 AND t.type <> 'opening_balance' AND t.in_error = 0 THEN -t.amount END), 0) AS savings_out,
                     COALESCE(SUM(CASE WHEN t.account = 'shares' AND t.value_date <= :to4 THEN t.amount END), 0) AS shares_end
              FROM users u LEFT JOIN transactions t ON t.user_id = u.id
              WHERE u.role = 'member' AND u.status = 'active'

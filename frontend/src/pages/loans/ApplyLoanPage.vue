@@ -14,12 +14,13 @@ import Money from '@/components/Money.vue'
 interface Quote {
   products: LoanProduct[]
   rules: LoanRules
-  eligibility: { savings: string; owed: string; limit: string }
+  /** self_cover: what the member's own free savings can cover; guarantors cover only the rest */
+  eligibility: { savings: string; owed: string; limit: string; self_cover?: string }
   /** How long they've saved; wait_reason is set when that's not long enough to borrow yet */
   membership: { since: string | null; months: number; wait_reason: string | null }
   /** Running loans of this type that this loan can top up, with what clearing each costs */
   top_ups: { id: number; loan_no: string; amount: string; to_clear: string }[]
-  schedule: null | { installment: string; total_interest: string; total_repayable: string; processing_fee: string; you_receive: string; rows: (Installment & { balance_after: string })[] }
+  schedule: null | { installment: string; total_interest: string; total_repayable: string; processing_fee: string; fee_from_savings?: boolean; you_receive: string; rows: (Installment & { balance_after: string })[] }
 }
 
 const router = useRouter()
@@ -37,14 +38,16 @@ const toNumber = (s: string) => Number(s.replace(/[,\s]/g, '')) || 0
 
 const amountNumber = computed(() => toNumber(form.amount))
 const limit = computed(() => Number(quote.value?.eligibility.limit ?? 0))
-const coverNeeded = computed(() => Math.ceil((amountNumber.value * (quote.value?.rules.guarantee_cover_percent ?? 100)) / 100))
+/** The member's savings cover the loan first; guarantors are needed only for the part above them */
+const selfCover = computed(() => Math.min(amountNumber.value, Number(quote.value?.eligibility.self_cover ?? 0)))
+const coverNeeded = computed(() => Math.floor((Math.max(0, amountNumber.value - selfCover.value) * (quote.value?.rules.guarantee_cover_percent ?? 100)) / 100))
 const covered = computed(() => guarantors.value.reduce((sum, g) => sum + toNumber(g.amount), 0))
-const minGuarantors = computed(() => quote.value?.rules.min_guarantors ?? 0)
+const minGuarantors = computed(() => (coverNeeded.value > 0 ? Math.max(1, quote.value?.rules.min_guarantors ?? 1) : 0))
 
 const problems = computed(() => {
   const list: string[] = []
   if (amountNumber.value > limit.value) list.push(`You can borrow up to ${formatMoney(String(limit.value))}.`)
-  if (guarantors.value.length < minGuarantors.value) list.push(`Choose at least ${minGuarantors.value} guarantor${minGuarantors.value === 1 ? '' : 's'}.`)
+  if (guarantors.value.length < minGuarantors.value) list.push(`Choose at least ${minGuarantors.value === 1 ? 'one guarantor' : minGuarantors.value + ' guarantors'} for the part above your savings.`)
   if (covered.value < coverNeeded.value) list.push(`Guarantees must add up to ${formatMoney(String(coverNeeded.value))}; ${formatMoney(String(coverNeeded.value - covered.value))} more needed.`)
   return list
 })
@@ -81,7 +84,8 @@ const cost = computed(() => {
   const interest = fresh ? Number(q!.total_interest) : Math.max(0, monthly * n - P)
   const total = P + interest
   const fee = fresh ? Number(q!.processing_fee) : Number(q?.processing_fee ?? 0)
-  return { monthly, interest, total, fee, receive: Math.max(0, P - fee), principalShare: total > 0 ? (P / total) * 100 : 100 }
+  const fromSavings = q?.fee_from_savings ?? true
+  return { monthly, interest, total, fee, fromSavings, receive: Math.max(0, P - (fromSavings ? 0 : fee)), principalShare: total > 0 ? (P / total) * 100 : 100 }
 })
 
 const ready = computed(() => amountNumber.value > 0 && form.purpose.trim() !== '' && problems.value.length === 0)
@@ -283,7 +287,7 @@ async function submit() {
           <dl class="mt-5 space-y-2 border-t border-white/10 pt-4 text-sm">
             <div class="flex justify-between gap-3"><dt class="text-navy-100/80">Total interest</dt><dd class="font-semibold"><Money :value="cost.interest" /></dd></div>
             <div class="flex justify-between gap-3"><dt class="text-navy-100/80">Total to repay</dt><dd class="font-semibold"><Money :value="cost.total" /></dd></div>
-            <div v-if="cost.fee > 0" class="flex justify-between gap-3"><dt class="text-navy-100/80">Processing fee</dt><dd class="font-semibold">−<Money :value="cost.fee" /></dd></div>
+            <div v-if="cost.fee > 0" class="flex justify-between gap-3"><dt class="text-navy-100/80">Processing fee<span v-if="cost.fromSavings" class="block text-[11px]">from your savings, not the loan</span></dt><dd class="font-semibold">{{ cost.fromSavings ? '' : '−' }}<Money :value="cost.fee" /></dd></div>
             <div class="flex justify-between gap-3 border-t border-white/10 pt-2"><dt class="font-semibold text-saffron-300">You receive</dt><dd class="text-lg font-bold"><Money :value="cost.receive" /></dd></div>
           </dl>
           <p class="mt-4 text-xs text-navy-100/70">{{ quote?.rules.interest_rate_monthly }}% a month on what you still owe, so each month's interest is a little smaller.</p>
@@ -315,10 +319,16 @@ async function submit() {
       <!-- Step 2: guarantors -->
       <section v-show="step === 1" class="card space-y-4 p-5 sm:p-6">
         <div>
-          <h2 class="font-semibold">Who will guarantee it?</h2>
-          <p class="mt-1 text-sm text-gray-600">
-            Colleagues who stand behind your loan with part of their savings. You need {{ minGuarantors }}, together covering
-            {{ quote?.rules.guarantee_cover_percent ?? 100 }}% ({{ formatMoney(String(coverNeeded)) }}). Each is asked on their own dashboard and may agree to less.
+          <h2 class="font-semibold">{{ coverNeeded > 0 ? 'Who will guarantee it?' : 'No guarantors needed' }}</h2>
+          <div class="mt-2 grid gap-2 rounded-xl bg-gray-50 p-3 text-sm sm:grid-cols-3">
+            <p><span class="block text-xs text-gray-500">The loan</span><span class="font-semibold tabular-nums">{{ formatMoney(String(amountNumber)) }}</span></p>
+            <p><span class="block text-xs text-gray-500">Covered by your savings</span><span class="font-semibold tabular-nums text-emerald-700">{{ formatMoney(String(selfCover)) }}</span></p>
+            <p><span class="block text-xs text-gray-500">For guarantors</span><span class="font-semibold tabular-nums">{{ formatMoney(String(coverNeeded)) }}</span></p>
+          </div>
+          <p class="mt-2 text-sm text-gray-600">
+            <template v-if="coverNeeded > 0">Choose one or more colleagues to cover {{ formatMoney(String(coverNeeded)) }} between them. Each is asked on their own dashboard and may agree to less.</template>
+            <template v-else>Your savings cover the whole loan, so you can go straight on. You may still add a guarantor if you like.</template>
+            The part your savings cover is held while the loan runs, and freed as you repay.
           </p>
         </div>
 
@@ -337,7 +347,7 @@ async function submit() {
 
         <MemberPicker :exclude="guarantors.map((g) => g.id)" placeholder="Type a name, or tap to pick" @pick="addGuarantor" />
 
-        <div v-if="amountNumber > 0" class="rounded-xl bg-gray-50 p-3 text-sm">
+        <div v-if="amountNumber > 0 && coverNeeded > 0" class="rounded-xl bg-gray-50 p-3 text-sm">
           <div class="h-2.5 overflow-hidden rounded-full bg-gray-200" role="progressbar" :aria-valuenow="Math.min(100, Math.round((covered / (coverNeeded || 1)) * 100))" aria-valuemin="0" aria-valuemax="100">
             <div class="h-full rounded-full transition-all" :class="covered >= coverNeeded ? 'bg-emerald-600' : 'bg-brand'" :style="{ width: Math.min(100, (covered / (coverNeeded || 1)) * 100) + '%' }" />
           </div>

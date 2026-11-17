@@ -138,7 +138,7 @@ function certificate() {
             <p v-if="isMember && credit" class="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-gray-600">
               <CreditBadge :credit="credit" />
               <span>{{ creditSummary(credit) }}<template v-if="credit.grade === 'poor'"> Can borrow {{ credit.limit_percent }}% of the usual limit.</template></span>
-              <span v-if="Number(pledged) > 0">· {{ formatMoney(pledged) }} held for guarantees</span>
+              <span v-if="Number(pledged) > 0">· {{ formatMoney(pledged) }} held for loans and guarantees</span>
             </p>
           </div>
         </div>
