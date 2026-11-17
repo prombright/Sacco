@@ -263,4 +263,28 @@ final class UserController
     {
         return 'M' . str_pad((string) $id, 5, '0', STR_PAD_LEFT);
     }
+
+    /** POST /api/users/{id}/link-member { member_id|null } (super admin) - the office account's owner's member account */
+    public function linkMember(Request $request): never
+    {
+        $office = $this->find((int) $request->param('id'));
+        if (!in_array($office['role'], [Roles::ADMIN, Roles::SUPER_ADMIN], true)) {
+            Response::error('Only office accounts are linked to a member account.', 422);
+        }
+        $memberId = (int) $request->input('member_id', 0) ?: null;
+        $db = Database::tenant();
+        if ($memberId) {
+            $m = $db->prepare("SELECT id, full_name FROM users WHERE id = ? AND role = 'member'");
+            $m->execute([$memberId]);
+            $member = $m->fetch() ?: Response::error('Choose a member account.', 422);
+            $taken = $db->prepare('SELECT full_name FROM users WHERE linked_member_id = ? AND id <> ?');
+            $taken->execute([$memberId, $office['id']]);
+            if ($other = $taken->fetchColumn()) {
+                Response::error("{$member['full_name']} is already linked to $other's office account.", 422);
+            }
+        }
+        $db->prepare('UPDATE users SET linked_member_id = ? WHERE id = ?')->execute([$memberId, $office['id']]);
+        Audit::log($memberId ? 'users.linked' : 'users.unlinked', 'user', (int) $office['id'], ['member' => $memberId]);
+        Response::ok(['user' => AuthController::present($this->find((int) $office['id']))]);
+    }
 }

@@ -26,6 +26,7 @@ import {
   WalletIcon,
   XMarkIcon,
   QuestionMarkCircleIcon,
+  ArrowsRightLeftIcon,
 } from '@heroicons/vue/24/outline'
 import { useAuth } from '@/stores/auth'
 import { useOffice } from '@/stores/office'
@@ -133,6 +134,14 @@ watch(
   },
   { immediate: true },
 )
+
+/** Office staff who also save: to their member account and back */
+async function switchAccount() {
+  const to = auth.user?.switch_to?.to
+  await auth.switchAccount()
+  drawer.value = false
+  await router.replace(to === 'member' ? { name: 'dashboard' } : { name: 'overview' })
+}
 
 async function signOut() {
   messages.stop()
@@ -294,6 +303,9 @@ async function signOut() {
             <RouterLink to="/change-password" class="flex items-center gap-2 rounded-lg px-3 py-2 text-navy-100 hover:bg-white/10 hover:text-white" role="menuitem">
               <KeyIcon class="h-4 w-4" />Change password
             </RouterLink>
+            <button v-if="auth.user?.switch_to" type="button" class="flex w-full items-center gap-2 rounded-lg bg-saffron-400/15 px-3 py-2 text-left font-semibold text-saffron-300 hover:bg-saffron-400/25" role="menuitem" @click="switchAccount">
+              <ArrowsRightLeftIcon class="h-4 w-4" />{{ auth.user.switch_to.to === 'member' ? 'Switch to my member account' : 'Back to the office' }}
+            </button>
             <button type="button" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-navy-100 hover:bg-white/10 hover:text-white" role="menuitem" @click="signOut">
               <ArrowLeftStartOnRectangleIcon class="h-4 w-4" />{{ t('Log out') }}
             </button>

@@ -53,6 +53,14 @@ export const useAuth = defineStore('auth', () => {
     apply(await api.post<Session>('/auth/change-password', { current_password, new_password }))
   }
 
+  /** Between an office account and its owner's member account, without logging out */
+  async function switchAccount() {
+    const res = await api.post<{ user: User; csrf_token: string }>('/auth/switch', {})
+    user.value = res.user
+    setCsrfToken(res.csrf_token)
+    return res.user
+  }
+
   async function logout() {
     try {
       await api.post('/auth/logout')
@@ -68,5 +76,5 @@ export const useAuth = defineStore('auth', () => {
     setCsrfToken(null)
   }
 
-  return { user, sacco, loaded, isAdmin, isSuperAdmin, can, viewOnly, load, login, twoStep, changePassword, logout, forget, useSacco }
+  return { user, sacco, loaded, isAdmin, isSuperAdmin, can, viewOnly, load, login, twoStep, changePassword, switchAccount, logout, forget, useSacco }
 })

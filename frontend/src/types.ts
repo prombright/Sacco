@@ -27,6 +27,10 @@ export interface User {
   must_change_password: boolean
   /** Members: whether they have seen the first-login welcome */
   welcomed?: boolean
+  /** Office accounts: their owner's own member account */
+  linked_member_id?: number | null
+  /** The other account the logged-in person may switch to now */
+  switch_to?: { to: 'member' | 'office'; label: string; full_name: string } | null
   last_login_at: string | null
   created_at: string
   /** Included in the users list */

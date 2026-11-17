@@ -4,6 +4,8 @@ import { api, ApiError } from '@/api'
 import { useAuth } from '@/stores/auth'
 import type { Role, User, UserStatus } from '@/types'
 import Modal from '@/components/Modal.vue'
+import MemberPicker from '@/components/MemberPicker.vue'
+import type { PickedMember } from '@/types'
 
 /** Add a user (user is null) or edit one */
 const props = defineProps<{ user: User | null }>()
@@ -11,6 +13,23 @@ const emit = defineEmits<{ close: []; saved: [user: User, temporaryPassword: str
 
 const auth = useAuth()
 const isSelf = props.user?.id === auth.user?.id
+
+// Office staff who also save: link this office account to their own member account (super admin)
+const isOffice = props.user && props.user.role !== 'member'
+const linked = ref<{ id: number; full_name: string; account_no: string | null } | null>(null)
+const linkError = ref('')
+if (isOffice && props.user?.linked_member_id) {
+  api.get<{ user: User }>(`/members/${props.user.linked_member_id}`).then((r) => (linked.value = { id: r.user.id, full_name: r.user.full_name, account_no: r.user.account_no })).catch(() => {})
+}
+async function link(m: PickedMember | null) {
+  linkError.value = ''
+  try {
+    await api.post(`/users/${props.user!.id}/link-member`, { member_id: m?.id ?? null })
+    linked.value = m ? { id: m.id, full_name: m.full_name, account_no: m.account_no } : null
+  } catch (e) {
+    linkError.value = e instanceof ApiError ? e.message : "Couldn't save the link."
+  }
+}
 
 const form = reactive({
   full_name: props.user?.full_name ?? '',
@@ -146,5 +165,16 @@ async function save() {
         <button type="submit" class="btn-primary" :disabled="busy">{{ busy ? 'Saving…' : user ? 'Save changes' : 'Add user' }}</button>
       </div>
     </form>
+
+    <section v-if="isOffice && auth.isSuperAdmin" class="mt-6 border-t border-line pt-5">
+      <h3 class="font-semibold">Their own member account</h3>
+      <p class="mt-1 text-sm text-gray-600">If {{ user?.full_name.split(' ')[0] }} also saves with the SACCO, link their member account: once logged into the office, they can switch to it and back without logging out.</p>
+      <div v-if="linked" class="mt-3 flex items-center justify-between gap-3 rounded-xl border border-line p-3">
+        <p class="text-sm"><span class="font-medium">{{ linked.full_name }}</span> <span class="font-mono text-xs text-gray-500">{{ linked.account_no }}</span></p>
+        <button type="button" class="btn-ghost px-2 py-1 text-xs" @click="link(null)">Unlink</button>
+      </div>
+      <div v-else class="mt-3"><MemberPicker placeholder="Find their member account" @pick="link" /></div>
+      <p v-if="linkError" class="mt-2 text-sm text-red-700" role="alert">{{ linkError }}</p>
+    </section>
   </Modal>
 </template>

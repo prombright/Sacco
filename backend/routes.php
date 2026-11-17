@@ -66,6 +66,8 @@ $router->post('/api/auth/two-step', [AuthController::class, 'twoStep'], ['auth' 
 
 // Signed in, even before the temporary password is changed
 $router->post('/api/auth/logout', [AuthController::class, 'logout'], ['before_password' => true]);
+$router->post('/api/auth/switch', [AuthController::class, 'switchAccount']);
+$router->post('/api/users/{id}/link-member', [UserController::class, 'linkMember'], ['roles' => [\Sacco\Auth\Roles::SUPER_ADMIN]]);
 $router->post('/api/auth/change-password', [AuthController::class, 'changePassword'], ['before_password' => true]);
 
 // Users (admins manage members; super admins manage everyone)
