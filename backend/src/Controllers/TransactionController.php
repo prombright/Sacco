@@ -248,19 +248,53 @@ final class TransactionController
         }
         // Colleagues' loans they stand behind
         $g = $db->prepare(
-            "SELECT l.id, l.loan_no, l.status, g.amount, u.full_name AS borrower_name FROM loan_guarantors g
+            "SELECT g.id AS gid, l.id, l.loan_no, l.status, g.amount, u.full_name AS borrower_name FROM loan_guarantors g
              JOIN loans l ON l.id = g.loan_id JOIN users u ON u.id = l.user_id
              WHERE g.guarantor_id = ? AND g.status = 'accepted' AND l.status IN ('pending_guarantors', 'pending_approval', 'approved', 'active')
              ORDER BY l.id DESC"
         );
         $g->execute([$id]);
+        // What each guarantee holds of their savings now (less as the loan is repaid)
+        $pledges = Loans::pledges($db, $id);
+        $guarantees = array_map(function ($row) use ($pledges) {
+            $row['held'] = Money::toDecimal($pledges[(int) $row['gid']]['held'] ?? Money::fromDecimal($row['amount']));
+            unset($row['gid']);
+            return $row;
+        }, $g->fetchAll());
+
+        // How much they can borrow, loan type by loan type, under the SACCO's rules today
+        $free = Savings::free($db, $id);
+        $borrowing = [];
+        foreach (Loans::products($db) as $product) {
+            $rules = Loans::productRules($db, (int) $product['id']);
+            $e = Loans::eligibility($id, null, (int) $product['id']);
+            $borrowing[] = [
+                'product' => $product['name'],
+                'multiplier' => rtrim(rtrim((string) $rules['savings_multiplier'], '0'), '.'),
+                'limit' => Money::toDecimal($e['limit']),
+                'limit_percent' => $e['limit_percent'],
+                // Why they can't apply for it now (too new a member, out of season, one open already)
+                'blocked' => Loans::productBlock($db, $id, $rules),
+            ];
+        }
 
         Response::ok([
+            'borrowing' => [
+                'products' => $borrowing,
+                'savings' => Money::toDecimal(Ledger::balance($db, $id, 'savings')),
+                'owed' => Money::toDecimal(Loans::owedOnOpenLoans($db, $id)),
+                // A loan up to their free savings needs no guarantor (the committee's rule)
+                'without_guarantor' => Money::toDecimal($free),
+                'free_to_guarantee' => Money::toDecimal($free),
+                'held_for_own_loans' => Money::toDecimal(Loans::heldForOwnLoans($db, $id)),
+                'guaranteed_total' => Money::toDecimal(array_sum(array_map(fn ($p) => $p['pledge'], $pledges))),
+                'guarantee_held' => Money::toDecimal(array_sum(array_map(fn ($p) => $p['held'], $pledges))),
+            ],
             'user' => AuthController::present($user),
             'loans' => $loans,
             'loan_owed' => Money::toDecimal($owed),
             'loan_overdue' => Money::toDecimal($overdue),
-            'guarantees' => $g->fetchAll(),
+            'guarantees' => $guarantees,
             'balances' => Ledger::balances((int) $user['id']),
             'share_price' => Settings::get('share_price', '0'),
             'pledged' => Money::toDecimal(Loans::pledged(Database::tenant(), (int) $user['id'])),

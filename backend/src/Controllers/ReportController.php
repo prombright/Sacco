@@ -123,7 +123,7 @@ final class ReportController
         $db = Database::tenant();
         $loans = $db->query(
             "SELECT l.*, u.full_name, u.account_no FROM loans l JOIN users u ON u.id = l.user_id
-             WHERE l.status IN ('pending_guarantors', 'pending_approval', 'approved', 'active') ORDER BY l.id"
+             WHERE l.status IN ('pending_guarantors', 'pending_approval', 'approved', 'active') ORDER BY u.full_name, l.id"
         )->fetchAll();
         $oldest = $db->prepare(
             'SELECT MIN(due_date) FROM loan_installments WHERE loan_id = ? AND due_date < CURDATE() AND principal + interest > principal_paid + interest_paid'

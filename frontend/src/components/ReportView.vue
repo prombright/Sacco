@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref } from 'vue'
-import { CheckCircleIcon, DocumentArrowDownIcon, ExclamationTriangleIcon, PrinterIcon, TableCellsIcon } from '@heroicons/vue/24/outline'
+import { CheckCircleIcon, DocumentArrowDownIcon, ExclamationTriangleIcon, MagnifyingGlassIcon, PrinterIcon, TableCellsIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { useAuth } from '@/stores/auth'
 import { formatDate, formatMoney } from '@/money'
 import type { Report, ReportColumn, ReportRow } from '@/reports'
@@ -23,10 +23,34 @@ const emit = defineEmits<{ rowClick: [row: ReportRow] }>()
 const slots = defineSlots<{ controls?: () => unknown; actions?: (p: { row: ReportRow }) => unknown; empty?: () => unknown }>()
 
 const auth = useAuth()
+
+/**
+ * Reports that list people (loan portfolio, arrears, members summary) get a search: type part of a
+ * name, account or loan number and only those rows stay, with their own totals. Downloads and the
+ * printout then hold just what was found.
+ */
+const query = ref('')
+const searchable = computed(() => !!props.report?.columns.some((c) => c.key === 'full_name') && (props.report?.rows.length ?? 0) > 5)
+const textCols = computed(() => props.report?.columns.filter((c) => c.type === 'text') ?? [])
+const view = computed<Report | null>(() => {
+  const r = props.report
+  const words = query.value.toLowerCase().split(/\s+/).filter(Boolean)
+  if (!r || !searchable.value || !words.length) return r
+  const rows = r.rows.filter((row) => {
+    if (row._kind) return false
+    // Each word typed starts a word in the row (a first name, a surname, an account or loan number)
+    const tokens = textCols.value.map((c) => String(row[c.key] ?? '')).join(' ').toLowerCase().split(/[\s,.()-]+/)
+    return words.every((w) => tokens.some((t) => t.startsWith(w)))
+  })
+  const totals = r.totals
+    ? Object.fromEntries(Object.keys(r.totals).map((k) => [k, String(rows.reduce((sum, row) => sum + Number(row[k] ?? 0), 0))]))
+    : null
+  return { ...r, rows, totals, subtitle: `${r.subtitle} · matching "${query.value.trim()}"` }
+})
 // The screen shows the first rows; Excel and the printout have all of them
 const SHOWN = 300
 const printing = ref(false)
-const rows = computed(() => (printing.value ? props.report?.rows ?? [] : props.report?.rows.slice(0, SHOWN) ?? []))
+const rows = computed(() => (printing.value ? view.value?.rows ?? [] : view.value?.rows.slice(0, SHOWN) ?? []))
 const numeric = (c: ReportColumn) => c.type === 'money' || c.type === 'number'
 
 function show(c: ReportColumn, v: string | number | null | undefined) {
@@ -53,11 +77,11 @@ async function print() {
 // Excel and PDF are made in the browser; the libraries load the first time
 const making = ref<'' | 'excel' | 'pdf'>('')
 async function exportAs(kind: 'excel' | 'pdf') {
-  if (!props.report) return
+  if (!view.value) return
   making.value = kind
   try {
     const who = { sacco: auth.sacco, user: auth.user?.full_name ?? null }
-    await (kind === 'excel' ? downloadExcel(props.report, who) : downloadPdf(props.report, who))
+    await (kind === 'excel' ? downloadExcel(view.value, who) : downloadPdf(view.value, who))
   } finally {
     making.value = ''
   }
@@ -68,10 +92,10 @@ async function exportAs(kind: 'excel' | 'pdf') {
  * headline is its main amount, and the rest sits underneath as small details.
  */
 const isCode = (c: ReportColumn) => ['code', 'account_no', 'loan_no', 'entry', 'no', 'ref', 'reference'].includes(c.key)
-const titleCol = computed(() => props.report?.columns.find((c) => c.type === 'text' && !isCode(c)) ?? null)
-const moneyCols = computed(() => props.report?.columns.filter(numeric) ?? [])
+const titleCol = computed(() => view.value?.columns.find((c) => c.type === 'text' && !isCode(c)) ?? null)
+const moneyCols = computed(() => view.value?.columns.filter(numeric) ?? [])
 function card(row: ReportRow) {
-  const cols = props.report?.columns ?? []
+  const cols = view.value?.columns ?? []
   const filled = moneyCols.value.filter((c) => row[c.key] !== null && row[c.key] !== undefined && row[c.key] !== '' && Number(row[c.key]) !== 0)
   // The last filled amount is usually the one that matters (balance, credit, total)
   const head = filled.at(-1) ?? null
@@ -97,39 +121,56 @@ const printedAt = computed(() => new Date().toLocaleString('en-GB', { day: 'nume
           <p v-if="auth.sacco?.slogan" class="text-xs text-gray-600">{{ auth.sacco.slogan }}</p>
         </div>
       </div>
-      <h1 class="mt-3 text-xl font-bold">{{ report?.title }}</h1>
-      <p class="text-sm text-gray-700">{{ report?.subtitle }}</p>
+      <h1 class="mt-3 text-xl font-bold">{{ view?.title }}</h1>
+      <p class="text-sm text-gray-700">{{ view?.subtitle }}</p>
     </div>
 
     <!-- On screen: title, controls and downloads -->
     <div class="flex flex-wrap items-end justify-between gap-3 border-b border-line p-4 print:hidden">
       <div class="min-w-0">
-        <h2 class="font-semibold">{{ report?.title ?? ' ' }}</h2>
-        <p v-if="report" class="flex flex-wrap items-center gap-2 text-sm text-gray-600">
-          <span>{{ report.subtitle.replace(/ · (NOT )?BALANCED.*$| · balanced$/, '') }}</span>
-          <span v-if="report.balanced === true" class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700"><CheckCircleIcon class="h-3.5 w-3.5" />Balanced</span>
-          <span v-else-if="report.balanced === false" class="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700"><ExclamationTriangleIcon class="h-3.5 w-3.5" />{{ report.subtitle.match(/NOT BALANCED.*/)?.[0] ?? 'Not balanced' }}</span>
+        <h2 class="font-semibold">{{ view?.title ?? ' ' }}</h2>
+        <p v-if="view" class="flex flex-wrap items-center gap-2 text-sm text-gray-600">
+          <span>{{ view.subtitle.replace(/ · (NOT )?BALANCED.*$| · balanced$/, '') }}</span>
+          <span v-if="view.balanced === true" class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700"><CheckCircleIcon class="h-3.5 w-3.5" />Balanced</span>
+          <span v-else-if="view.balanced === false" class="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700"><ExclamationTriangleIcon class="h-3.5 w-3.5" />{{ view.subtitle.match(/NOT BALANCED.*/)?.[0] ?? 'Not balanced' }}</span>
         </p>
       </div>
       <div class="flex flex-wrap items-end gap-2">
         <slot name="controls" />
+        <div v-if="searchable" class="relative max-sm:w-full">
+          <MagnifyingGlassIcon class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
+          <input
+            v-model="query"
+            type="search"
+            class="input w-full pl-9 pr-8 sm:w-64"
+            placeholder="Search by name, account or loan no."
+            aria-label="Search this report"
+            autocomplete="off"
+          />
+          <button v-if="query" type="button" class="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 hover:text-ink" aria-label="Clear the search" @click="query = ''">
+            <XMarkIcon class="h-4 w-4" />
+          </button>
+        </div>
         <div class="flex overflow-hidden rounded-lg border border-line bg-surface shadow-sm" role="group" aria-label="Download or print">
-          <button type="button" class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-40" :disabled="!report || !report.rows.length || !!making" title="Download as Excel" @click="exportAs('excel')">
+          <button type="button" class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-40" :disabled="!view || !view.rows.length || !!making" title="Download as Excel" @click="exportAs('excel')">
             <TableCellsIcon class="h-4 w-4" :class="{ 'animate-pulse': making === 'excel' }" />Excel
           </button>
-          <button type="button" class="inline-flex items-center gap-1.5 border-l border-line px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-40" :disabled="!report || !report.rows.length || !!making" title="Download as PDF" @click="exportAs('pdf')">
+          <button type="button" class="inline-flex items-center gap-1.5 border-l border-line px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-40" :disabled="!view || !view.rows.length || !!making" title="Download as PDF" @click="exportAs('pdf')">
             <DocumentArrowDownIcon class="h-4 w-4" :class="{ 'animate-pulse': making === 'pdf' }" />PDF
           </button>
-          <button type="button" class="inline-flex items-center gap-1.5 border-l border-line px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-40" :disabled="!report || !report.rows.length" title="Print" @click="print">
+          <button type="button" class="inline-flex items-center gap-1.5 border-l border-line px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-40" :disabled="!view || !view.rows.length" title="Print" @click="print">
             <PrinterIcon class="h-4 w-4" />Print
           </button>
         </div>
       </div>
     </div>
 
-    <div v-if="error" class="m-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 print:hidden" role="alert">{{ error }}</div>
+    <p v-if="searchable && query.trim() && view" class="border-b border-line bg-navy-50/50 px-4 py-2 text-sm text-gray-700 print:hidden" role="status">
+      {{ view.rows.length }} of {{ report!.rows.filter((r) => !r._kind).length }} match "{{ query.trim() }}". The totals, downloads and printout are for these only.
+    </p>
+        <div v-if="error" class="m-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 print:hidden" role="alert">{{ error }}</div>
     <!-- While it is worked out: shimmering placeholder rows -->
-    <div v-if="busy && !report" class="space-y-3 p-4" aria-label="Loading">
+    <div v-if="busy && !view" class="space-y-3 p-4" aria-label="Loading">
       <div v-for="n in 5" :key="n" class="flex items-center justify-between gap-4">
         <div class="h-4 flex-1 animate-pulse rounded bg-gray-100" :style="{ maxWidth: 40 + ((n * 17) % 40) + '%' }" />
         <div class="h-4 w-24 animate-pulse rounded bg-gray-100" />
@@ -137,10 +178,10 @@ const printedAt = computed(() => new Date().toLocaleString('en-GB', { day: 'nume
     </div>
 
     <!-- Phones: rows as cards (printing and wider screens use the table) -->
-    <ul v-if="report && !printing" class="divide-y divide-line sm:hidden print:hidden" :class="{ 'opacity-60': busy }">
+    <ul v-if="view && !printing" class="divide-y divide-line sm:hidden print:hidden" :class="{ 'opacity-60': busy }">
       <template v-for="(row, i) in rows" :key="'c' + i">
         <li v-if="row._kind === 'heading'" class="bg-gray-50 px-4 pb-1.5 pt-4 text-xs font-bold uppercase tracking-wider text-gray-600">
-          {{ report.columns.map((c) => row[c.key]).find((v) => v) }}
+          {{ view.columns.map((c) => row[c.key]).find((v) => v) }}
         </li>
         <li
           v-else
@@ -168,28 +209,28 @@ const printedAt = computed(() => new Date().toLocaleString('en-GB', { day: 'nume
           <div v-if="slots.actions" class="mt-2 flex justify-end"><slot name="actions" :row="row" /></div>
         </li>
       </template>
-      <li v-if="!report.rows.length" class="px-4 py-10 text-center text-sm text-gray-500"><slot name="empty">Nothing to show for this period.</slot></li>
-      <li v-if="report.totals && report.rows.length" class="bg-gray-50 px-4 py-3">
+      <li v-if="!view.rows.length" class="px-4 py-10 text-center text-sm text-gray-500"><template v-if="query.trim()">Nothing matches "{{ query.trim() }}".</template><slot v-else name="empty">Nothing to show for this period.</slot></li>
+      <li v-if="view.totals && view.rows.length" class="bg-gray-50 px-4 py-3">
         <p class="text-sm font-bold">Total</p>
         <p class="mt-1 flex flex-wrap gap-x-4 text-sm">
-          <span v-for="c in report.columns.filter((c) => c.key in (report?.totals ?? {}))" :key="c.key">{{ c.label }} <span class="font-bold tabular-nums">{{ formatMoney(report.totals[c.key]) }}</span></span>
+          <span v-for="c in view.columns.filter((c) => c.key in (view?.totals ?? {}))" :key="c.key">{{ c.label }} <span class="font-bold tabular-nums">{{ formatMoney(view.totals[c.key]) }}</span></span>
         </p>
       </li>
     </ul>
 
-    <div v-if="report" class="max-h-[40rem] overflow-auto max-sm:hidden print:block print:max-h-none print:overflow-visible" :class="{ 'opacity-60': busy }">
+    <div v-if="view" class="max-h-[40rem] overflow-auto max-sm:hidden print:block print:max-h-none print:overflow-visible" :class="{ 'opacity-60': busy }">
       <table class="w-full text-sm print:text-[11px]">
         <thead class="sticky top-0 z-10 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 print:static print:bg-white print:text-gray-800">
           <tr class="print:border-b print:border-gray-800">
-            <th v-for="c in report.columns" :key="c.key" class="whitespace-nowrap px-3 py-2.5" :class="{ 'text-right': numeric(c) }">{{ c.label }}</th>
+            <th v-for="c in view.columns" :key="c.key" class="whitespace-nowrap px-3 py-2.5" :class="{ 'text-right': numeric(c) }">{{ c.label }}</th>
             <th v-if="slots.actions" class="px-3 py-2.5 print:hidden"><span class="sr-only">Actions</span></th>
           </tr>
         </thead>
         <tbody>
           <template v-for="(row, i) in rows" :key="i">
             <tr v-if="row._kind === 'heading'" class="bg-gray-50/60 print:bg-white">
-              <td :colspan="report.columns.length + (slots.actions ? 1 : 0)" class="px-3 pb-1.5 pt-4 text-xs font-bold uppercase tracking-wider text-gray-700">
-                {{ report.columns.map((c) => row[c.key]).find((v) => v) }}
+              <td :colspan="view.columns.length + (slots.actions ? 1 : 0)" class="px-3 pb-1.5 pt-4 text-xs font-bold uppercase tracking-wider text-gray-700">
+                {{ view.columns.map((c) => row[c.key]).find((v) => v) }}
               </td>
             </tr>
             <tr
@@ -203,7 +244,7 @@ const printedAt = computed(() => new Date().toLocaleString('en-GB', { day: 'nume
               @click="clickable?.(row) && emit('rowClick', row)"
             >
               <td
-                v-for="c in report.columns"
+                v-for="c in view.columns"
                 :key="c.key"
                 class="px-3 py-2 print:py-1"
                 :class="{
@@ -216,21 +257,21 @@ const printedAt = computed(() => new Date().toLocaleString('en-GB', { day: 'nume
               <td v-if="slots.actions" class="whitespace-nowrap px-3 py-1 text-right print:hidden"><slot name="actions" :row="row" /></td>
             </tr>
           </template>
-          <tr v-if="!report.rows.length">
-            <td :colspan="report.columns.length + 1" class="px-3 py-10 text-center text-gray-500"><slot name="empty">Nothing to show for this period.</slot></td>
+          <tr v-if="!view.rows.length">
+            <td :colspan="view.columns.length + 1" class="px-3 py-10 text-center text-gray-500"><template v-if="query.trim()">Nothing matches "{{ query.trim() }}".</template><slot v-else name="empty">Nothing to show for this period.</slot></td>
           </tr>
         </tbody>
-        <tfoot v-if="report.totals && report.rows.length" class="sticky bottom-0 border-t-2 border-gray-700 bg-gray-50 font-bold print:static print:bg-white">
+        <tfoot v-if="view.totals && view.rows.length" class="sticky bottom-0 border-t-2 border-gray-700 bg-gray-50 font-bold print:static print:bg-white">
           <tr>
-            <td v-for="(c, i) in report.columns" :key="c.key" class="whitespace-nowrap px-3 py-2.5" :class="{ 'text-right tabular-nums': numeric(c) }">
-              {{ i === 0 ? 'Total' : c.key in report.totals ? formatMoney(report.totals[c.key]) : '' }}
+            <td v-for="(c, i) in view.columns" :key="c.key" class="whitespace-nowrap px-3 py-2.5" :class="{ 'text-right tabular-nums': numeric(c) }">
+              {{ i === 0 ? 'Total' : c.key in view.totals ? formatMoney(view.totals[c.key]) : '' }}
             </td>
             <td v-if="slots.actions" class="print:hidden" />
           </tr>
         </tfoot>
       </table>
     </div>
-    <p v-if="report && report.rows.length > SHOWN" class="border-t border-line px-4 py-2 text-xs text-gray-500 print:hidden">Showing the first {{ SHOWN }} rows. Excel and the printout have all {{ report.rows.length }}.</p>
+    <p v-if="view && view.rows.length > SHOWN" class="border-t border-line px-4 py-2 text-xs text-gray-500 print:hidden">Showing the first {{ SHOWN }} rows. Excel and the printout have all {{ view.rows.length }}.</p>
 
     <p class="hidden pt-4 text-[11px] text-gray-500 print:block">Printed {{ printedAt }} by {{ auth.user?.full_name }} · {{ auth.sacco?.name }}</p>
   </section>

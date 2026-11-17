@@ -53,7 +53,25 @@ interface MemberLoan {
   overdue?: string
   next_due_date?: string | null
 }
-interface Guarantee { id: number; loan_no: string; status: string; amount: string; borrower_name: string }
+interface Guarantee { id: number; loan_no: string; status: string; amount: string; held: string; borrower_name: string }
+/** How much they can borrow, and what they stand behind for others (GET /members/{id}) */
+interface Borrowing {
+  products: { product: string; multiplier: string; limit: string; limit_percent: number; blocked: string | null }[]
+  savings: string
+  owed: string
+  without_guarantor: string
+  free_to_guarantee: string
+  held_for_own_loans: string
+  guaranteed_total: string
+  guarantee_held: string
+}
+const borrowing = ref<Borrowing | null>(null)
+/** The main loan type leads; the others are listed under it */
+const mainLoan = computed(() => borrowing.value?.products[0] ?? null)
+/** Up to their free savings needs no guarantor, but never more than they can borrow at all */
+const withoutGuarantor = computed(() =>
+  !borrowing.value || !mainLoan.value || mainLoan.value.blocked ? 0 : Math.min(Number(borrowing.value.without_guarantor), Number(mainLoan.value.limit)),
+)
 const loans = ref<MemberLoan[]>([])
 const loanOwed = ref('0')
 const loanOverdue = ref('0')
@@ -125,8 +143,9 @@ async function loadMember() {
   try {
     const res = await api.get<{
       user: User; balances: Balances; share_price: string; credit: CreditStanding; pledged: string
-      loans: MemberLoan[]; loan_owed: string; loan_overdue: string; guarantees: Guarantee[]
+      loans: MemberLoan[]; loan_owed: string; loan_overdue: string; guarantees: Guarantee[]; borrowing: Borrowing
     }>(`/members/${id}`)
+    borrowing.value = res.borrowing ?? null
     credit.value = res.credit
     loans.value = res.loans ?? []
     loanOwed.value = res.loan_owed ?? '0'
@@ -260,6 +279,47 @@ function certificate() {
           </div>
         </section>
 
+        <!-- Borrowing power: what they can borrow now, and what they stand behind for others -->
+        <section v-if="borrowing && mainLoan" class="card mt-4 overflow-hidden" aria-label="Borrowing power">
+          <div class="grid lg:grid-cols-[1.3fr_1fr_1fr]">
+            <div class="border-line p-5 max-lg:border-b lg:border-r">
+              <p class="eyebrow">Can borrow now · {{ mainLoan.product }}</p>
+              <p class="mt-1.5 text-3xl font-bold tracking-tight tabular-nums" :class="mainLoan.blocked || !Number(mainLoan.limit) ? 'text-gray-400' : 'text-ink'">
+                <Money :value="mainLoan.blocked ? '0' : mainLoan.limit" />
+              </p>
+              <p class="mt-1 text-sm text-gray-600">
+                {{ mainLoan.multiplier }}× savings of {{ formatMoney(borrowing.savings) }}<template v-if="mainLoan.limit_percent < 100">, cut to {{ mainLoan.limit_percent }}% for slow repayments</template><template v-if="Number(borrowing.owed) > 0">, less {{ formatMoney(borrowing.owed) }} still owed</template>.
+              </p>
+              <p v-if="mainLoan.blocked" class="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{{ mainLoan.blocked.replace(/^You /, 'They ').replace(/ you /g, ' they ').replace(/your /g, 'their ') }}</p>
+              <ul v-if="borrowing.products.length > 1" class="mt-3 space-y-1 border-t border-line pt-3 text-sm">
+                <li v-for="p in borrowing.products.slice(1)" :key="p.product" class="flex items-baseline justify-between gap-3">
+                  <span class="text-gray-600">{{ p.product }} <span class="text-xs text-gray-400">({{ p.multiplier }}× savings)</span></span>
+                  <span v-if="p.blocked" class="text-right text-xs text-amber-800">Not now</span>
+                  <span v-else class="font-semibold tabular-nums">{{ formatMoney(p.limit) }}</span>
+                </li>
+              </ul>
+            </div>
+            <div class="border-line p-5 max-lg:border-b lg:border-r">
+              <p class="eyebrow">Without a guarantor</p>
+              <p class="mt-1.5 text-2xl font-bold tabular-nums"><Money :value="String(withoutGuarantor)" /></p>
+              <p class="mt-1 text-sm text-gray-600">A loan up to their free savings needs no guarantor; above it, guarantors cover the rest.</p>
+              <p v-if="Number(borrowing.held_for_own_loans) > 0" class="mt-2 text-xs text-gray-500">{{ formatMoney(borrowing.held_for_own_loans) }} of their savings already stands behind their own loans.</p>
+            </div>
+            <div class="p-5">
+              <p class="eyebrow">Guaranteeing others</p>
+              <p class="mt-1.5 text-2xl font-bold tabular-nums"><Money :value="borrowing.guaranteed_total" /></p>
+              <p class="mt-1 text-sm text-gray-600">
+                <template v-if="guarantees.length">
+                  For {{ guarantees.length }} loan{{ guarantees.length === 1 ? '' : 's' }}; {{ formatMoney(borrowing.guarantee_held) }} of it is held now.
+                  <button type="button" class="font-semibold text-brand hover:underline" @click="tab = 'loans'">See them</button>
+                </template>
+                <template v-else>They don't guarantee anyone now.</template>
+              </p>
+              <p class="mt-2 text-xs text-gray-500">Free to guarantee: <span class="font-semibold text-ink tabular-nums">{{ formatMoney(borrowing.free_to_guarantee) }}</span></p>
+            </div>
+          </div>
+        </section>
+
         <!-- Tabs -->
         <div class="mt-6 flex gap-1 overflow-x-auto border-b border-line" role="tablist" aria-label="Member">
           <button
@@ -315,7 +375,7 @@ function certificate() {
               <li v-for="g in guarantees" :key="g.id">
                 <RouterLink :to="{ name: 'loan', params: { id: g.id } }" class="flex items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50">
                   <span class="min-w-0"><span class="block truncate font-medium">{{ g.borrower_name }}</span><span class="text-xs text-gray-500">{{ g.loan_no }}</span></span>
-                  <span class="shrink-0 text-right text-sm tabular-nums"><span class="block font-semibold">{{ formatMoney(g.amount) }}</span><span class="text-xs text-gray-500">held</span></span>
+                  <span class="shrink-0 text-right text-sm tabular-nums"><span class="block font-semibold">{{ formatMoney(g.amount) }}</span><span class="text-xs text-gray-500">{{ formatMoney(g.held) }} held now</span></span>
                 </RouterLink>
               </li>
             </ul>
