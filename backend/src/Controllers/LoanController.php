@@ -1184,4 +1184,125 @@ final class LoanController
 
         return $loan;
     }
+
+    /**
+     * GET /api/loans/{id}/guarantee-form?guarantor={loan_guarantors.id} (admins) - what the printed
+     * guarantee form needs, for members who can't guarantee online: the borrower, the loan, the
+     * cover still needed, and (when given) the guarantor asked.
+     */
+    public function guaranteeForm(Request $request): never
+    {
+        $loan = $this->find((int) $request->param('id'));
+        $db = Database::tenant();
+        $person = $db->prepare('SELECT full_name, account_no, employee_no, phone, department FROM users WHERE id = ?');
+        $person->execute([$loan['user_id']]);
+        $borrower = $person->fetch();
+
+        $rules = Loans::productRules($db, $loan['product_id'] ? (int) $loan['product_id'] : null);
+        $amount = Money::fromDecimal($loan['amount']);
+        $selfCover = Money::fromDecimal((string) $loan['self_cover']);
+        $needed = Loans::coverNeeded($amount, $selfCover, $rules);
+        $agreed = $db->prepare("SELECT COALESCE(SUM(amount), 0) FROM loan_guarantors WHERE loan_id = ? AND status = 'accepted'");
+        $agreed->execute([$loan['id']]);
+        $agreed = Money::fromDecimal($agreed->fetchColumn());
+        // The monthly payment: the schedule's first instalment, or as it would be if paid out today
+        $first = $db->prepare('SELECT principal + interest FROM loan_installments WHERE loan_id = ? ORDER BY number LIMIT 1');
+        $first->execute([$loan['id']]);
+        $monthly = $first->fetchColumn();
+        if ($monthly === false) {
+            $plan = LoanMath::schedule($amount, $loan['interest_rate_monthly'], (int) $loan['months'], date('Y-m-d'));
+            $monthly = $plan ? Money::toDecimal($plan[0]['principal'] + $plan[0]['interest']) : '0';
+        }
+
+        $guarantor = null;
+        if ($gid = (int) $request->string('guarantor')) {
+            $g = $db->prepare(
+                'SELECT g.id, COALESCE(g.requested_amount, g.amount) AS amount, u.full_name, u.account_no, u.employee_no, u.phone, u.department
+                 FROM loan_guarantors g JOIN users u ON u.id = g.guarantor_id WHERE g.id = ? AND g.loan_id = ?'
+            );
+            $g->execute([$gid, $loan['id']]);
+            $guarantor = $g->fetch() ?: null;
+        }
+
+        Response::ok([
+            'borrower' => $borrower,
+            'loan' => [
+                'loan_no' => $loan['loan_no'],
+                'product_name' => $rules['product_name'],
+                'amount' => $loan['amount'],
+                'months' => (int) $loan['months'],
+                'interest_rate_monthly' => rtrim(rtrim($loan['interest_rate_monthly'], '0'), '.'),
+                'purpose' => $loan['purpose'],
+                'applied_on' => substr((string) $loan['created_at'], 0, 10),
+                'monthly' => Money::toDecimal(Money::fromDecimal((string) $monthly)),
+                'self_cover' => Money::toDecimal($selfCover),
+                'cover_needed' => Money::toDecimal($needed),
+                'cover_agreed' => Money::toDecimal($agreed),
+                'cover_left' => Money::toDecimal(max(0, $needed - $agreed)),
+            ],
+            'guarantor' => $guarantor,
+        ]);
+    }
+
+    /**
+     * POST /api/loans/{id}/guarantors/paper { user_id, amount, signed_on } (office, loans) - a member
+     * who can't use the system signed the printed guarantee form: record it as if they had agreed
+     * online, under the same rules (an active member, long enough a member, within their free
+     * savings, no more than the loan).
+     */
+    public function paperGuarantee(Request $request): never
+    {
+        $loan = $this->find((int) $request->param('id'));
+        if ($loan['status'] !== 'pending_guarantors') {
+            Response::error('This loan isn\'t waiting for guarantors.', 422);
+        }
+        $signedOn = $request->string('signed_on') ?: date('Y-m-d');
+        $d = \DateTime::createFromFormat('!Y-m-d', $signedOn);
+        if (!$d || $d->format('Y-m-d') !== $signedOn || $signedOn > date('Y-m-d')) {
+            Response::error('Enter the date the form was signed (not in the future).', 422, ['signed_on' => 'Invalid']);
+        }
+        $errors = [];
+        $list = $this->guarantors([['user_id' => $request->input('user_id'), 'amount' => $request->input('amount')]], (int) $loan['user_id'], $errors);
+        if ($errors) {
+            Response::error(str_replace('You can\'t guarantee your own loan.', 'The borrower can\'t guarantee their own loan.', reset($errors)), 422, $errors);
+        }
+        $g = $list[0];
+        if ($g['amount'] > Money::fromDecimal($loan['amount'])) {
+            Response::error('A guarantee can\'t be more than the loan itself (' . number_format(Money::fromDecimal($loan['amount']) / 100) . ').', 422, ['amount' => 'Too much']);
+        }
+
+        $name = Database::transaction(function (\PDO $db) use ($loan, $g, $signedOn) {
+            // Lock the guarantor so this and an online answer can't both spend the same free savings
+            $who = $db->prepare('SELECT full_name FROM users WHERE id = ? FOR UPDATE');
+            $who->execute([$g['user_id']]);
+            $name = (string) $who->fetchColumn();
+            $existing = $db->prepare('SELECT id, status FROM loan_guarantors WHERE loan_id = ? AND guarantor_id = ?');
+            $existing->execute([$loan['id'], $g['user_id']]);
+            $existing = $existing->fetch();
+            if ($existing && $existing['status'] === 'accepted') {
+                throw new LedgerException("$name already guarantees this loan.");
+            }
+            $free = Savings::free($db, $g['user_id']);
+            if ($g['amount'] > $free) {
+                throw new LedgerException("$name has " . number_format($free / 100) . ' free in their savings (not already pledged or being withdrawn), so they can guarantee up to that.');
+            }
+            $at = $signedOn . ' ' . date('H:i:s');
+            if ($existing) {
+                $db->prepare("UPDATE loan_guarantors SET status = 'accepted', amount = ?, requested_amount = COALESCE(requested_amount, ?), responded_at = ? WHERE id = ?")
+                    ->execute([Money::toDecimal($g['amount']), Money::toDecimal($g['amount']), $at, $existing['id']]);
+            } else {
+                $db->prepare("INSERT INTO loan_guarantors (loan_id, guarantor_id, amount, requested_amount, status, responded_at) VALUES (?, ?, ?, ?, 'accepted', ?)")
+                    ->execute([$loan['id'], $g['user_id'], Money::toDecimal($g['amount']), Money::toDecimal($g['amount']), $at]);
+            }
+            Loans::advance($db, (int) $loan['id']);
+            return $name;
+        });
+
+        Audit::log('loan.guarantee_on_paper', 'loan', (int) $loan['id'], ['guarantor' => $g['user_id'], 'amount' => Money::toDecimal($g['amount']), 'signed_on' => $signedOn]);
+        $money = Notify::money(Money::toDecimal($g['amount']));
+        Notify::member($g['user_id'], 'account_update', 'Your signed guarantee was recorded',
+            "The SACCO office recorded the guarantee form you signed: $money of {$loan['loan_no']}. That part of your savings is held until the loan is repaid.", '/loans');
+        $this->tellBorrower((int) $loan['id'], "$name signed a guarantee form for $money of your loan, and the office recorded it.");
+        Response::ok(['loan' => $this->detail((int) $loan['id'])]);
+    }
 }

@@ -581,3 +581,248 @@ export async function downloadMembershipForm(m: FormMember, kin: FormKin[], mone
   footer(doc, who, `${who.sacco?.name ?? 'SACCO'} · Membership form · ${m.account_no ?? ''}`)
   doc.save(`membership-form-${m.account_no ?? 'member'}.pdf`)
 }
+
+// --- The loan guarantee form --------------------------------------------------------------------
+
+/** GET /loans/{id}/guarantee-form; missing parts print as blanks to fill in by hand */
+export interface GuaranteeFormData {
+  borrower: { full_name: string; account_no: string | null; employee_no: string | null; phone: string | null; department: string | null } | null
+  loan: {
+    loan_no: string
+    product_name: string | null
+    amount: string
+    months: number
+    interest_rate_monthly: string
+    purpose: string | null
+    applied_on: string
+    monthly: string
+    self_cover: string
+    cover_needed: string
+    cover_agreed: string
+    cover_left: string
+  } | null
+  guarantor: { full_name: string; account_no: string | null; employee_no: string | null; phone: string | null; department: string | null; amount: string } | null
+}
+
+/**
+ * The printed form for a member who guarantees a colleague's loan on paper (they can't, or would
+ * rather not, use the system). Filled in from the loan when there is one; blank otherwise. The
+ * office records the signed form on the loan ("Signed on paper").
+ */
+export async function downloadGuaranteeForm(f: GuaranteeFormData, who: Who) {
+  const doc = await newDoc()
+  const W = doc.internal.pageSize.getWidth()
+  const M = 18
+  const brand = brandRgb(who)
+  const tint = brand.map((v) => Math.round(v + (255 - v) * 0.92)) as RGB
+  const sacco = who.sacco?.name ?? 'the SACCO'
+  const ugx = (v: string) => `UGX ${money(v)}`
+  const b = f.borrower
+  const l = f.loan
+  const g = f.guarantor
+  let y = await letterhead(doc, who)
+
+  // Title, and the loan's reference on the right
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(19)
+  doc.setTextColor(...INK)
+  doc.text('Loan guarantee form', M, y + 3)
+  doc.setFillColor(...SAFFRON)
+  doc.rect(M, y + 6, 26, 1.1, 'F')
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8.5)
+  doc.setTextColor(...MUTED)
+  doc.text(doc.splitTextToSize(`For a member of ${sacco} who guarantees a colleague's loan on paper. Fill it in, sign it, and hand it to the SACCO office.`, 112), M, y + 12)
+  const refW = 46
+  doc.setFillColor(...tint)
+  doc.roundedRect(W - M - refW, y - 5, refW, 19, 2, 2, 'F')
+  doc.setFontSize(7)
+  doc.text('LOAN NUMBER', W - M - refW + 4, y + 0.5)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(13)
+  doc.setTextColor(...brand)
+  if (l) doc.text(l.loan_no, W - M - refW + 4, y + 7)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(7.5)
+  doc.setTextColor(...MUTED)
+  doc.text(l ? `Applied ${longDate(l.applied_on)}` : 'Written in by the office', W - M - refW + 4, y + 11.5)
+  y += 20
+
+  // Pieces: a section band, and labelled fields with a line to write on, one to three to a row
+  const section = (title: string) => {
+    doc.setFillColor(...brand)
+    doc.roundedRect(M, y, W - 2 * M, 7, 1.2, 1.2, 'F')
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(9)
+    doc.setTextColor(255, 255, 255)
+    doc.text(title.toUpperCase(), M + 3, y + 4.8)
+    y += 10.5
+  }
+  const fields = (list: [string, string | null | undefined][]) => {
+    const gap = 8
+    const colW = (W - 2 * M - gap * (list.length - 1)) / list.length
+    list.forEach(([label, value], i) => {
+      const x = M + i * (colW + gap)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(7)
+      doc.setTextColor(...MUTED)
+      doc.text(label.toUpperCase(), x, y)
+      if (value && String(value).trim()) {
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(10.5)
+        doc.setTextColor(...INK)
+        doc.text(doc.splitTextToSize(String(value), colW)[0], x, y + 5.3)
+      }
+      doc.setDrawColor(...LINE)
+      doc.setLineWidth(0.25)
+      doc.line(x, y + 7.3, x + colW, y + 7.3)
+    })
+    y += 11.5
+  }
+
+  // 1. The borrower
+  section('1. The borrower')
+  fields([['Full name', b?.full_name], ['Account no.', b?.account_no], ['Employee no.', b?.employee_no], ['Phone', b?.phone]])
+
+  // 2. The loan: its figures in a tinted panel, then how much guarantors must cover
+  section('2. The loan')
+  const tiles: [string, string][] = [
+    ['Amount', l ? ugx(l.amount) : ''],
+    ['Period', l ? `${l.months} months` : ''],
+    ['Monthly payment', l ? ugx(l.monthly) : ''],
+    ['Interest', l ? `${l.interest_rate_monthly}% a month` : ''],
+  ]
+  const tileW = (W - 2 * M) / 4
+  doc.setFillColor(...tint)
+  doc.roundedRect(M, y - 2, W - 2 * M, 17, 2, 2, 'F')
+  tiles.forEach(([label, value], i) => {
+    const x = M + 4 + i * tileW
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(7)
+    doc.setTextColor(...MUTED)
+    doc.text(label.toUpperCase(), x, y + 3)
+    if (value) {
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(12)
+      doc.setTextColor(...INK)
+      doc.text(value, x, y + 10)
+    } else {
+      doc.setDrawColor(...LINE)
+      doc.line(x, y + 11, x + tileW - 10, y + 11)
+    }
+  })
+  y += 20
+  fields([['Purpose', l?.purpose], ['Loan type', l ? `${l.product_name ?? 'Loan'}, reducing balance` : '']])
+  if (l) {
+    // How the cover adds up, as the SACCO's rules work it out
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8.5)
+    doc.setTextColor(...INK)
+    const parts = [
+      `The borrower's own savings stand behind ${ugx(l.self_cover)} of it`,
+      `guarantors cover ${ugx(l.cover_needed)}`,
+      Number(l.cover_agreed) > 0 ? `${ugx(l.cover_agreed)} is already guaranteed, so ${ugx(l.cover_left)} is still to cover` : '',
+    ].filter(Boolean)
+    doc.text(doc.splitTextToSize(parts.join('; ') + '.', W - 2 * M), M, y)
+    y += 7.5
+  } else {
+    fields([["Borrower's own savings behind the loan (UGX)", ''], ['To be covered by guarantors (UGX)', '']])
+  }
+
+  // 3. The guarantor
+  section('3. The guarantor')
+  fields([['Full name', g?.full_name], ['Account no.', g?.account_no], ['Employee no.', g?.employee_no], ['Phone', g?.phone]])
+  // The amount they guarantee: written by hand, in figures and in words
+  doc.setDrawColor(...brand)
+  doc.setLineWidth(0.5)
+  doc.roundedRect(M, y - 2, W - 2 * M, 21, 2, 2, 'S')
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(8)
+  doc.setTextColor(...brand)
+  doc.text('AMOUNT I GUARANTEE', M + 4, y + 3.5)
+  if (g) {
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(...MUTED)
+    doc.text(`The borrower asked you for ${ugx(g.amount)}`, W - M - 4, y + 3.5, { align: 'right' })
+  }
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(13)
+  doc.setTextColor(...INK)
+  doc.text('UGX', M + 4, y + 12)
+  doc.setDrawColor(...LINE)
+  doc.setLineWidth(0.25)
+  doc.line(M + 17, y + 12.5, M + 70, y + 12.5)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(7.5)
+  doc.setTextColor(...MUTED)
+  doc.text('In words', M + 78, y + 12)
+  doc.line(M + 92, y + 12.5, W - M - 4, y + 12.5)
+  doc.text('Uganda shillings only', W - M - 4, y + 16.5, { align: 'right' })
+  y += 24
+
+  // 4. What it means: the SACCO's rules, in plain words
+  section('4. What guaranteeing means')
+  const points = [
+    "Nothing is taken from your savings now. The amount you guarantee is held: you can't withdraw it or pledge it for someone else while the loan is being repaid.",
+    'As the loan is repaid the hold gets smaller, and when it is fully repaid you are cleared.',
+    'You can guarantee only from savings that are free (not already held for a loan or a withdrawal). The office checks this when it records your form.',
+    `If the borrower does not repay, ${sacco} may recover what is unpaid from the amount you guaranteed, under its rules and by-laws.`,
+  ]
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8.5)
+  for (const p of points) {
+    const lines = doc.splitTextToSize(p, W - 2 * M - 6)
+    doc.setFillColor(...SAFFRON)
+    doc.circle(M + 1.2, y - 1, 0.9, 'F')
+    doc.setTextColor(...INK)
+    doc.text(lines, M + 5, y)
+    y += lines.length * 3.8 + 1.2
+  }
+  y += 0.5
+
+  // 5. Signatures
+  section('5. Declaration and signatures')
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
+  doc.setTextColor(...INK)
+  const of = l ? `loan ${l.loan_no} to ${b?.full_name ?? 'the borrower'}` : 'this loan'
+  doc.text(doc.splitTextToSize(`I, the guarantor named above, agree to guarantee the amount written above of ${of}, on the terms above.`, W - 2 * M), M, y)
+  y += 16
+  const sig = (labels: string[]) => {
+    const gap = 10
+    const w = (W - 2 * M - gap * (labels.length - 1)) / labels.length
+    labels.forEach((label, i) => {
+      const x = M + i * (w + gap)
+      doc.setDrawColor(...MUTED)
+      doc.setLineWidth(0.3)
+      doc.line(x, y, x + w, y)
+      doc.setFontSize(7.5)
+      doc.setTextColor(...MUTED)
+      doc.text(label, x, y + 4)
+    })
+    y += 13
+  }
+  sig(["Guarantor's signature", 'Date', 'Witness (name and signature)'])
+
+  // For the office
+  doc.setFillColor(248, 247, 244)
+  doc.setDrawColor(...LINE)
+  doc.setLineDashPattern([1.2, 1], 0)
+  doc.roundedRect(M, y - 4, W - 2 * M, 16, 2, 2, 'FD')
+  doc.setLineDashPattern([], 0)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(7.5)
+  doc.setTextColor(...MUTED)
+  doc.text('FOR THE SACCO OFFICE', M + 4, y + 0.5)
+  doc.setFont('helvetica', 'normal')
+  const col = (W - 2 * M - 8) / 3
+  ;['Received by', 'Date received', 'Recorded in the system by'].forEach((label, i) => {
+    const x = M + 4 + i * col
+    doc.line(x, y + 7, x + col - 6, y + 7)
+    doc.text(label, x, y + 10.5)
+  })
+
+  footer(doc, who, `${who.sacco?.name ?? 'SACCO'} · Loan guarantee form${l ? ` · ${l.loan_no}` : ''}`)
+  const tag = g ? `-${(g.account_no ?? g.full_name).replace(/[^a-z0-9]+/gi, '-')}` : ''
+  doc.save(`guarantee-form${l ? `-${l.loan_no}` : ''}${tag}.pdf`)
+}

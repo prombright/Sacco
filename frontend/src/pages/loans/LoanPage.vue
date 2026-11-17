@@ -4,7 +4,7 @@ import SkeletonRows from '@/components/SkeletonRows.vue'
 import { toast } from '@/toast'
 import AmountWords from '@/components/AmountWords.vue'
 import CreditBadge from '@/components/CreditBadge.vue'
-import { downloadLoanLetter } from '@/documents'
+import { downloadGuaranteeForm, downloadLoanLetter, type GuaranteeFormData } from '@/documents'
 import MoneyAccountSelect from '@/components/MoneyAccountSelect.vue'
 import { ask } from '@/confirm'
 import { computed, reactive, ref, watch } from 'vue'
@@ -45,7 +45,7 @@ load()
 
 // --- Actions: each opens a small form in a dialog --------------------------------------
 
-type Dialog = 'reject' | 'disburse' | 'payment' | 'reverse' | 'guarantor' | 'settle' | 'waive' | 'approve' | null | 'replace' | 'security'
+type Dialog = 'reject' | 'disburse' | 'payment' | 'reverse' | 'guarantor' | 'settle' | 'waive' | 'approve' | null | 'replace' | 'security' | 'paper'
 const dialog = ref<Dialog>(null)
 const form = reactive({ note: '', date: today, reference: '', amount: '', reason: '', message: '', money_account_id: '' })
 const newGuarantor = ref<(PickedMember & { amount: string }) | null>(null)
@@ -80,7 +80,31 @@ const DONE: Record<string, string> = {
   waive: 'Penalty waived',
   guarantor: 'Your colleague has been asked',
   replace: 'The new guarantor has been asked',
+  paper: 'The signed guarantee is recorded',
   '': 'Done',
+}
+
+// --- Guarantors on paper: the printed form, and recording it once signed ------------------
+
+/** The guarantee form for members who can't guarantee online: for one guarantor asked, or with their part blank */
+const makingForm = ref(false)
+async function guaranteeForm(g?: LoanGuarantor) {
+  if (!loan.value) return
+  makingForm.value = true
+  try {
+    const data = await api.get<GuaranteeFormData>(`/loans/${loan.value.id}/guarantee-form`, g ? { guarantor: g.id } : {})
+    await downloadGuaranteeForm(data, { sacco: auth.sacco, user: auth.user?.full_name ?? null })
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.message : 'Couldn\'t make the form.'
+  } finally {
+    makingForm.value = false
+  }
+}
+/** Record a signed form: for a guarantor already asked (their name and amount filled in), or someone new */
+function openPaper(g?: LoanGuarantor) {
+  open('paper')
+  if (g) newGuarantor.value = { id: g.guarantor_id, full_name: g.full_name, account_no: g.account_no, amount: String(Math.round(Number(g.requested_amount ?? g.amount))) }
+  else if (loan.value?.guarantee_shortfall) form.amount = String(Math.round(Number(loan.value.guarantee_shortfall.amount)))
 }
 
 async function act(path: string, body: Record<string, unknown> = {}, confirmText?: string) {
@@ -409,8 +433,17 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
       </section>
 
       <!-- Guarantors -->
-      <section v-if="loan.guarantors?.length" class="mt-8">
-        <h2 class="font-semibold">Guarantors</h2>
+      <section v-if="loan.guarantors?.length || (canAdmin && loan.status === 'pending_guarantors')" class="mt-8">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h2 class="font-semibold">Guarantors</h2>
+          <!-- For members who can't guarantee online: print the form, then record it once signed -->
+          <div v-if="canAdmin && ['pending_guarantors', 'pending_approval', 'approved'].includes(loan.status)" class="flex flex-wrap gap-2">
+            <button type="button" class="btn-secondary" :disabled="makingForm" @click="guaranteeForm()">
+              <DocumentTextIcon class="h-4 w-4" aria-hidden="true" />Guarantee form
+            </button>
+            <button v-can="'loans'" v-if="loan.status === 'pending_guarantors'" type="button" class="btn-secondary" @click="openPaper()">Record a signed form</button>
+          </div>
+        </div>
         <p v-if="loan.guarantee_shortfall" class="mt-1 text-sm text-amber-800">
           Still needs
           <template v-if="loan.guarantee_shortfall.guarantors">{{ loan.guarantee_shortfall.guarantors }} more guarantor{{ loan.guarantee_shortfall.guarantors === 1 ? '' : 's' }}</template>
@@ -418,7 +451,7 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
           <template v-if="Number(loan.guarantee_shortfall.amount) > 0">{{ formatMoney(loan.guarantee_shortfall.amount) }} more in guarantees</template>.
         </p>
         <ul class="card mt-3 divide-y divide-gray-100">
-          <li v-for="g in loan.guarantors" :key="g.id" class="flex items-center justify-between gap-2 p-4 text-sm">
+          <li v-for="g in loan.guarantors" :key="g.id" class="flex flex-wrap items-center justify-between gap-2 p-4 text-sm">
             <div>
               <p class="font-medium">{{ g.full_name }}</p>
               <p v-if="g.status === 'accepted' && g.requested_amount && Number(g.amount) !== Number(g.requested_amount)" class="text-gray-600 tabular-nums">
@@ -433,6 +466,10 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
                 class="btn-ghost px-2 py-1 text-xs"
                 @click="replacing = g; newGuarantor = null; open('replace')"
               >Replace</button>
+              <template v-if="canAdmin && g.status === 'pending' && loan.status === 'pending_guarantors'">
+                <button type="button" class="btn-ghost px-2 py-1 text-xs" :disabled="makingForm" title="The guarantee form, filled in for them" @click="guaranteeForm(g)">Form</button>
+                <button v-can="'loans'" type="button" class="btn-ghost px-2 py-1 text-xs" @click="openPaper(g)">Signed on paper</button>
+              </template>
               <StatusBadge :label="guarantorStatus[g.status].label" :style-class="guarantorStatus[g.status].style" />
             </span>
           </li>
@@ -742,6 +779,42 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
         <div class="sheet-actions flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>
           <button type="submit" class="btn-primary" :disabled="busy || !newGuarantor">Ask them</button>
+        </div>
+      </form>
+    </Modal>
+
+    <Modal v-if="dialog === 'paper' && loan" title="Record a signed guarantee form" @close="dialog = null">
+      <form class="space-y-4" @submit.prevent="newGuarantor && act(`/loans/${loan.id}/guarantors/paper`, { user_id: newGuarantor.id, amount: newGuarantor.amount, signed_on: form.date })">
+        <p class="text-sm text-gray-600">
+          For a member who signed the printed form instead of agreeing online. The same rules apply: the amount must fit in their free savings,
+          and it is held from their savings like any guarantee. Keep the signed form on file.
+        </p>
+        <div v-if="formError" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ formError }}</div>
+        <div>
+          <p class="label">Guarantor</p>
+          <MemberPicker
+            v-if="!newGuarantor"
+            :exclude="[loan.user_id, ...(loan.guarantors ?? []).filter((g) => g.status === 'accepted').map((g) => g.guarantor_id)]"
+            @pick="newGuarantor = { ...$event, amount: form.amount }"
+          />
+          <div v-else class="flex items-center justify-between gap-3 rounded-lg border border-line p-3">
+            <p class="font-medium">{{ newGuarantor.full_name }} <span v-if="newGuarantor.account_no" class="font-mono text-xs text-gray-500">{{ newGuarantor.account_no }}</span></p>
+            <button type="button" class="btn-ghost px-2 py-1" @click="newGuarantor = null">Change</button>
+          </div>
+        </div>
+        <div v-if="newGuarantor" class="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label for="paper-amount" class="label">Amount they guarantee (as written on the form)</label>
+            <input id="paper-amount" v-model="newGuarantor.amount" class="input tabular-nums" inputmode="numeric" autocomplete="off" />
+          </div>
+          <div>
+            <label for="paper-date" class="label">Date signed</label>
+            <input id="paper-date" v-model="form.date" type="date" class="input" :max="today" />
+          </div>
+        </div>
+        <div class="sheet-actions flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>
+          <button type="submit" class="btn-primary" :disabled="busy || !newGuarantor || !newGuarantor.amount">Record the guarantee</button>
         </div>
       </form>
     </Modal>

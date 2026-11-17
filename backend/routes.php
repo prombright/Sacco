@@ -105,6 +105,8 @@ $router->post('/api/loans/{id}/approve', [LoanController::class, 'approve'], $ed
 $router->post('/api/loans/{id}/reject', [LoanController::class, 'reject'], $edit('loans'));
 $router->post('/api/loans/{id}/disburse', [LoanController::class, 'disburse'], $edit('loans'));
 $router->post('/api/loans/{id}/securities', [LoanSecurityController::class, 'store'], $edit('loans'));
+$router->get('/api/loans/{id}/guarantee-form', [LoanController::class, 'guaranteeForm'], $admins);
+$router->post('/api/loans/{id}/guarantors/paper', [LoanController::class, 'paperGuarantee'], $edit('loans'));
 $router->post('/api/loans/{id}/securities/{sid}/return', [LoanSecurityController::class, 'markReturned'], $edit('loans'));
 $router->delete('/api/loans/{id}/securities/{sid}', [LoanSecurityController::class, 'destroy'], $edit('loans'));
 $router->post('/api/loans/{id}/payments', [LoanController::class, 'recordPayment'], $edit('loans'));

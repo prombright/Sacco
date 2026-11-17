@@ -2,7 +2,7 @@
 import PageHeader from '@/components/PageHeader.vue'
 import SkeletonRows from '@/components/SkeletonRows.vue'
 import EmptyState from '@/components/EmptyState.vue'
-import { ClipboardDocumentCheckIcon } from '@heroicons/vue/24/outline'
+import { ClipboardDocumentCheckIcon, DocumentTextIcon } from '@heroicons/vue/24/outline'
 import { ask } from '@/confirm'
 import { onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
@@ -12,6 +12,8 @@ import { formatDate, formatMoney } from '@/money'
 import { loanFigures, loanStatus } from '@/loans'
 import StatusBadge from '@/components/StatusBadge.vue'
 import ExistingLoanForm from './ExistingLoanForm.vue'
+import { downloadGuaranteeForm } from '@/documents'
+import { useAuth } from '@/stores/auth'
 
 // In the order an admin works through them
 const tabs: { status: LoanStatus; label: string }[] = [
@@ -80,6 +82,10 @@ let timer: ReturnType<typeof setTimeout> | undefined
 watch(q, () => { clearTimeout(timer); timer = setTimeout(load, 300) })
 watch(status, load)
 onMounted(load)
+
+/** A blank guarantee form, for a walk-in before the loan is in the system (each loan's page has its own, filled in) */
+const auth = useAuth()
+const blankForm = () => downloadGuaranteeForm({ borrower: null, loan: null, guarantor: null }, { sacco: auth.sacco, user: auth.user?.full_name ?? null })
 </script>
 
 <template>
@@ -91,6 +97,7 @@ onMounted(load)
         </PageHeader>
       </div>
       <div class="flex flex-wrap gap-2">
+        <button type="button" class="btn-secondary" title="Each loan's page has the form filled in for that loan" @click="blankForm"><DocumentTextIcon class="h-4 w-4" aria-hidden="true" />Blank guarantee form</button>
         <button v-can="'loans'" type="button" class="btn-secondary" :disabled="charging" @click="chargePenalties">Charge late-payment penalties</button>
         <button v-can="'loans'" type="button" class="btn-primary" @click="bringingIn = true">Record a loan from old records</button>
       </div>
