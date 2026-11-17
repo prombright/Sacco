@@ -1,6 +1,6 @@
 // The app on phones: opens fast and from the home screen. Members' data is never stored here -
 // the API always goes to the server; only the app's own files are kept.
-const VERSION = 'sacco-app-v2'
+const VERSION = 'sacco-app-v3'
 const BASE = new URL(self.registration.scope).pathname
 
 self.addEventListener('install', (event) => {

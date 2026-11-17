@@ -31,6 +31,13 @@ export const useAuth = defineStore('auth', () => {
     const hex = s.brand_color.replace('#', '')
     const rgb = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(' ')
     document.documentElement.style.setProperty('--brand', rgb)
+    // The loading screen shows the logo next time, before the app has started (public/brand/splash.js)
+    try {
+      if (s.logo_url) localStorage.setItem('sacco-logo', s.logo_url)
+      else localStorage.removeItem('sacco-logo')
+    } catch {
+      /* private browsing: the loading screen goes without */
+    }
   }
 
   async function load() {

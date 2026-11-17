@@ -17,8 +17,8 @@ const initials = computed(() => {
     v-if="sacco?.logo_url"
     :src="/^(https?:)?\/\//.test(sacco.logo_url) || sacco.logo_url.startsWith('/') ? sacco.logo_url : base + sacco.logo_url"
     :alt="sacco.name"
-    :class="size === 'lg' ? 'h-14 w-14' : 'h-9 w-9'"
-    class="rounded-lg object-contain"
+    :class="size === 'lg' ? 'h-14 w-14 p-1.5' : 'h-9 w-9 p-1'"
+    class="shrink-0 rounded-lg bg-white object-contain shadow-sm ring-1 ring-black/5"
   />
   <span
     v-else
