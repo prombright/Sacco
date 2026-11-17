@@ -29,6 +29,10 @@ export interface User {
   welcomed?: boolean
   /** Office accounts: their owner's own member account */
   linked_member_id?: number | null
+  /** Members: the office role they hold through office access (null: none) */
+  office_role?: Role | null
+  /** Office accounts: given to a member, reached with the member's own login */
+  office_via_member?: boolean
   /** The other account the logged-in person may switch to now */
   switch_to?: { to: 'member' | 'office'; label: string; full_name: string } | null
   last_login_at: string | null

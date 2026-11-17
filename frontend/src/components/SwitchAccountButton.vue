@@ -23,7 +23,7 @@ const target = computed(() => auth.user?.switch_to ?? null)
 /** Shown to office accounts (linked or not) and to a member account reached from the office */
 const shown = computed(() => !!target.value || auth.isAdmin)
 const label = computed(() =>
-  target.value ? (target.value.to === 'member' ? 'Switch to my member account' : 'Back to the office') : 'Switch to my member account',
+  target.value ? (target.value.to === 'member' ? 'Switch to my member account' : target.value.label) : 'Switch to my member account',
 )
 
 async function go() {

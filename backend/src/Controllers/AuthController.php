@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Sacco\Controllers;
 
 use Sacco\Auth\Auth;
+use Sacco\Auth\OfficeAccess;
 use Sacco\Auth\Passwords;
 use Sacco\Auth\Roles;
 use Sacco\Auth\Throttle;
@@ -246,6 +247,9 @@ final class AuthController
             // Members see a short welcome once, on whichever device they first use
             'welcomed' => !empty($user['welcomed_at']),
             'linked_member_id' => !empty($user['linked_member_id']) ? (int) $user['linked_member_id'] : null,
+            // Members: the office role they hold through office access, if any
+            'office_role' => $user['role'] === Roles::MEMBER ? OfficeAccess::roleOf(Database::tenant(), (int) $user['id']) : null,
+            'office_via_member' => !empty($user['office_via_member']),
             // The other account this person may switch to now (only for whoever is logged in)
             'switch_to' => self::switchTarget($user),
             'created_at' => $user['created_at'],
@@ -263,15 +267,28 @@ final class AuthController
             return null;
         }
         $db = Database::tenant();
+        // An office account not yet linked: link it to its owner's member account when the same
+        // person is clear (once a session), so nobody has to do it by hand
+        if ($user['role'] !== Roles::MEMBER && empty($user['linked_member_id']) && empty($_SESSION['autolink_tried'])) {
+            $_SESSION['autolink_tried'] = true;
+            if ($memberId = OfficeAccess::autoLink($db, $user)) {
+                $user['linked_member_id'] = $memberId;
+            }
+        }
         if (Roles::allows($user['role'], [Roles::ADMIN]) && !empty($user['linked_member_id'])) {
             $s = $db->prepare("SELECT id, full_name FROM users WHERE id = ? AND role = 'member' AND status = 'active'");
             $s->execute([$user['linked_member_id']]);
             return ($m = $s->fetch()) ? ['to' => 'member', 'label' => 'My member account', 'full_name' => $m['full_name']] : null;
         }
-        if ($user['role'] === Roles::MEMBER && !empty($_SESSION['office_id'])) {
-            $s = $db->prepare("SELECT full_name FROM users WHERE id = ? AND linked_member_id = ? AND status = 'active'");
-            $s->execute([$_SESSION['office_id'], $user['id']]);
-            return ($o = $s->fetch()) ? ['to' => 'office', 'label' => 'Back to the office', 'full_name' => $o['full_name']] : null;
+        if ($user['role'] === Roles::MEMBER) {
+            // Back to the office: when this login started there, or when the office access was given
+            // to this member (it has no login of its own; the member's login opens it)
+            $s = $db->prepare("SELECT id, full_name, office_via_member FROM users WHERE linked_member_id = ? AND role <> 'member' AND status = 'active'");
+            $s->execute([$user['id']]);
+            $o = $s->fetch();
+            if ($o && ((int) $o['office_via_member'] === 1 || (int) ($_SESSION['office_id'] ?? 0) === (int) $o['id'])) {
+                return ['to' => 'office', 'label' => empty($_SESSION['office_id']) ? 'Switch to the office' : 'Back to the office', 'full_name' => $o['full_name'], 'id' => (int) $o['id']];
+            }
         }
         return null;
     }
@@ -293,10 +310,12 @@ final class AuthController
             $_SESSION['office_id'] = $officeId;
         } else {
             $s = $db->prepare('SELECT * FROM users WHERE id = ?');
-            $s->execute([$_SESSION['office_id']]);
+            $s->execute([$target['id']]);
             $next = $s->fetch();
             unset($_SESSION['office_id']);
             Auth::login($next, $sacco);
+            // The office never stays logged in for weeks, even from a phone that keeps the member in
+            $remember = false;
         }
         if ($remember) {
             $_SESSION['remember'] = true;

@@ -212,6 +212,7 @@ function certificate() {
                 <span>Account <span class="font-mono font-medium text-ink">{{ member.account_no }}</span></span>
                 <span v-if="member.employee_no">· Employee {{ member.employee_no }}</span>
                 <span v-if="!isMember" class="rounded-full bg-navy-50 px-2 py-0.5 text-xs font-semibold text-navy-800">{{ member.role_label }}</span>
+                <span v-if="member.office_role" class="rounded-full bg-saffron-100 px-2 py-0.5 text-xs font-semibold text-saffron-800" title="They switch to the office with the round button">Office: {{ member.office_role === 'super_admin' ? 'Super admin' : 'Admin' }}</span>
                 <span v-if="member.status !== 'active'" class="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800">{{ member.status === 'left' ? 'Left the SACCO' : 'Suspended' }}</span>
               </p>
             </div>

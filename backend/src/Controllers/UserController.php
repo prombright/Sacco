@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Sacco\Controllers;
 
 use Sacco\Auth\Auth;
+use Sacco\Auth\OfficeAccess;
 use Sacco\Auth\Passwords;
 use Sacco\Auth\Roles;
 use Sacco\Database;
@@ -90,6 +91,10 @@ final class UserController
             return $id;
         });
         Audit::log('user.created', 'user', $id, ['role' => $data['role']]);
+        // A new office account for someone who already saves: linked to their member account when it's clearly them
+        if ($data['role'] !== Roles::MEMBER) {
+            OfficeAccess::autoLink(Database::tenant(), $this->find($id));
+        }
 
         Response::ok(['user' => AuthController::present($this->find($id)), 'temporary_password' => $temporary], 201);
     }
@@ -111,6 +116,27 @@ final class UserController
             Response::error('There must always be at least one active super admin.', 422);
         }
 
+        // A member given an office role stays a member (their savings and their own login); office
+        // access is added for the same person, reached with the round switch. Member again = taken away.
+        $officeChange = null;
+        if ($user['role'] === Roles::MEMBER) {
+            $wanted = $data['role'];
+            $data['role'] = Roles::MEMBER;
+            $current = OfficeAccess::roleOf(Database::tenant(), (int) $user['id']);
+            if ($wanted !== Roles::MEMBER && $wanted !== $current) {
+                $officeChange = $wanted;
+            } elseif ($wanted === Roles::MEMBER && $current !== null) {
+                $office = OfficeAccess::officeOf(Database::tenant(), (int) $user['id']);
+                if ((int) $office['id'] === (int) $actor['id']) {
+                    Response::error('You can\'t take away your own office access. Ask another super admin.', 422);
+                }
+                if ($office['role'] === Roles::SUPER_ADMIN && $this->activeSuperAdmins() <= 1) {
+                    Response::error('There must always be at least one active super admin.', 422);
+                }
+                $officeChange = 'none';
+            }
+        }
+
         Database::tenant()->prepare(
             'UPDATE users SET full_name = ?, email = ?, employee_no = ?, account_no = ?, joined_on = ?, phone = ?,
                 national_id = ?, date_of_birth = ?, gender = ?, department = ?, position = ?, address = ?, role = ?, status = ? WHERE id = ?'
@@ -120,6 +146,21 @@ final class UserController
             $data['national_id'], $data['date_of_birth'], $data['gender'], $data['department'], $data['position'], $data['address'],
             $data['role'], $data['status'], $user['id'],
         ]);
+
+        if ($officeChange !== null) {
+            $db = Database::tenant();
+            if ($officeChange === 'none') {
+                $office = OfficeAccess::revoke($db, $user);
+                Audit::log('users.office_access', 'user', (int) $user['id'], ['role' => null, 'office' => (int) $office['id']]);
+                Notify::member((int) $user['id'], 'account_update', 'Your office access has ended',
+                    'You no longer have office access to the SACCO system. Your member account is just as it was.', '/');
+            } else {
+                $office = OfficeAccess::grant($db, $this->find((int) $user['id']), $officeChange, Auth::id());
+                Audit::log('users.office_access', 'user', (int) $user['id'], ['role' => $officeChange, 'office' => (int) $office['id']]);
+                Notify::member((int) $user['id'], 'account_update', 'You now have office access',
+                    'You can now work in the SACCO office as ' . Roles::label($officeChange) . '. Log in as usual and tap the round switch at the top to go to the office, and again to come back to your own account.', '/');
+            }
+        }
 
         $changed = [];
         foreach (['full_name', 'email', 'employee_no', 'account_no', 'joined_on', 'phone', 'national_id', 'date_of_birth', 'gender', 'department', 'position', 'address', 'role', 'status'] as $field) {
@@ -203,7 +244,8 @@ final class UserController
         if ($data['full_name'] === null) {
             $errors['full_name'] = 'Enter the full name.';
         }
-        if ($data['email'] === null && $data['employee_no'] === null) {
+        // Office access given to a member logs in with the member's own login, so it needs neither
+        if ($data['email'] === null && $data['employee_no'] === null && empty($existing['office_via_member'])) {
             $errors['email'] = 'Enter an email or an employee number - they log in with one of these.';
         }
         if ($data['email'] !== null && !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {

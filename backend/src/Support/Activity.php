@@ -54,6 +54,7 @@ final class Activity
             'loan.months_changed' => 'changed how long a loan runs',
             'loan.guarantee_on_paper' => 'recorded a guarantee signed on paper',
             'auth.switched' => 'switched between their office and member accounts',
+            'users.office_access' => 'changed a member\'s office access',
             'users.linked' => 'linked an office account to its owner\'s member account',
             'users.unlinked' => 'unlinked an office account from a member account',
             'transaction.entered_in_error' => 'removed an entry made by mistake (hidden from the member)',

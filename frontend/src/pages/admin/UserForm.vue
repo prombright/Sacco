@@ -15,7 +15,9 @@ const auth = useAuth()
 const isSelf = props.user?.id === auth.user?.id
 
 // Office staff who also save: link this office account to their own member account (super admin)
-const isOffice = props.user && props.user.role !== 'member'
+const isOffice = props.user && props.user.role !== 'member' && !props.user.office_via_member
+/** A member's role on this form is their office access: they stay a member either way */
+const isMember = !props.user || props.user.role === 'member'
 const linked = ref<{ id: number; full_name: string; account_no: string | null } | null>(null)
 const linkError = ref('')
 if (isOffice && props.user?.linked_member_id) {
@@ -44,7 +46,7 @@ const form = reactive({
   department: props.user?.department ?? '',
   position: props.user?.position ?? '',
   address: props.user?.address ?? '',
-  role: (props.user?.role ?? 'member') as Role,
+  role: (props.user?.office_role ?? props.user?.role ?? 'member') as Role,
   status: (props.user?.status ?? 'active') as UserStatus,
 })
 const errors = ref<Record<string, string>>({})
@@ -147,7 +149,10 @@ async function save() {
             <option v-if="auth.isSuperAdmin" value="super_admin">Super Admin</option>
           </select>
           <p v-if="!auth.isSuperAdmin" class="mt-1 text-xs text-gray-500">Only a super admin can add admins.</p>
-          <p v-if="form.role !== 'member'" class="mt-1 text-xs text-gray-500">An office account: it runs the SACCO and has no savings or loans. If this person also saves with the SACCO, give them a separate member account.</p>
+          <p v-if="form.role !== 'member' && user && isMember" class="mt-1 rounded-lg bg-navy-50 px-2.5 py-1.5 text-xs text-navy-800">
+            {{ user.full_name.split(' ')[0] }} keeps their savings and their own login. They log in as usual and tap the round switch at the top to work in the office, and again to come back.
+          </p>
+          <p v-else-if="form.role !== 'member'" class="mt-1 text-xs text-gray-500">An office account: it runs the SACCO and has no savings or loans. If this person already saves with the SACCO, give the role on their member account instead, so they keep one login.</p>
           <p v-if="errors.role" class="field-error">{{ errors.role }}</p>
         </div>
         <div v-if="user">
