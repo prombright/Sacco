@@ -51,6 +51,7 @@ final class Activity
             'payroll.posted' => 'posted the payroll for ' . ($d['period'] ?? ''),
             'payroll.reversed' => 'reversed an upload (payroll or transactions)',
             'statements.sent' => 'sent ' . ($d['count'] ?? '') . ' monthly statements for ' . ($d['month'] ?? ''),
+            'loan.months_changed' => 'changed how long a loan runs',
             'loan.guarantee_on_paper' => 'recorded a guarantee signed on paper',
             'auth.switched' => 'switched between their office and member accounts',
             'users.linked' => 'linked an office account to its owner\'s member account',

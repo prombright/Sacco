@@ -61,12 +61,8 @@ foreach (Database::platform()->query('SELECT * FROM saccos ORDER BY id') as $sac
         try {
             foreach ($rows as $l) {
                 $before = (int) $l['months'];
-                $db->prepare('DELETE FROM loan_installments WHERE loan_id = ?')->execute([$l['id']]);
-                $db->prepare('UPDATE loans SET months = ? WHERE id = ?')->execute([$max, $l['id']]);
-                $l['months'] = $max;
-                Loans::createSchedule($db, $l, $l['disbursed_on']);
                 // Repayments already made are applied again, to the new plan
-                Loans::applyPayments($db, (int) $l['id']);
+                Loans::replan($db, $l, $max);
                 $db->prepare("INSERT INTO audit_log (actor_id, action, subject_type, subject_id, details) VALUES (NULL, 'loan.replanned', 'loan', ?, ?)")
                     ->execute([$l['id'], json_encode(['months_before' => $before, 'months' => $max])]);
             }

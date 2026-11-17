@@ -22,6 +22,7 @@ interface Setting {
  * The server's label is the full wording; it is used when a rule has no entry here.
  */
 const LOOK: Record<string, { group: string; name: string; unit?: string; help?: string }> = {
+  loan_max_months: { group: 'loans', name: 'Longest loan for members', unit: 'months', help: 'Members choose how many months to repay over, up to this (a loan type can be shorter). The super admin can still change one loan\'s duration.' },
   loan_min_member_months: { group: 'loans', name: 'Saving before a first loan', unit: 'months', help: 'How long someone must have saved before they can borrow.' },
   guarantor_min_member_months: { group: 'loans', name: 'Membership to guarantee', unit: 'months', help: 'How long someone must have been a member to stand as a guarantor.' },
   loan_penalty_percent: { group: 'loans', name: 'Late-payment penalty', unit: '%', help: 'Of what is late. 0 means no penalty.' },

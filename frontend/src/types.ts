@@ -243,6 +243,8 @@ export interface LoanRules {
   interest_method: string
   savings_multiplier: string
   max_months: number
+  /** The SACCO's longest loan for members (a loan type may be shorter) */
+  sacco_max_months?: number
   min_guarantors: number
   guarantee_cover_percent: number
   min_member_months: number

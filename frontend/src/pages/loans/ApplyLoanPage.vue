@@ -28,7 +28,8 @@ const router = useRouter()
 const form = reactive({ product_id: 0, amount: '', months: 12, purpose: '', replaces_loan_id: 0 })
 const guarantors = ref<(PickedMember & { amount: string })[]>([])
 const quote = ref<Quote | null>(null)
-const showSchedule = ref(false)
+// The payment plan shows from the start: what each month costs, and when
+const showSchedule = ref(true)
 const errors = ref<Record<string, string>>({})
 const error = ref('')
 const busy = ref(false)
@@ -62,6 +63,19 @@ function canGo(i: number) {
 }
 
 const maxMonths = computed(() => quote.value?.rules.max_months ?? 24)
+/** The months box: what was typed, kept within 1 and the longest allowed */
+const monthsTyped = ref(String(form.months))
+const monthsTooLong = ref(false)
+function typeMonths(v: string) {
+  monthsTyped.value = v.replace(/\D/g, '')
+  const n = Number(monthsTyped.value)
+  monthsTooLong.value = n > maxMonths.value
+  if (n >= 1) form.months = Math.min(n, maxMonths.value)
+}
+watch(() => form.months, (m) => {
+  if (Number(monthsTyped.value) !== m && !monthsTooLong.value) monthsTyped.value = String(m)
+  if (Number(monthsTyped.value) <= maxMonths.value) monthsTooLong.value = false
+})
 /** The amount slider: up to the limit, in steps that suit the size of the limit */
 const sliderMax = computed(() => Math.max(0, Math.floor(limit.value)))
 const sliderStep = computed(() => (sliderMax.value > 5_000_000 ? 50_000 : sliderMax.value > 1_000_000 ? 10_000 : 5_000))
@@ -168,7 +182,7 @@ async function submit() {
           </span>
           <span v-if="p.description" class="mt-1 hidden text-sm text-gray-600 sm:block">{{ p.description }}</span>
           <span class="mt-1.5 block text-xs text-gray-500 sm:mt-2">
-            Up to {{ p.max_months }} months · {{ p.savings_multiplier }}× savings<template v-if="feeText(p) !== 'no fee'"> · {{ feeText(p) }}</template>
+            Up to {{ Math.min(p.max_months, quote?.rules.sacco_max_months ?? p.max_months) }} months · {{ p.savings_multiplier }}× savings<template v-if="feeText(p) !== 'no fee'"> · {{ feeText(p) }}</template>
           </span>
         </label>
       </div>
@@ -242,13 +256,30 @@ async function submit() {
           </div>
 
           <div>
+            <!-- Type the months, or slide: never past the longest allowed -->
             <div class="flex items-end justify-between gap-3">
-              <label for="months" class="label !mb-0">Repay over</label>
-              <p class="text-xl font-bold">{{ form.months }} <span class="text-sm font-medium text-gray-500">month{{ form.months === 1 ? '' : 's' }}</span></p>
+              <label for="months-typed" class="label !mb-0">Repay over</label>
+              <p class="flex items-center gap-2">
+                <input
+                  id="months-typed"
+                  :value="monthsTyped"
+                  class="input h-11 w-20 text-center text-xl font-bold tabular-nums"
+                  inputmode="numeric"
+                  autocomplete="off"
+                  aria-describedby="months-note"
+                  @input="typeMonths(($event.target as HTMLInputElement).value)"
+                  @blur="monthsTyped = String(form.months)"
+                />
+                <span class="text-sm font-medium text-gray-500">month{{ form.months === 1 ? '' : 's' }}</span>
+              </p>
             </div>
+            <p id="months-note" class="mt-1 text-xs" :class="monthsTooLong ? 'font-semibold text-amber-800' : 'text-gray-500'">
+              {{ monthsTooLong ? `The longest you can choose is ${maxMonths} months.` : `Choose from 1 to ${maxMonths} months.` }}
+            </p>
             <input
               id="months"
               v-model.number="form.months"
+              aria-label="Repay over, months"
               type="range"
               class="slider mt-3 w-full"
               min="1"
@@ -291,14 +322,18 @@ async function submit() {
           </dl>
           <p class="mt-4 text-xs text-navy-100/70">{{ quote?.rules.interest_rate_monthly }}% a month on what you still owe, so each month's interest is a little smaller.</p>
           <button v-if="quote?.schedule" type="button" class="mt-3 text-sm font-semibold text-saffron-300 hover:underline" @click="showSchedule = !showSchedule">
-            {{ showSchedule ? 'Hide' : 'See' }} the month-by-month schedule
+            {{ showSchedule ? 'Hide' : 'See' }} the payment plan
           </button>
         </aside>
 
         <div v-if="showSchedule && quote?.schedule" class="card overflow-x-auto p-4 lg:col-span-2">
-          <table class="w-full text-sm tabular-nums">
+          <div class="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+            <h3 class="font-semibold">Your payment plan</h3>
+            <p class="text-sm text-gray-600">{{ form.months }} monthly payment{{ form.months === 1 ? '' : 's' }} of about <span class="font-semibold text-ink">{{ formatMoney(String(cost.monthly)) }}</span>, off your pay</p>
+          </div>
+          <table class="w-full text-sm tabular-nums max-sm:hidden">
             <thead class="text-left text-xs uppercase tracking-wide text-gray-500">
-              <tr><th class="py-1 pr-3">#</th><th class="py-1 pr-3">Due</th><th class="py-1 pr-3 text-right">Principal</th><th class="py-1 pr-3 text-right">Interest</th><th class="py-1 pr-3 text-right">Payment</th><th class="py-1 text-right">Still owed</th></tr>
+              <tr><th class="py-1 pr-3">Month</th><th class="py-1 pr-3">Due</th><th class="py-1 pr-3 text-right">Principal</th><th class="py-1 pr-3 text-right">Interest</th><th class="py-1 pr-3 text-right">Payment</th><th class="py-1 text-right">Still owed</th></tr>
             </thead>
             <tbody class="divide-y divide-gray-200">
               <tr v-for="r in quote.schedule.rows" :key="r.number">
@@ -311,6 +346,13 @@ async function submit() {
               </tr>
             </tbody>
           </table>
+          <!-- Phones: one line a month, the payment large, what's left under it -->
+          <ol class="divide-y divide-line text-sm tabular-nums sm:hidden">
+            <li v-for="r in quote.schedule.rows" :key="r.number" class="flex items-baseline justify-between gap-3 py-2">
+              <span><span class="text-gray-400">{{ r.number }}.</span> {{ formatDate(r.due_date) }}</span>
+              <span class="text-right"><span class="block font-semibold">{{ formatMoney(r.total) }}</span><span class="text-xs text-gray-500">{{ formatMoney(r.balance_after) }} left</span></span>
+            </li>
+          </ol>
           <p class="mt-2 text-xs text-gray-500">Dates assume the loan is paid out today; they're fixed when it actually is.</p>
         </div>
       </section>

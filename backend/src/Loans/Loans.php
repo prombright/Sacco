@@ -29,6 +29,7 @@ final class Loans
             'interest_method' => Settings::get('loan_interest_method', 'reducing_balance'),
             'savings_multiplier' => Settings::get('loan_savings_multiplier', '2'),
             'max_months' => (int) Settings::get('loan_max_months', '24'),
+            'sacco_max_months' => (int) Settings::get('loan_max_months', '24'),
             'min_guarantors' => (int) Settings::get('loan_min_guarantors', '2'),
             'guarantee_cover_percent' => (int) Settings::get('loan_guarantee_cover_percent', '100'),
             'min_member_months' => (int) Settings::get('loan_min_member_months', '6'),
@@ -107,7 +108,8 @@ final class Loans
                 $p = self::presentProduct($row);
                 $rules = array_merge($rules, [
                     'interest_rate_monthly' => $p['interest_rate_monthly'],
-                    'max_months' => $p['max_months'],
+                    // A loan type's own longest term, never past the SACCO's longest (the committee: 24)
+                    'max_months' => min((int) $p['max_months'], self::rules()['max_months']),
                     'savings_multiplier' => $p['savings_multiplier'],
                     'min_guarantors' => $p['min_guarantors'],
                     'guarantee_cover_percent' => $p['guarantee_cover_percent'],
@@ -413,6 +415,19 @@ final class Loans
      * interest, then its principal. Closes the loan when everything is paid; reopens it if a
      * reversal undoes that.
      */
+    /**
+     * A running loan over a new number of months: a fresh schedule from its payout date, at its own
+     * rate, with every repayment already made applied again. Call inside a transaction.
+     */
+    public static function replan(PDO $db, array $loan, int $months): void
+    {
+        $db->prepare('DELETE FROM loan_installments WHERE loan_id = ?')->execute([$loan['id']]);
+        $db->prepare('UPDATE loans SET months = ? WHERE id = ?')->execute([$months, $loan['id']]);
+        $loan['months'] = $months;
+        self::createSchedule($db, $loan, $loan['disbursed_on']);
+        self::applyPayments($db, (int) $loan['id']);
+    }
+
     public static function applyPayments(PDO $db, int $loanId): void
     {
         $installments = $db->prepare('SELECT id, principal, interest FROM loan_installments WHERE loan_id = ? ORDER BY number');

@@ -1305,4 +1305,82 @@ final class LoanController
         $this->tellBorrower((int) $loan['id'], "$name signed a guarantee form for $money of your loan, and the office recorded it.");
         Response::ok(['loan' => $this->detail((int) $loan['id'])]);
     }
+
+    /**
+     * POST /api/loans/{id}/months { months, reason, preview? } (super admin, or loans permission) -
+     * the super admin sets how long one loan runs. Before payout only the months change; a running
+     * loan is re-planned from its payout date with what was repaid applied again. With preview, it
+     * only says what the new plan would be.
+     */
+    public function changeMonths(Request $request): never
+    {
+        $loan = $this->find((int) $request->param('id'));
+        $open = ['pending_guarantors', 'pending_approval', 'approved', 'active'];
+        if (!in_array($loan['status'], $open, true)) {
+            Response::error('Only a loan that is still open can have its duration changed.', 422);
+        }
+        $months = (int) $request->input('months', 0);
+        if ($months < 1 || $months > 120) {
+            Response::error('Enter the number of months, from 1 to 120.', 422, ['months' => 'Invalid']);
+        }
+        $before = (int) $loan['months'];
+        if ($months === $before) {
+            Response::error("It already runs over $months months.", 422, ['months' => 'Same']);
+        }
+        $db = Database::tenant();
+        $active = $loan['status'] === 'active';
+        // A running loan can't end before the instalments already due: those months have passed
+        if ($active) {
+            $due = $db->prepare('SELECT COUNT(*) FROM loan_installments WHERE loan_id = ? AND due_date <= CURDATE()');
+            $due->execute([$loan['id']]);
+            $passed = (int) $due->fetchColumn();
+            if ($months <= $passed) {
+                Response::error("$passed month" . ($passed === 1 ? ' has' : 's have') . ' already passed since the payout, so it needs more than ' . $passed . ' months.', 422, ['months' => 'Too short']);
+            }
+        }
+
+        $amount = Money::fromDecimal($loan['amount']);
+        $start = $loan['disbursed_on'] ?: date('Y-m-d');
+        $plan = LoanMath::schedule($amount, $loan['interest_rate_monthly'], $months, $start);
+        $oldPlan = LoanMath::schedule($amount, $loan['interest_rate_monthly'], $before, $start);
+        $monthly = fn (array $p) => $p ? $p[0]['principal'] + $p[0]['interest'] : 0;
+        $interest = fn (array $p) => array_sum(array_column($p, 'interest'));
+        $rules = Loans::productRules($db, $loan['product_id'] ? (int) $loan['product_id'] : null);
+        $quote = [
+            'months' => $months,
+            'before' => $before,
+            'monthly' => Money::toDecimal($monthly($plan)),
+            'monthly_before' => Money::toDecimal($monthly($oldPlan)),
+            'interest' => Money::toDecimal($interest($plan)),
+            'interest_before' => Money::toDecimal($interest($oldPlan)),
+            'last_due' => $plan ? end($plan)['due_date'] : null,
+            'paid_out' => $active,
+            // Longer than its loan type allows: the super admin may, but should know
+            'over_type_max' => $months > (int) $rules['max_months'] ? (int) $rules['max_months'] : null,
+            'product_name' => $rules['product_name'],
+        ];
+        if ($request->input('preview')) {
+            Response::ok(['quote' => $quote]);
+        }
+        $reason = trim((string) $request->input('reason', ''));
+        if ($reason === '') {
+            Response::error('Say why the duration is changing (it is kept with the loan).', 422, ['reason' => 'Required']);
+        }
+
+        Database::transaction(function (\PDO $db) use ($loan, $months, $active) {
+            if ($active) {
+                Loans::replan($db, $loan, $months);
+            } else {
+                $db->prepare('UPDATE loans SET months = ? WHERE id = ?')->execute([$months, $loan['id']]);
+            }
+        });
+        Audit::log('loan.months_changed', 'loan', (int) $loan['id'], ['months_before' => $before, 'months' => $months, 'reason' => $reason]);
+        Notify::member((int) $loan['user_id'], 'account_update', "Your loan {$loan['loan_no']} now runs over $months months",
+            "The SACCO office changed your loan {$loan['loan_no']} from $before to $months months ($reason). "
+            . ($active
+                ? 'Your monthly payment is now ' . Notify::money($quote['monthly']) . ', the last one due ' . date('j M Y', strtotime((string) $quote['last_due'])) . '.'
+                : 'When it is paid out, the monthly payment will be about ' . Notify::money($quote['monthly']) . '.'),
+            '/loans/' . $loan['id']);
+        Response::ok(['loan' => $this->detail((int) $loan['id'])]);
+    }
 }

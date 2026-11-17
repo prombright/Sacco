@@ -45,7 +45,7 @@ load()
 
 // --- Actions: each opens a small form in a dialog --------------------------------------
 
-type Dialog = 'reject' | 'disburse' | 'payment' | 'reverse' | 'guarantor' | 'settle' | 'waive' | 'approve' | null | 'replace' | 'security' | 'paper'
+type Dialog = 'reject' | 'disburse' | 'payment' | 'reverse' | 'guarantor' | 'settle' | 'waive' | 'approve' | null | 'replace' | 'security' | 'paper' | 'months'
 const dialog = ref<Dialog>(null)
 const form = reactive({ note: '', date: today, reference: '', amount: '', reason: '', message: '', money_account_id: '' })
 const newGuarantor = ref<(PickedMember & { amount: string }) | null>(null)
@@ -81,8 +81,48 @@ const DONE: Record<string, string> = {
   guarantor: 'Your colleague has been asked',
   replace: 'The new guarantor has been asked',
   paper: 'The signed guarantee is recorded',
+  months: 'The loan\'s duration is changed; the borrower has been told',
   '': 'Done',
 }
+
+// --- How long the loan runs: the super admin sets it, with a preview first --------------
+
+interface MonthsQuote {
+  months: number
+  before: number
+  monthly: string
+  monthly_before: string
+  interest: string
+  interest_before: string
+  last_due: string | null
+  paid_out: boolean
+  over_type_max: number | null
+  product_name: string | null
+}
+const newMonths = ref('')
+const monthsQuote = ref<MonthsQuote | null>(null)
+const monthsQuoteError = ref('')
+let monthsTimer: ReturnType<typeof setTimeout> | undefined
+function openMonths() {
+  open('months')
+  newMonths.value = String(loan.value?.months ?? '')
+  monthsQuote.value = null
+  monthsQuoteError.value = ''
+}
+watch(newMonths, (v) => {
+  clearTimeout(monthsTimer)
+  monthsQuote.value = null
+  monthsQuoteError.value = ''
+  const m = Number(v)
+  if (dialog.value !== 'months' || !loan.value || !Number.isInteger(m) || m < 1 || m === loan.value.months) return
+  monthsTimer = setTimeout(async () => {
+    try {
+      monthsQuote.value = (await api.post<{ quote: MonthsQuote }>(`/loans/${loan.value!.id}/months`, { months: m, preview: true })).quote
+    } catch (e) {
+      monthsQuoteError.value = e instanceof ApiError ? e.message : ''
+    }
+  }, 250)
+})
 
 // --- Guarantors on paper: the printed form, and recording it once signed ------------------
 
@@ -388,6 +428,7 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
             <button v-can="'loans'" v-if="loan.status === 'approved'" type="button" class="btn-primary" @click="open('disburse')">Record the payout</button>
             <button v-can="'loans'" v-if="loan.status === 'active'" type="button" class="btn-primary" @click="open('payment')">Record a repayment</button>
             <button v-can="'loans'" v-if="loan.status === 'active' && loan.settlement" type="button" class="btn-secondary" @click="open('settle')">Pay off early</button>
+            <button v-can="'loans'" v-if="['pending_guarantors', 'pending_approval', 'approved', 'active'].includes(loan.status)" type="button" class="btn-secondary" @click="openMonths">Change duration</button>
             <button v-can="'loans'" v-if="['pending_guarantors', 'pending_approval', 'approved'].includes(loan.status)" type="button" class="btn-secondary" @click="open('reject')">Reject</button>
           </template>
           <template v-if="isOwner">
@@ -779,6 +820,62 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
         <div class="sheet-actions flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>
           <button type="submit" class="btn-primary" :disabled="busy || !newGuarantor">Ask them</button>
+        </div>
+      </form>
+    </Modal>
+
+    <Modal v-if="dialog === 'months' && loan" title="Change how long the loan runs" @close="dialog = null">
+      <form class="space-y-4" @submit.prevent="act(`/loans/${loan.id}/months`, { months: Number(newMonths), reason: form.reason })">
+        <p class="text-sm text-gray-600">
+          {{ loan.loan_no }} runs over <strong>{{ loan.months }} months</strong> now.
+          <template v-if="loan.status === 'active'">It is re-planned from its payout date ({{ formatDate(loan.disbursed_on) }}) over the new months, and every repayment already made counts towards it.</template>
+          <template v-else>Its schedule is set when it is paid out.</template>
+        </p>
+        <div v-if="formError" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ formError }}</div>
+        <div>
+          <label for="new-months" class="label">Months</label>
+          <div class="flex flex-wrap items-center gap-2">
+            <input id="new-months" v-model="newMonths" class="input w-28 text-lg font-semibold tabular-nums" inputmode="numeric" autocomplete="off" />
+            <button
+              v-for="m in [6, 12, 18, 24, 36]"
+              :key="m"
+              type="button"
+              class="rounded-full border px-3 py-1 text-xs font-semibold"
+              :class="Number(newMonths) === m ? 'border-brand bg-navy-50 text-navy-800' : 'border-line text-gray-600 hover:bg-gray-50'"
+              @click="newMonths = String(m)"
+            >{{ m }}</button>
+          </div>
+        </div>
+        <!-- What changes -->
+        <div v-if="monthsQuote" class="rounded-xl border border-line">
+          <dl class="grid grid-cols-3 text-sm">
+            <dt class="px-3 py-2 text-gray-500" />
+            <dt class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Now</dt>
+            <dt class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-navy-700">New</dt>
+            <dd class="border-t border-line px-3 py-2 text-gray-600">Months</dd>
+            <dd class="border-t border-line px-3 py-2 text-right tabular-nums">{{ monthsQuote.before }}</dd>
+            <dd class="border-t border-line px-3 py-2 text-right font-semibold tabular-nums">{{ monthsQuote.months }}</dd>
+            <dd class="border-t border-line px-3 py-2 text-gray-600">Each month</dd>
+            <dd class="border-t border-line px-3 py-2 text-right tabular-nums">{{ formatMoney(monthsQuote.monthly_before) }}</dd>
+            <dd class="border-t border-line px-3 py-2 text-right font-semibold tabular-nums">{{ formatMoney(monthsQuote.monthly) }}</dd>
+            <dd class="border-t border-line px-3 py-2 text-gray-600">Total interest</dd>
+            <dd class="border-t border-line px-3 py-2 text-right tabular-nums">{{ formatMoney(monthsQuote.interest_before) }}</dd>
+            <dd class="border-t border-line px-3 py-2 text-right font-semibold tabular-nums">{{ formatMoney(monthsQuote.interest) }}</dd>
+          </dl>
+          <p v-if="monthsQuote.paid_out && monthsQuote.last_due" class="border-t border-line px-3 py-2 text-xs text-gray-600">The last payment would be due {{ formatDate(monthsQuote.last_due) }}.</p>
+          <p v-if="monthsQuote.over_type_max" class="border-t border-line bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            Longer than the {{ monthsQuote.product_name ?? 'loan type' }}'s usual {{ monthsQuote.over_type_max }} months. You can still set it.
+          </p>
+        </div>
+        <p v-else-if="monthsQuoteError" class="text-sm text-amber-800">{{ monthsQuoteError }}</p>
+        <div>
+          <label for="months-reason" class="label">Why</label>
+          <input id="months-reason" v-model="form.reason" class="input" maxlength="255" placeholder="e.g. Committee decision of 15 November" />
+          <p class="mt-1 text-xs text-gray-500">Kept with the loan and sent to the borrower with the new monthly payment.</p>
+        </div>
+        <div class="sheet-actions flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>
+          <button type="submit" class="btn-primary" :disabled="busy || !monthsQuote || !form.reason.trim()">Change to {{ newMonths || '…' }} months</button>
         </div>
       </form>
     </Modal>
