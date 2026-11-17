@@ -33,6 +33,7 @@ import { useAuth } from '@/stores/auth'
 import { useOffice } from '@/stores/office'
 import SaccoMark from '@/components/SaccoMark.vue'
 import CommandPalette from '@/components/CommandPalette.vue'
+import SwitchAccountButton from '@/components/SwitchAccountButton.vue'
 import ThemeSwitch from '@/components/ThemeSwitch.vue'
 import NotificationBell from '@/components/NotificationBell.vue'
 import { dashboardIcon, sectionOf, sections, type Section, type SectionItem } from '@/sections'
@@ -287,7 +288,7 @@ async function signOut() {
             <UserAvatar :name="auth.user?.full_name ?? ''" :photo-url="auth.user?.photo_url" size="h-9 w-9 text-sm ring-2 ring-white/10" />
             <span v-if="wide" class="min-w-0 flex-1">
               <span class="block truncate text-sm font-semibold text-white">{{ auth.user?.full_name }}</span>
-              <span class="block truncate text-xs text-navy-200/60">{{ auth.user?.role_label }}<template v-if="!auth.isAdmin"> · {{ auth.user?.account_no }}</template></span>
+              <span class="block truncate text-xs text-navy-200/60">{{ auth.user?.role_label }}<template v-if="auth.viewOnly"> · view only</template><template v-if="!auth.isAdmin"> · {{ auth.user?.account_no }}</template></span>
             </span>
             <ChevronUpDownIcon v-if="wide" class="h-4 w-4 text-navy-200/50" aria-hidden="true" />
           </button>
@@ -355,7 +356,6 @@ async function signOut() {
         <span class="hidden whitespace-nowrap text-sm text-gray-500 xl:inline" :class="auth.isAdmin ? 'ml-4' : 'ml-auto'">
           {{ new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }) }}
         </span>
-        <span v-if="auth.viewOnly" class="ml-2 hidden items-center gap-1 rounded-full bg-navy-50 px-2.5 py-1 text-xs font-semibold text-navy-800 md:inline-flex" title="You can see everything and download reports; changes are made by the super admin">View only</span>
         <button v-if="canInstall && !auth.isAdmin" type="button" class="tap ml-auto inline-flex items-center gap-1.5 rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-white lg:hidden" @click="install">
           <ArrowDownTrayIcon class="h-4 w-4" aria-hidden="true" />{{ t('Install the app') }}
         </button>
@@ -363,6 +363,8 @@ async function signOut() {
           <MagnifyingGlassIcon class="h-6 w-6" />
         </button>
         <NotificationBell :class="auth.isAdmin ? 'sm:ml-2' : 'ml-auto xl:ml-2'" />
+        <!-- Office ⇄ my member account, without logging out -->
+        <SwitchAccountButton />
       </div>
     </header>
     <CommandPalette v-if="auth.isAdmin" v-model="searchOpen" />

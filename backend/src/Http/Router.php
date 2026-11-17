@@ -103,7 +103,9 @@ final class Router
         if ($request->method !== 'GET' && !hash_equals(Auth::csrfToken(), $request->header('X-CSRF-Token'))) {
             Response::error('Your session has expired. Please refresh the page.', 403, ['code' => 'session_expired']);
         }
-        if ($user['must_change_password'] && empty($options['before_password'])) {
+        // Reached from the office with the round switch: they proved who they are there, so a
+        // member account that still has its temporary password opens anyway (it keeps it for logins)
+        if ($user['must_change_password'] && empty($options['before_password']) && empty($_SESSION['office_id'])) {
             Response::error('Please change your temporary password first.', 403, ['code' => 'must_change_password']);
         }
         if (isset($options['roles']) && !Roles::allows($user['role'], $options['roles'])) {

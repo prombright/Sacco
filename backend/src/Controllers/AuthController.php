@@ -239,7 +239,8 @@ final class AuthController
             'permissions' => Roles::permissions($user),
             'status' => $user['status'],
             'source' => $user['source'],
-            'must_change_password' => (bool) $user['must_change_password'],
+            // Not asked of a member account opened with the round switch from the office
+            'must_change_password' => (bool) $user['must_change_password'] && !((int) $user['id'] === Auth::id() && !empty($_SESSION['office_id'])),
             'two_step' => (bool) ($user['totp_enabled_at'] ?? false),
             'last_login_at' => $user['last_login_at'],
             // Members see a short welcome once, on whichever device they first use
