@@ -169,7 +169,17 @@ try {
         $pay((int) $late['id'], $due($late, 1), $after($inst((int) $late['id'], 1)['due_date'], 40));
         $pay((int) $late['id'], $due($late, 2), min(date('Y-m-d'), $after($inst((int) $late['id'], 2)['due_date'], 40)));
         $standing = Credit::standing($db, $carol);
-        check('Paying over a month late, with one still unpaid, lowers the credit standing', in_array($standing['grade'], ['fair', 'poor'], true), $standing['grade'] . ' ' . $standing['score']);
+        check("Carol's record shows the late repayments (2 late, 1 unpaid)", $standing['late'] >= 2 && $standing['overdue_now'] >= 1, "{$standing['late']} late, {$standing['overdue_now']} unpaid");
+        check("...but the system doesn't mark her a slow payer (salaries pay, not her)", $standing['grade'] !== 'poor' && Credit::limitPercent($db, $carol) === 100, $standing['grade']);
+        $usual = Loans::eligibility($carol)['limit'];
+        // The office marks her (what POST /members/{id}/slow-payer does)
+        $set->execute(['slow_payer_limit_percent', '50']);
+        \Sacco\Support\Settings::forget();
+        $db->prepare('UPDATE users SET slow_payer_since = CURDATE(), slow_payer_note = ? WHERE id = ?')->execute(['Test', $carol]);
+        check('Marked by the office: a slow payer, borrowing 50% of the usual limit', Credit::standing($db, $carol)['grade'] === 'poor' && Credit::limitPercent($db, $carol) === 50, Credit::standing($db, $carol)['label']);
+        check('...her limit is cut accordingly', Loans::eligibility($carol)['limit'] < $usual, ugx(Loans::eligibility($carol)['limit']) . ' < ' . ugx($usual));
+        $db->prepare('UPDATE users SET slow_payer_since = NULL, slow_payer_note = NULL WHERE id = ?')->execute([$carol]);
+        check('Mark lifted: the full limit is back', Credit::limitPercent($db, $carol) === 100 && Loans::eligibility($carol)['limit'] === $usual);
         $dave = $member('Dave Test', '904');
         $post($dave, 'savings', 'deposit', 500_000);
         // Dave: one instalment due so far, paid on its due date

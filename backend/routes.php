@@ -82,6 +82,7 @@ $router->get('/api/me/transactions', [TransactionController::class, 'myTransacti
 
 // Admins: members' accounts and recording entries
 $router->get('/api/members/{id}', [TransactionController::class, 'member'], $admins);
+$router->post('/api/members/{id}/slow-payer', [TransactionController::class, 'markSlowPayer'], $edit('loans'));
 $router->get('/api/members/{id}/transactions', [TransactionController::class, 'memberTransactions'], $admins);
 $router->post('/api/members/{id}/transactions', [TransactionController::class, 'store'], $edit('money'));
 $router->post('/api/transactions/{id}/reverse', [TransactionController::class, 'reverse'], $edit('money'));

@@ -60,7 +60,7 @@ final class Reminders
                 Notify::member((int) $i['user_id'], 'loan_late',
                     'Your loan instalment is late',
                     Notify::money($i['left']) . " on loan {$i['loan_no']} was due on " . date('j F', strtotime($i['due_date']))
-                        . '. Please pay it within ' . Credit::GRACE_DAYS . ' days of the due date to keep your credit standing; later repayments lower it.',
+                        . '. If it doesn\'t come off your salary, please pay it at the SACCO office.',
                     "/loans/{$i['loan_id']}");
                 $mark->execute([$i['id'], 'overdue', $today]);
             }

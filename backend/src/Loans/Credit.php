@@ -5,36 +5,29 @@ declare(strict_types=1);
 namespace Sacco\Loans;
 
 use PDO;
-use Sacco\Support\Notify;
 use Sacco\Support\Settings;
 
 /**
- * How well a member repays, from their last 12 instalments that have fallen due (across all their
- * loans). Each starts the member at 100 and a late one takes points off; paying on time pushes the
- * old late ones out of the 12, so a member climbs back by paying on time.
+ * A member's repayment record and standing.
  *
- *  - paid within GRACE_DAYS of the due date: on time
- *  - 8 to 30 days late: -10, 31 to 90: -20, more than 90: -35
- *  - still unpaid after the grace days: a further -10
+ * The record is facts, from their last 12 instalments that have fallen due (across all their
+ * loans): how many were paid within GRACE_DAYS of the due date, how many later, the longest delay
+ * and how many are unpaid now. It is shown to the office to help decide, and nothing more:
+ * repayments come off salaries, so a late one is often not the member's doing.
  *
- * 80 and up is good, 50 to 79 fair, below 50 poor (a slow payer); the super admin is told when
- * someone becomes a slow payer, and when they recover.
- *
- * The borrowing limit follows the score (credit_limit_rule):
- *  - sliding (the default): 100% at a score of 80 and up; below that it falls in a straight line
- *    to slow_payer_limit_percent at a score of 0, in steps of 5%. With the lowest limit at 50%:
- *    score 70 -> 90%, 50 -> 80%, 30 -> 65%, 0 -> 50%
- *  - fixed: 100% unless a slow payer, who gets slow_payer_limit_percent
+ * The standing is the office's decision: a member is a slow payer only when the super admin (or an
+ * admin with the loans permission) marks them, with a reason. A marked member may borrow up to
+ * slow_payer_limit_percent of their usual limit until the mark is lifted; everyone else keeps 100%.
  */
 final class Credit
 {
     public const GRACE_DAYS = 7;
     private const WINDOW = 12;
 
-    public const LABELS = ['new' => 'No repayments yet', 'good' => 'Good payer', 'fair' => 'Fair payer', 'poor' => 'Slow payer'];
+    public const LABELS = ['new' => 'No repayments yet', 'good' => 'Good standing', 'fair' => 'Good standing', 'poor' => 'Slow payer'];
 
     /**
-     * @return array{grade: string, label: string, score: ?int, due: int, on_time: int, late: int, overdue_now: int, worst_days: int, limit_percent: int, advice: string}
+     * @return array{grade: string, label: string, score: null, due: int, on_time: int, late: int, overdue_now: int, worst_days: int, limit_percent: int, advice: string, marked: ?array}
      */
     public static function standing(PDO $db, int $userId): array
     {
@@ -48,7 +41,6 @@ final class Credit
         $stmt->execute([$userId, $today->format('Y-m-d')]);
         $rows = $stmt->fetchAll();
 
-        $score = 100;
         $onTime = $late = $overdue = $worst = 0;
         foreach ($rows as $r) {
             $due = new \DateTimeImmutable($r['due_date']);
@@ -60,32 +52,25 @@ final class Credit
                 continue;
             }
             $late++;
-            $score -= $days > 90 ? 35 : ($days > 30 ? 20 : 10);
             if ($r['unpaid']) {
                 $overdue++;
-                $score -= 10;
             }
         }
-        $score = max(0, $score);
-        $grade = !$rows ? 'new' : ($score >= 80 ? 'good' : ($score >= 50 ? 'fair' : 'poor'));
-        $percent = $rows ? self::percentFor($score, $grade) : 100;
 
-        $advice = match ($grade) {
-            'new' => 'Your standing starts with your first loan repayment.',
-            'good' => 'You repay on time. Keep it up to keep your full borrowing limit.',
-            'fair' => $percent < 100
-                ? "Some repayments came in late, so you can borrow up to $percent% of your usual limit for now. Paying the next ones on time raises it back."
-                : 'Some repayments came in late. Paying the next ones on time raises your standing.',
-            'poor' => "Several repayments came in late, so you can borrow up to $percent% of your usual limit for now. Each instalment paid on time raises your standing.",
-        };
+        $mark = self::mark($db, $userId);
+        $grade = $mark ? 'poor' : (!$rows ? 'new' : 'good');
+        $percent = $mark ? self::slowPayerPercent() : 100;
+        $advice = $mark
+            ? 'The SACCO office has marked you as a slow payer' . ($mark['note'] ? " ({$mark['note']})" : '') . ", so you can borrow up to $percent% of your usual limit for now. Talk to the office about lifting it."
+            : ($rows ? 'You are in good standing with the SACCO.' : 'Your record starts with your first loan repayment.');
         if ($overdue) {
-            $advice = "You have $overdue instalment" . ($overdue === 1 ? '' : 's') . ' overdue. Paying ' . ($overdue === 1 ? 'it' : 'them') . ' now stops your standing from dropping further. ' . $advice;
+            $advice = "You have $overdue instalment" . ($overdue === 1 ? '' : 's') . ' unpaid past the due date. ' . $advice;
         }
 
         return [
             'grade' => $grade,
             'label' => self::LABELS[$grade],
-            'score' => $rows ? $score : null,
+            'score' => null,
             'due' => count($rows),
             'on_time' => $onTime,
             'late' => $late,
@@ -93,24 +78,20 @@ final class Credit
             'worst_days' => $worst,
             'limit_percent' => $percent,
             'advice' => $advice,
+            'marked' => $mark,
         ];
     }
 
-    /** The share of the usual limit for this score, by the SACCO's rule (see the top) */
-    public static function percentFor(int $score, string $grade): int
+    /** The office's slow-payer mark on a member: since when, why and by whom, or null */
+    public static function mark(PDO $db, int $userId): ?array
     {
-        $floor = self::slowPayerPercent();
-        if ($score >= 80) {
-            return 100;
-        }
-        if (Settings::get('credit_limit_rule', 'sliding') === 'fixed') {
-            return $grade === 'poor' ? $floor : 100;
-        }
-        $percent = $floor + (100 - $floor) * $score / 80;
-        return max($floor, (int) (floor($percent / 5) * 5));
+        $stmt = $db->prepare('SELECT u.slow_payer_since, u.slow_payer_note, b.full_name AS by_name FROM users u LEFT JOIN users b ON b.id = u.slow_payer_by WHERE u.id = ?');
+        $stmt->execute([$userId]);
+        $row = $stmt->fetch();
+        return $row && $row['slow_payer_since'] ? ['since' => $row['slow_payer_since'], 'note' => $row['slow_payer_note'], 'by' => $row['by_name']] : null;
     }
 
-    /** The lowest share of the usual limit, for the worst payers, 0 to 100 */
+    /** The share of the usual limit a marked slow payer may borrow, 0 to 100 (Setup) */
     public static function slowPayerPercent(): int
     {
         return max(0, min(100, (int) Settings::get('slow_payer_limit_percent', '50')));
@@ -119,41 +100,12 @@ final class Credit
     /** The share of their usual limit this member may borrow now */
     public static function limitPercent(PDO $db, int $userId): int
     {
-        return self::standing($db, $userId)['limit_percent'];
+        return self::mark($db, $userId) ? self::slowPayerPercent() : 100;
     }
 
-    /**
-     * Works out the member's standing again and, when it crosses into or out of "slow payer", tells
-     * the super admin and the member. Returns the standing.
-     */
+    /** Kept for callers after a repayment: the standing no longer changes by itself */
     public static function refresh(PDO $db, int $userId): array
     {
-        $now = self::standing($db, $userId);
-        $stmt = $db->prepare('SELECT full_name, account_no, credit_grade FROM users WHERE id = ?');
-        $stmt->execute([$userId]);
-        $user = $stmt->fetch();
-        if (!$user || $user['credit_grade'] === $now['grade']) {
-            return $now;
-        }
-        $db->prepare('UPDATE users SET credit_grade = ? WHERE id = ?')->execute([$now['grade'], $userId]);
-
-        $who = $user['full_name'] . ($user['account_no'] ? " ({$user['account_no']})" : '');
-        $link = "/members/$userId";
-        if ($now['grade'] === 'poor') {
-            Notify::superAdmins(
-                'slow_payer',
-                "$who is now a slow payer",
-                "{$now['late']} of their last {$now['due']} instalments came in late" . ($now['overdue_now'] ? ", {$now['overdue_now']} still unpaid" : '')
-                    . ", the longest {$now['worst_days']} days. They can now borrow up to {$now['limit_percent']}% of their usual limit until they catch up.",
-                $link,
-            );
-            Notify::member($userId, 'slow_payer', 'Your loan repayments are running late',
-                $now['advice'], '/loans');
-        } elseif ($user['credit_grade'] === 'poor') {
-            Notify::superAdmins('slow_payer', "$who is repaying well again", "Their standing is back to \"{$now['label']}\", so their full borrowing limit is back.", $link);
-            Notify::member($userId, 'credit_up', 'Your full borrowing limit is back',
-                'Thank you for catching up on your repayments. You can borrow up to your full limit again.', '/loans');
-        }
-        return $now;
+        return self::standing($db, $userId);
     }
 }

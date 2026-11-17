@@ -512,4 +512,40 @@ final class TransactionController
     {
         return max(1, (int) $request->query('page', 1));
     }
+
+    /**
+     * POST /api/members/{id}/slow-payer { slow: bool, note } (super admin, or loans permission) -
+     * the office marks a member as a slow payer (their borrowing limit is cut to the Setup share),
+     * or lifts the mark. The system never does this by itself.
+     */
+    public function markSlowPayer(Request $request): never
+    {
+        $user = $this->findUser((int) $request->param('id'));
+        if ($user['role'] !== 'member') {
+            Response::error('Only members can be marked.', 422);
+        }
+        $db = Database::tenant();
+        $slow = (bool) $request->input('slow');
+        $note = trim((string) $request->input('note', ''));
+        $marked = (bool) $user['slow_payer_since'];
+        if ($slow === $marked) {
+            Response::error($slow ? 'They are already marked as a slow payer.' : 'They aren\'t marked as a slow payer.', 422);
+        }
+        if ($slow && $note === '') {
+            Response::error('Say why (it is shown to the member and kept on their record).', 422, ['note' => 'Required']);
+        }
+        if ($slow) {
+            $db->prepare('UPDATE users SET slow_payer_since = CURDATE(), slow_payer_note = ?, slow_payer_by = ? WHERE id = ?')
+                ->execute([mb_substr($note, 0, 255), Auth::id(), $user['id']]);
+            $percent = Credit::slowPayerPercent();
+            Notify::member((int) $user['id'], 'slow_payer', 'You have been marked as a slow payer',
+                "The SACCO office marked you as a slow payer ($note). Until the mark is lifted you can borrow up to $percent% of your usual limit. Talk to the office if something is wrong.", '/loans');
+        } else {
+            $db->prepare('UPDATE users SET slow_payer_since = NULL, slow_payer_note = NULL, slow_payer_by = NULL WHERE id = ?')->execute([$user['id']]);
+            Notify::member((int) $user['id'], 'credit_up', 'Your full borrowing limit is back',
+                'The SACCO office lifted the slow-payer mark' . ($note !== '' ? " ($note)" : '') . '. You can borrow up to your full limit again.', '/loans');
+        }
+        Audit::log($slow ? 'member.slow_payer_marked' : 'member.slow_payer_lifted', 'user', (int) $user['id'], ['note' => $note]);
+        Response::ok(['credit' => Credit::standing($db, (int) $user['id'])]);
+    }
 }

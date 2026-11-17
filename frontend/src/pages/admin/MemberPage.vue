@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import Crumbs from '@/components/Crumbs.vue'
+import { toast } from '@/toast'
 import SkeletonRows from '@/components/SkeletonRows.vue'
 import UserAvatar from '@/components/UserAvatar.vue'
 import CreditBadge from '@/components/CreditBadge.vue'
@@ -95,6 +96,40 @@ const tab = computed<Tab>({
   set: (v) => router.replace({ query: { ...route.query, tab: v === 'money' ? undefined : v } }),
 })
 const docsOpen = ref(false)
+
+/** The office marks a member as a slow payer, or lifts it (the system never does) */
+const slowOpen = ref(false)
+const slowNote = ref('')
+const slowError = ref('')
+const slowBusy = ref(false)
+const slowPercent = ref(50)
+function openSlow() {
+  slowOpen.value = true
+  slowNote.value = ''
+  slowError.value = ''
+  if (credit.value && !credit.value.marked) {
+    api.get<{ settings: { key: string; value: string }[] }>('/settings').then((r) => {
+      const v = r.settings.find((x) => x.key === 'slow_payer_limit_percent')?.value
+      if (v !== undefined) slowPercent.value = Number(v)
+    }).catch(() => {})
+  }
+}
+async function saveSlow() {
+  if (!credit.value) return
+  slowBusy.value = true
+  slowError.value = ''
+  try {
+    const res = await api.post<{ credit: CreditStanding }>(`/members/${id}/slow-payer`, { slow: !credit.value.marked, note: slowNote.value })
+    credit.value = res.credit
+    slowOpen.value = false
+    toast(res.credit.marked ? 'Marked as a slow payer; they have been told' : 'Mark lifted; their full limit is back')
+    loadMember()
+  } catch (e) {
+    slowError.value = e instanceof ApiError ? e.message : 'Couldn\'t save.'
+  } finally {
+    slowBusy.value = false
+  }
+}
 const account = ref<Account>('savings')
 const page = ref(1)
 const ledger = ref<Page<Transaction> | null>(null)
@@ -273,10 +308,15 @@ function certificate() {
             <p class="mt-1.5 text-xl font-bold tabular-nums"><Money :value="pledged" /></p>
             <p class="mt-0.5 text-xs text-gray-500">{{ guarantees.length ? `Guaranteeing ${guarantees.length} loan${guarantees.length === 1 ? '' : 's'}` : 'For their own loans' }}</p>
           </div>
-          <div class="card p-4" :title="credit ? creditSummary(credit) : undefined">
+          <div class="card p-4" :class="{ '!border-red-200 !bg-red-50/50': credit?.marked }" :title="credit ? creditSummary(credit) : undefined">
             <p class="eyebrow">Credit standing</p>
             <p v-if="credit" class="mt-2"><CreditBadge :credit="credit" /></p>
-            <p v-if="credit" class="mt-1 text-xs text-gray-500">{{ credit.due ? `${credit.on_time} of ${credit.due} paid on time` : 'No repayments yet' }}<template v-if="credit.grade === 'poor'"> · can borrow {{ credit.limit_percent }}% of the limit</template></p>
+            <p v-if="credit?.marked" class="mt-1 text-xs text-red-800">Marked {{ formatDate(credit.marked.since) }}: can borrow {{ credit.limit_percent }}% of the limit</p>
+            <p v-else-if="credit" class="mt-1 text-xs text-gray-500">{{ credit.due ? `${credit.on_time} of ${credit.due} paid on time` : 'No repayments yet' }}</p>
+            <!-- The office decides, not the system: repayments come off salaries -->
+            <button v-can="'loans'" type="button" class="mt-2 text-xs font-semibold text-brand hover:underline" @click="openSlow">
+              {{ credit?.marked ? 'Lift the slow-payer mark' : 'Mark as slow payer' }}
+            </button>
           </div>
         </section>
 
@@ -289,7 +329,7 @@ function certificate() {
                 <Money :value="mainLoan.blocked ? '0' : mainLoan.limit" />
               </p>
               <p class="mt-1 text-sm text-gray-600">
-                {{ mainLoan.multiplier }}× savings of {{ formatMoney(borrowing.savings) }}<template v-if="mainLoan.limit_percent < 100">, cut to {{ mainLoan.limit_percent }}% for slow repayments</template><template v-if="Number(borrowing.owed) > 0">, less {{ formatMoney(borrowing.owed) }} still owed</template>.
+                {{ mainLoan.multiplier }}× savings of {{ formatMoney(borrowing.savings) }}<template v-if="mainLoan.limit_percent < 100">, cut to {{ mainLoan.limit_percent }}% (marked as a slow payer by the office)</template><template v-if="Number(borrowing.owed) > 0">, less {{ formatMoney(borrowing.owed) }} still owed</template>.
               </p>
               <p v-if="mainLoan.blocked" class="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{{ mainLoan.blocked.replace(/^You /, 'They ').replace(/ you /g, ' they ').replace(/your /g, 'their ') }}</p>
               <ul v-if="borrowing.products.length > 1" class="mt-3 space-y-1 border-t border-line pt-3 text-sm">
@@ -404,6 +444,34 @@ function certificate() {
     </template>
 
     <UserForm v-if="editingDetails && member" :user="member" @close="editingDetails = false" @saved="editingDetails = false; loadMember()" />
+
+    <Modal v-if="slowOpen && member && credit" :title="credit.marked ? `Lift ${member.full_name.split(' ')[0]}'s slow-payer mark` : `Mark ${member.full_name.split(' ')[0]} as a slow payer`" @close="slowOpen = false">
+      <form class="space-y-4" @submit.prevent="saveSlow">
+        <div class="rounded-xl bg-gray-50 p-3 text-sm">
+          <p class="font-medium">Their repayment record</p>
+          <p class="mt-0.5 text-gray-600">{{ creditSummary(credit) }}</p>
+          <p class="mt-1 text-xs text-gray-500">Repayments come off salaries, so a late one isn't always the member's doing. The system never marks anyone; you decide.</p>
+        </div>
+        <p v-if="credit.marked" class="text-sm text-gray-700">
+          Marked on {{ formatDate(credit.marked.since) }}<template v-if="credit.marked.by"> by {{ credit.marked.by }}</template><template v-if="credit.marked.note">: “{{ credit.marked.note }}”</template>.
+          Lifting it gives them their full borrowing limit back.
+        </p>
+        <p v-else class="text-sm text-gray-700">
+          Until the mark is lifted they can borrow up to {{ slowPercent }}% of their usual limit (Setup › Loans). They are told, with your reason.
+        </p>
+        <div v-if="slowError" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ slowError }}</div>
+        <div>
+          <label for="slow-note" class="label">{{ credit.marked ? 'Note (optional)' : 'Why' }}</label>
+          <input id="slow-note" v-model="slowNote" class="input" maxlength="255" :placeholder="credit.marked ? 'e.g. Caught up on all instalments' : 'e.g. Three months unpaid, not through payroll'" />
+        </div>
+        <div class="sheet-actions flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" class="btn-secondary" @click="slowOpen = false">Cancel</button>
+          <button type="submit" class="btn-primary" :class="{ '!bg-red-700 hover:!bg-red-800': !credit.marked }" :disabled="slowBusy || (!credit.marked && !slowNote.trim())">
+            {{ credit.marked ? 'Lift the mark' : 'Mark as slow payer' }}
+          </button>
+        </div>
+      </form>
+    </Modal>
 
     <Modal v-if="exitQuote && member" :title="`Close ${member.full_name}'s membership`" @close="exitQuote = null">
       <div class="space-y-4">

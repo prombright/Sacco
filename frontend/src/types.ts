@@ -293,7 +293,9 @@ export interface CreditStanding {
   late: number
   overdue_now: number
   worst_days: number
-  /** 100, or less for a slow payer */
+  /** 100, or less for a member the office marked as a slow payer */
   limit_percent: number
   advice: string
+  /** The office's slow-payer mark (the system never sets it) */
+  marked?: { since: string; note: string | null; by: string | null } | null
 }

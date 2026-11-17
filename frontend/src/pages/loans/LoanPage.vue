@@ -368,7 +368,7 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
         <div v-if="loan.borrower_credit" class="flex flex-wrap items-center gap-2 border-b border-line px-5 py-3 text-sm">
           <span class="font-medium">Repayment record</span>
           <CreditBadge :credit="loan.borrower_credit" />
-          <span class="text-gray-600">{{ creditSummary(loan.borrower_credit) }}<template v-if="loan.borrower_credit.grade === 'poor'"> As a slow payer they can borrow {{ loan.borrower_credit.limit_percent }}% of the usual limit.</template></span>
+          <span class="text-gray-600">{{ creditSummary(loan.borrower_credit) }}<template v-if="loan.borrower_credit.marked"> Marked as a slow payer by the office<template v-if="loan.borrower_credit.marked.note"> ({{ loan.borrower_credit.marked.note }})</template>, so they can borrow {{ loan.borrower_credit.limit_percent }}% of the usual limit.</template></span>
         </div>
         <ul class="divide-y divide-line">
           <li v-for="c in loan.assessment.checks" :key="c.label" class="flex gap-3 px-5 py-3 text-sm">
