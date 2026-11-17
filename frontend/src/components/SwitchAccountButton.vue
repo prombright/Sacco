@@ -92,13 +92,20 @@ async function link(m: PickedMember) {
         </div>
         <template v-if="auth.isSuperAdmin">
           <p class="mt-1 text-sm text-gray-600">Choose your own member account once. After that, this button switches between the office and your savings without logging out.</p>
+          <p class="mt-1 text-xs text-gray-500">For other office staff who save: open their member account › Edit details › Role: Admin. They then use their own login and this button.</p>
           <p v-if="error" class="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</p>
           <div class="mt-3"><MemberPicker @pick="link" /></div>
         </template>
-        <p v-else class="mt-1 text-sm text-gray-600">
-          Your office account isn't linked to your member account yet. Ask the super admin to link them (Members › your office account ›
-          Their own member account). After that, this button switches between the two without logging out.
-        </p>
+        <template v-else>
+          <p class="mt-1 text-sm text-gray-600">
+            This office login (<span class="font-medium text-ink">{{ auth.user?.full_name }}</span>) isn't anyone's member account, so there is
+            nothing to switch to.
+          </p>
+          <p class="mt-2 text-sm text-gray-600">
+            If you also save with the SACCO, log in with <strong>your own member login</strong> instead. Once the super admin sets your role to
+            Admin on your member account (Edit details › Role), this button takes you between your savings and the office.
+          </p>
+        </template>
       </div>
     </template>
   </div>
