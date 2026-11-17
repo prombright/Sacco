@@ -118,10 +118,11 @@ async function submit(e: Event) {
       </div>
 
       <!-- Phones: the photo as a band at the top -->
-      <div class="relative h-48 overflow-hidden bg-navy-950 sm:h-60 lg:hidden">
+      <!-- Short on phones, so the form is in view without scrolling -->
+      <div class="relative h-36 overflow-hidden bg-navy-950 sm:h-60 lg:hidden">
         <img v-if="photo" :src="photo" alt="" class="absolute inset-0 h-full w-full object-cover object-[50%_35%]" />
         <div class="absolute inset-0 bg-gradient-to-t from-navy-950/90 via-navy-950/30 to-transparent" aria-hidden="true" />
-        <div class="absolute inset-x-0 bottom-0 flex items-end gap-3 p-5">
+        <div class="absolute inset-x-0 bottom-0 flex items-end gap-3 p-4 sm:p-5">
           <SaccoMark :sacco="auth.sacco" />
           <div class="text-white">
             <p class="font-bold leading-tight">{{ auth.sacco?.name }}</p>
@@ -130,9 +131,9 @@ async function submit(e: Event) {
         </div>
       </div>
 
-      <div class="flex flex-1 items-start justify-center px-4 pb-10 pt-8 sm:pt-12 lg:items-center lg:pt-16">
+      <div class="flex flex-1 items-start justify-center px-4 pb-10 pt-6 sm:pt-12 lg:items-center lg:pt-16">
         <div class="w-full max-w-sm">
-          <h1 class="text-3xl font-bold">{{ t('Welcome back') }}</h1>
+          <h1 class="text-2xl font-bold sm:text-3xl">{{ t('Welcome back') }}</h1>
           <p class="mt-1.5 text-gray-600">Log in to {{ auth.sacco?.name ?? 'your SACCO' }}.</p>
 
           <form v-if="needCode" class="mt-8 space-y-4" novalidate @submit.prevent="submitCode">
@@ -146,7 +147,7 @@ async function submit(e: Event) {
             <button type="button" class="w-full text-sm font-semibold text-gray-600 hover:text-ink" @click="needCode = false; code = ''; error = ''">Back</button>
           </form>
 
-          <form v-else class="mt-8 space-y-5" novalidate @submit.prevent="submit">
+          <form v-else class="mt-6 space-y-4 sm:mt-8 sm:space-y-5" novalidate @submit.prevent="submit">
             <div v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
 
             <div v-if="otherSacco">

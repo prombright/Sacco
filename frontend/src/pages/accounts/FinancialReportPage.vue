@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api, ApiError } from '@/api'
@@ -72,9 +73,10 @@ const explain: Record<string, string> = {
 
 <template>
   <div>
-    <p class="eyebrow">{{ name === 'loan_interest' ? 'Administration' : 'Financial reports' }}</p>
-    <h1 class="mt-1 text-2xl font-bold">{{ route.meta.title }}</h1>
-    <p class="mt-1 max-w-3xl text-gray-600">{{ explain[name] }}<template v-if="name !== 'account_ledger' && name !== 'loan_interest'"> Click an account to see its ledger.</template></p>
+    <PageHeader :eyebrow="name === 'loan_interest' ? 'Administration' : 'Financial reports'">
+      <template #title>{{ route.meta.title }}</template>
+      {{ explain[name] }}<template v-if="name !== 'account_ledger' && name !== 'loan_interest'"> Click an account to see its ledger.</template>
+    </PageHeader>
 
     <ReportView
       class="mt-5"

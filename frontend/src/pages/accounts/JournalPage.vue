@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ArrowUturnLeftIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import { api, ApiError } from '@/api'
@@ -134,9 +135,9 @@ async function reverse() {
   <div>
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <p class="eyebrow">Cash book</p>
-        <h1 class="mt-1 text-2xl font-bold">Journal entries</h1>
-        <p class="mt-1 max-w-3xl text-gray-600">Deposits, loans, repayments, withdrawals, payroll and dividends post here by themselves. Add your own entries for anything else, such as bank charges or corrections. Debits must equal credits.</p>
+        <PageHeader eyebrow="Cash book" title="Journal entries">
+          Deposits, loans, repayments, withdrawals, payroll and dividends post here by themselves. Add your own entries for anything else, such as bank charges or corrections. Debits must equal credits.
+        </PageHeader>
       </div>
       <button v-can="'money'" type="button" class="btn-primary" @click="startAdding"><PlusIcon class="h-4 w-4" />New journal entry</button>
     </div>

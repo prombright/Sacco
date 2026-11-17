@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { ask } from '@/confirm'
 import { onMounted, reactive, ref } from 'vue'
@@ -56,9 +57,9 @@ async function end(n: Notice) {
 
 <template>
   <div class="max-w-4xl">
-    <p class="eyebrow">Members</p>
-    <h1 class="mt-1 text-2xl font-bold">Notices</h1>
-    <p class="mt-1 text-sm text-gray-600">Tell every member something: AGM dates, rule changes, when payroll goes in. Notices show on members' dashboards.</p>
+    <PageHeader eyebrow="Members" title="Notices">
+      Tell every member something: AGM dates, rule changes, when payroll goes in. Notices show on members' dashboards.
+    </PageHeader>
 
     <form v-can="'notices'" class="card mt-6 space-y-4 p-5" novalidate @submit.prevent="post">
       <h2 class="font-semibold">New notice</h2>

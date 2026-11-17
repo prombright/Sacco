@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
 import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { api, ApiError } from '@/api'
@@ -68,9 +69,10 @@ async function reverse() {
     <template v-if="run">
       <div class="mt-3 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p class="eyebrow">Dividends &amp; profit</p>
-          <h1 class="mt-1 text-2xl font-bold">Dividend {{ run.label }}</h1>
-          <p class="mt-1 text-sm text-gray-600">{{ run.rate_percent }}% on shares held on {{ formatDate(run.record_date) }} · credited {{ formatDate(run.value_date) }} by {{ run.created_by_name }}</p>
+          <PageHeader eyebrow="Dividends &amp; profit">
+            <template #title>Dividend {{ run.label }}</template>
+            {{ run.rate_percent }}% on shares held on {{ formatDate(run.record_date) }} · credited {{ formatDate(run.value_date) }} by {{ run.created_by_name }}
+          </PageHeader>
         </div>
         <StatusBadge v-if="run.status === 'reversed'" label="Reversed" style-class="bg-gray-100 text-gray-600" />
         <StatusBadge v-else label="Credited" style-class="bg-green-50 text-green-800" />
@@ -86,7 +88,7 @@ async function reverse() {
       </div>
 
       <div class="card mt-5 overflow-x-auto">
-        <table class="w-full text-sm">
+        <table v-stack class="w-full text-sm">
           <thead class="border-b border-gray-200 bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
             <tr><th class="px-4 py-3">Member</th><th class="px-4 py-3">Account</th><th class="px-4 py-3">Worked out as</th><th class="px-4 py-3 text-right">Dividend</th></tr>
           </thead>
@@ -111,7 +113,7 @@ async function reverse() {
       <form class="space-y-4" @submit.prevent="reverse">
         <div v-if="formError" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ formError }}</div>
         <div><label for="reason" class="label">Why?</label><input id="reason" v-model="reason" class="input" maxlength="255" placeholder="e.g. Wrong rate" /></div>
-        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <div class="sheet-actions flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="btn-secondary" @click="reversing = false">Cancel</button>
           <button type="submit" class="btn-primary" :disabled="busy || !reason.trim()">Reverse dividend</button>
         </div>

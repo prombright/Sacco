@@ -90,7 +90,7 @@ function cancel() {
         <button type="button" class="btn-ghost px-2 py-1" @click="add"><PlusIcon class="h-4 w-4" />Add a person</button>
         <p class="text-sm" :class="total === 100 || !rows.length ? 'text-gray-600' : 'font-semibold text-amber-700'">Shares add up to {{ total }}%</p>
       </div>
-      <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+      <div class="sheet-actions flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <button type="button" class="btn-secondary" @click="cancel">Cancel</button>
         <button type="submit" class="btn-primary" :disabled="busy || (rows.length > 0 && total !== 100)">Save next of kin</button>
       </div>

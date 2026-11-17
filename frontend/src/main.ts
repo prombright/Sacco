@@ -10,6 +10,7 @@ import { installMotion } from './motion'
 import { setUpPwa } from './pwa'
 import { useAuth } from './stores/auth'
 import { useTheme } from './stores/theme'
+import { stack } from './stackTable'
 
 const app = createApp(App)
 app.use(createPinia())
@@ -23,6 +24,8 @@ const toggleCan = (el: HTMLElement, area: string) => {
   const auth = useAuth()
   el.style.display = !auth.user || auth.user.role === 'member' || auth.can(area) ? '' : 'none'
 }
+// Tables become cards on phones
+app.directive('stack', stack)
 app.directive<HTMLElement, string>('can', { mounted: (el, b) => toggleCan(el, b.value), updated: (el, b) => toggleCan(el, b.value) })
 
 // Light, dark or follow the device (already applied before the page drew; this keeps it in step)

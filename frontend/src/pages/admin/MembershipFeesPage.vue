@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
 import MoneyAccountSelect from '@/components/MoneyAccountSelect.vue'
 import { ask } from '@/confirm'
 import { computed, onMounted, ref, watch } from 'vue'
@@ -130,9 +131,9 @@ const thisYear = new Date().getFullYear()
   <div>
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <p class="eyebrow">Members</p>
-        <h1 class="mt-1 text-2xl font-bold">Membership &amp; subscription</h1>
-        <p class="mt-1 max-w-3xl text-gray-600">{{ kind === 'membership' ? 'The membership fee every member pays once.' : 'The subscription every member pays each year.' }} Charge it, then take it from savings or record it when paid in cash. It goes to "Membership fees" income in the books.</p>
+        <PageHeader eyebrow="Members" title="Membership &amp; subscription">
+          {{ kind === 'membership' ? 'The membership fee every member pays once.' : 'The subscription every member pays each year.' }} Charge it, then take it from savings or record it when paid in cash. It goes to "Membership fees" income in the books.
+        </PageHeader>
       </div>
       <div class="flex rounded-lg bg-gray-200/60 p-0.5 text-sm font-semibold" v-if="kind === 'subscription'" role="radiogroup" aria-label="Year">
         <button v-for="y in [thisYear - 1, thisYear]" :key="y" type="button" role="radio" :aria-checked="year === y" class="rounded-md px-3 py-1.5" :class="year === y ? 'bg-surface text-ink shadow-sm' : 'text-gray-600'" @click="year = y">{{ y }}</button>

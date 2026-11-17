@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
 import { computed, onMounted, ref } from 'vue'
 import { CheckCircleIcon, ExclamationTriangleIcon, LockClosedIcon } from '@heroicons/vue/24/outline'
 import { api, ApiError } from '@/api'
@@ -77,15 +78,15 @@ async function reopen() {
 
 <template>
   <div>
-    <p class="eyebrow">Reports</p>
-    <h1 class="mt-1 text-2xl font-bold">Year-end closing</h1>
-    <p class="mt-1 max-w-3xl text-gray-600">After the auditors have signed off a year, close it. Its income, expenses and payouts to members go to Retained surplus in one entry dated 31 December, and nothing more can be recorded with a date in that year. Corrections then go in the open year.</p>
+    <PageHeader eyebrow="Reports" title="Year-end closing">
+      After the auditors have signed off a year, close it. Its income, expenses and payouts to members go to Retained surplus in one entry dated 31 December, and nothing more can be recorded with a date in that year. Corrections then go in the open year.
+    </PageHeader>
 
     <p v-if="message" class="mt-4 flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800"><CheckCircleIcon class="h-5 w-5" />{{ message }}</p>
     <p v-if="error" class="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">{{ error }}</p>
 
     <div class="card mt-5 overflow-x-auto">
-      <table class="w-full min-w-[40rem] text-sm">
+      <table v-stack class="w-full min-w-[40rem] text-sm">
         <thead class="border-b border-line bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
           <tr>
             <th class="px-4 py-3">Year</th>

@@ -1,6 +1,6 @@
 import type { Report, ReportColumn, ReportRow } from '@/reports'
 import type { Sacco } from '@/types'
-import { drawMark, loadLogo } from '@/documents'
+import { drawFooter, drawLetterhead, drawMark, loadLogo } from '@/documents'
 
 /**
  * Report downloads that look like the SACCO's own documents: Excel workbooks with the SACCO's
@@ -229,26 +229,9 @@ export async function downloadPdfBook(reports: Report[], who: Who, title: string
   const H = () => doc.internal.pageSize.getHeight()
 
   const logo = await loadLogo(who)
-  const mark = (x: number, y: number, size: number) => drawMark(doc, who, logo, x, y, size)
 
   /** The letterhead: band, mark, name, slogan. Returns where the content starts. */
-  const letterhead = () => {
-    doc.setFillColor(...brand)
-    doc.rect(0, 0, W(), 4, 'F')
-    doc.setFillColor(...SAFFRON)
-    doc.rect(0, 4, W(), 1, 'F')
-    mark(M, 11, 13)
-    doc.setTextColor(21, 24, 33)
-    doc.setFontSize(14)
-    doc.text(name, M + 17, 16.5)
-    if (who.sacco?.slogan) {
-      doc.setFont('helvetica', 'normal')
-      doc.setFontSize(9)
-      doc.setTextColor(120, 113, 108)
-      doc.text(who.sacco.slogan, M + 17, 21.5)
-    }
-    return 35
-  }
+  const letterhead = () => drawLetterhead(doc, who, logo, M)
 
   /** A report's title block (with the balanced badge for statements). Returns where its table starts. */
   const titleBlock = (report: Report, y: number) => {
@@ -408,14 +391,7 @@ export async function downloadPdfBook(reports: Report[], who: Who, title: string
   const pages = doc.getNumberOfPages()
   for (let p = cover ? 2 : 1; p <= pages; p++) {
     doc.setPage(p)
-    doc.setDrawColor(231, 227, 218)
-    doc.setLineWidth(0.2)
-    doc.line(M, H() - 11, W() - M, H() - 11)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(7.5)
-    doc.setTextColor(120, 113, 108)
-    doc.text(`${printedLine(who)} · ${name}`, M, H() - 7)
-    doc.text(`Page ${p} of ${pages}`, W() - M, H() - 7, { align: 'right' })
+    drawFooter(doc, who, `${name} · ${title}`, M, `Page ${p} of ${pages}`)
   }
   doc.save(fileName(title, 'pdf'))
 }

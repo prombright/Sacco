@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
 import AmountField from '@/components/AmountField.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { ask } from '@/confirm'
@@ -74,9 +75,9 @@ onMounted(() => load().catch((e) => (error.value = e instanceof ApiError ? e.mes
 
 <template>
   <div class="max-w-3xl">
-    <p class="eyebrow">My account</p>
-    <h1 class="mt-1 text-2xl font-bold">Withdraw savings</h1>
-    <p class="mt-1 text-sm text-gray-600">Ask for part of your savings. Once approved, you'll get a message to pick up your cheque.</p>
+    <PageHeader eyebrow="My account" title="Withdraw savings">
+      Ask for part of your savings. Once approved, you'll get a message to pick up your cheque.
+    </PageHeader>
 
     <div v-if="data" class="card mt-5 p-5">
       <p class="text-sm text-gray-600">You can withdraw up to</p>
@@ -92,9 +93,11 @@ onMounted(() => load().catch((e) => (error.value = e instanceof ApiError ? e.mes
       </p>
     </div>
 
+    <!-- Problems loading or cancelling (a problem with the form shows by its button) -->
+    <div v-if="error && !(data && !open)" class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
+
     <form v-if="data && !open" class="card mt-4 space-y-4 p-5" novalidate @submit.prevent="submit">
       <h2 class="font-semibold">New request</h2>
-      <div v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
       <div class="grid gap-4 sm:grid-cols-2">
         <AmountField id="amount" v-model="amount" :quick="[50000, 100000, 200000]" :max="Number(data.available)" max-label="All I can" />
         <div>
@@ -108,7 +111,9 @@ onMounted(() => load().catch((e) => (error.value = e instanceof ApiError ? e.mes
         <div><dt class="text-xs text-gray-500">Off your savings</dt><dd class="font-semibold tabular-nums">{{ formatMoney(String(quote.leaves)) }}</dd></div>
       </dl>
       <p v-if="quote?.tooMuch" class="text-sm text-amber-800">That's more than you can withdraw right now ({{ formatMoney(data!.available) }}).</p>
-      <div class="form-actions flex justify-end">
+      <!-- The problem shows by the button, where the thumb is -->
+      <div class="form-actions flex flex-wrap justify-end gap-2">
+        <p v-if="error" class="w-full rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</p>
         <button type="submit" class="btn-primary max-lg:flex-1" :disabled="busy || !amount || quote?.tooMuch">{{ busy ? 'Sending…' : 'Send request' }}</button>
       </div>
     </form>

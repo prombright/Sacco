@@ -92,7 +92,7 @@ const fields: { key: keyof typeof form; label: string; suffix: string }[] = [
     </div>
 
     <div class="mt-4 overflow-x-auto rounded-xl border border-line">
-      <table class="w-full text-sm">
+      <table v-stack class="w-full text-sm">
         <thead class="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
           <tr>
             <th class="px-3 py-2">Product</th>
@@ -192,7 +192,7 @@ const fields: { key: keyof typeof form; label: string; suffix: string }[] = [
           <input v-model="form.status" type="checkbox" true-value="archived" false-value="active" class="rounded border-line text-brand focus:ring-brand" />
           Stop offering this product (existing loans aren't affected)
         </label>
-        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <div class="sheet-actions flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="btn-secondary" @click="editing = undefined">Cancel</button>
           <button type="submit" class="btn-primary" :disabled="busy">{{ editing ? 'Save changes' : 'Add product' }}</button>
         </div>

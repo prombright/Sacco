@@ -207,7 +207,6 @@ async function submit() {
     </ol>
 
     <form class="mt-5 space-y-5" novalidate @submit.prevent="submit">
-      <div v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
 
       <!-- Step 1: the calculator -->
       <section v-show="step === 0" class="grid gap-5 lg:grid-cols-[1.15fr_1fr]">
@@ -389,7 +388,9 @@ async function submit() {
         <li v-for="p in problems" :key="p">· {{ p }}</li>
       </ul>
 
+      <!-- The problem shows by the buttons, where the thumb is -->
       <div class="form-actions flex flex-wrap gap-2 sm:justify-end">
+        <p v-if="error" class="w-full rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</p>
         <p v-if="step === 0 && amountNumber > 0" class="w-full text-center text-sm lg:hidden">Each month <span class="font-bold"><Money :value="cost.monthly" /></span> · {{ form.months }} months</p>
         <button v-if="step > 0" type="button" class="btn-secondary max-sm:flex-1" @click="step--">Back</button>
         <RouterLink v-else :to="{ name: 'loans' }" class="btn-secondary max-sm:flex-1">Cancel</RouterLink>

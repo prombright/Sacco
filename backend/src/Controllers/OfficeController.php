@@ -62,8 +62,9 @@ final class OfficeController
             [$monthStart]
         ));
         $thisMonth = [
-            'savings_in' => $sumTx("t.account = 'savings' AND t.type IN ('deposit', 'opening_balance')"),
-            'shares_in' => $sumTx("t.account = 'shares' AND t.type IN ('deposit', 'opening_balance')"),
+            // New money only: balances brought in from the old system are not this month's saving
+            'savings_in' => $sumTx("t.account = 'savings' AND t.type = 'deposit'"),
+            'shares_in' => $sumTx("t.account = 'shares' AND t.type = 'deposit'"),
             'withdrawn' => -$sumTx("t.account = 'savings' AND t.type = 'withdrawal'"),
             'dividends' => $sumTx("t.type = 'dividend'"),
             'repaid' => Money::fromDecimal($one('SELECT COALESCE(SUM(amount), 0) FROM loan_payments WHERE paid_on >= ?', [$monthStart])),
@@ -77,7 +78,12 @@ final class OfficeController
         $rep = $db->prepare("SELECT DATE_FORMAT(paid_on, '%Y-%m') AS m, SUM(amount) FROM loan_payments WHERE paid_on >= ? GROUP BY m");
         $rep->execute([$months[0] . '-01']);
         $repaid = $rep->fetchAll(\PDO::FETCH_KEY_PAIR);
-        $collections = array_map(fn ($m) => ['month' => $m, 'value' => Money::toDecimal(Money::fromDecimal($repaid[$m] ?? null))], $months);
+        // From the month the records start, like the funds chart (no empty months before the system)
+        $first = $funds[0]['month'] ?? null;
+        $collections = array_map(
+            fn ($m) => ['month' => $m, 'value' => Money::toDecimal(Money::fromDecimal($repaid[$m] ?? null))],
+            array_values(array_filter($months, fn ($m) => $first !== null && $m >= $first)),
+        );
 
         // Loans by where they stand
         $byStatus = $db->query('SELECT status, COUNT(*) AS n, SUM(amount) AS amount FROM loans GROUP BY status')->fetchAll(\PDO::FETCH_UNIQUE);
@@ -205,10 +211,20 @@ final class OfficeController
         $byMonth->execute([...$args, $months[0] . '-01']);
         $moves = $byMonth->fetchAll(\PDO::FETCH_KEY_PAIR);
         $running = Money::fromDecimal($before->fetchColumn());
+        // The month the records start (the old system's balance date, or when the member joined):
+        // months before it are left out, so a chart doesn't sit at nothing and then jump
+        $start = $db->prepare("SELECT DATE_FORMAT(MIN(value_date), '%Y-%m') FROM transactions WHERE $where");
+        $start->execute($args);
+        $first = $start->fetchColumn();
+        if (!$first) {
+            return [];
+        }
         $out = [];
         foreach ($months as $m) {
             $running += Money::fromDecimal($moves[$m] ?? null);
-            $out[] = ['month' => $m, 'value' => Money::toDecimal($running)];
+            if ($m >= $first) {
+                $out[] = ['month' => $m, 'value' => Money::toDecimal($running)];
+            }
         }
         return $out;
     }

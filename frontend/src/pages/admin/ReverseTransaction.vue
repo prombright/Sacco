@@ -59,7 +59,7 @@ async function save() {
         <input id="reason" v-model="reason" class="input" maxlength="255" :placeholder="inError ? 'e.g. Meant for account 104, not 014' : 'e.g. Entered twice'" />
       </div>
 
-      <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+      <div class="sheet-actions flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <button type="button" class="btn-secondary" @click="emit('close')">Cancel</button>
         <button type="submit" class="btn-primary" :disabled="busy || !reason.trim()">{{ busy ? 'Saving…' : inError ? 'Remove the mistake' : 'Reverse entry' }}</button>
       </div>

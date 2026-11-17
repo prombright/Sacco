@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
 import AmountWords from '@/components/AmountWords.vue'
 import { ask } from '@/confirm'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
@@ -161,9 +162,9 @@ const progress = computed(() => {
   <div>
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <p class="eyebrow">Cash book</p>
-        <h1 class="mt-1 text-2xl font-bold">Investments</h1>
-        <p class="mt-1 text-sm text-gray-600">What the SACCO invests, the profit it brings, and sharing that profit with members by their savings.</p>
+        <PageHeader eyebrow="Cash book" title="Investments">
+          What the SACCO invests, the profit it brings, and sharing that profit with members by their savings.
+        </PageHeader>
       </div>
       <div class="flex items-end gap-2">
         <div>
@@ -215,7 +216,7 @@ const progress = computed(() => {
       <section class="card mt-6 overflow-hidden">
         <h2 class="border-b border-line px-5 py-4 font-semibold">The SACCO's investments</h2>
         <div class="overflow-x-auto">
-          <table class="w-full text-sm">
+          <table v-stack class="w-full text-sm">
             <thead class="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
               <tr>
                 <th class="px-5 py-3">Investment</th>
@@ -276,7 +277,7 @@ const progress = computed(() => {
 
           <div v-if="share" class="mt-5">
             <div class="max-h-96 overflow-auto rounded-xl border border-line">
-              <table class="w-full text-sm tabular-nums">
+              <table v-stack class="w-full text-sm tabular-nums">
                 <thead class="sticky top-0 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                   <tr><th class="px-3 py-2">Member</th><th class="px-3 py-2 text-right">{{ share.basis === 'average_savings' ? 'Average savings' : 'Savings at year end' }}</th><th class="px-3 py-2 text-right">Share</th><th class="px-3 py-2 text-right">Profit</th></tr>
                 </thead>
@@ -339,7 +340,7 @@ const progress = computed(() => {
         <p v-if="Number(form.amount.replace(/[,\s]/g, '')) && Number(form.expected_return_percent)" class="rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700">
           Expected profit a year: <strong class="font-semibold">{{ formatMoney(String(Math.round(Number(form.amount.replace(/[,\s]/g, '')) * Number(form.expected_return_percent) / 100))) }}</strong>
         </p>
-        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <div class="sheet-actions flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>
           <button type="submit" class="btn-primary" :disabled="busy">{{ dialog === 'add' ? 'Add investment' : 'Save changes' }}</button>
         </div>
@@ -355,7 +356,7 @@ const progress = computed(() => {
           <div><label for="rdate" class="label">Received on</label><input id="rdate" v-model="form.received_on" type="date" :max="today" class="input" /></div>
         </div>
         <div><label for="rnote" class="label">Note <span class="font-normal text-gray-400">(optional)</span></label><input id="rnote" v-model="form.note" class="input" maxlength="255" placeholder="e.g. Quarterly distribution" /></div>
-        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <div class="sheet-actions flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>
           <button type="submit" class="btn-primary" :disabled="busy || !form.received">Record profit</button>
         </div>
@@ -374,7 +375,7 @@ const progress = computed(() => {
           {{ Number(form.closing_value.replace(/[,\s]/g, '')) >= Number(current.amount) ? 'Gain' : 'Loss' }}:
           <strong class="font-semibold">{{ formatMoney(String(Number(form.closing_value.replace(/[,\s]/g, '')) - Number(current.amount))) }}</strong>
         </p>
-        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <div class="sheet-actions flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>
           <button type="submit" class="btn-primary" :disabled="busy || !form.closing_value">Record sale</button>
         </div>

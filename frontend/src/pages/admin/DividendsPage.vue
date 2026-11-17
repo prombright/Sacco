@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { ask } from '@/confirm'
 import { onMounted, reactive, ref } from 'vue'
@@ -93,8 +94,7 @@ async function post() {
 
 <template>
   <div>
-    <p class="eyebrow">Cash book</p>
-    <h1 class="mt-1 text-2xl font-bold">Dividends &amp; profit</h1>
+    <PageHeader eyebrow="Cash book" title="Dividends &amp; profit" />
     <p class="mt-1 text-sm text-gray-600">
       The yearly dividend on members' share capital, and every payout so far, including investment profit shared from the Investments page.
     </p>
@@ -132,7 +132,7 @@ async function post() {
           <div class="rounded-lg bg-green-50 p-3"><p class="text-xs text-green-800">Dividend at {{ preview.rate_percent }}%</p><p class="font-semibold tabular-nums text-green-800">{{ formatMoney(preview.total_dividend) }}</p></div>
         </div>
         <div class="mt-4 max-h-96 overflow-auto rounded-lg border border-gray-200">
-          <table class="w-full text-sm tabular-nums">
+          <table v-stack class="w-full text-sm tabular-nums">
             <thead class="sticky top-0 bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
               <tr><th class="px-3 py-2">Member</th><th class="px-3 py-2">Account</th><th class="px-3 py-2 text-right">Shares</th><th class="px-3 py-2 text-right">Dividend</th></tr>
             </thead>

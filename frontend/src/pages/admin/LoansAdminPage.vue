@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
 import SkeletonRows from '@/components/SkeletonRows.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { ClipboardDocumentCheckIcon } from '@heroicons/vue/24/outline'
@@ -85,9 +86,9 @@ onMounted(load)
   <div>
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <p class="eyebrow">Loans</p>
-        <h1 class="mt-1 text-2xl font-bold">Loan applications</h1>
-        <p class="mt-1 text-sm text-gray-600">Approve, pay out and record repayments. Your own loans are handled by another admin.</p>
+        <PageHeader eyebrow="Loans" title="Loan applications">
+          Approve, pay out and record repayments. Your own loans are handled by another admin.
+        </PageHeader>
       </div>
       <div class="flex flex-wrap gap-2">
         <button v-can="'loans'" type="button" class="btn-secondary" :disabled="charging" @click="chargePenalties">Charge late-payment penalties</button>

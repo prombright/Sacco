@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Crumbs from '@/components/Crumbs.vue'
 import SkeletonRows from '@/components/SkeletonRows.vue'
 import { toast } from '@/toast'
 import AmountWords from '@/components/AmountWords.vue'
@@ -231,9 +232,14 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
 
 <template>
   <div>
-    <RouterLink :to="canAdmin ? { name: 'admin-loans' } : { name: 'loans' }" class="text-sm font-medium text-gray-600 hover:text-gray-900">
-      ← {{ canAdmin ? 'Loans' : 'My loans' }}
-    </RouterLink>
+    <!-- Office: Dashboard › Loans › Loan applications › the borrower › the loan. Members: My loans › the loan -->
+    <Crumbs
+      :trail="
+        canAdmin
+          ? loan ? [{ label: loan.borrower_name, to: { name: 'member', params: { id: loan.user_id } } }, { label: loan.loan_no }] : []
+          : [{ label: 'My loans', to: { name: 'loans' } }, ...(loan ? [{ label: loan.loan_no }] : [])]
+      "
+    />
 
     <div v-if="error" class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
 
@@ -438,7 +444,7 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
         <h2 class="font-semibold">{{ loan.installments?.length ? 'Repayment schedule' : 'Expected schedule' }}</h2>
         <p v-if="!loan.installments?.length" class="mt-1 text-sm text-gray-600">If paid out today. The dates are fixed when the loan is paid out.</p>
         <div class="card mt-3 overflow-x-auto">
-          <table class="w-full text-sm tabular-nums">
+          <table class="w-full text-sm tabular-nums max-sm:hidden">
             <thead class="border-b border-gray-200 bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
               <tr>
                 <th class="px-4 py-3">#</th>
@@ -474,6 +480,37 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
               </tr>
             </tbody>
           </table>
+
+          <!-- Phones: one line per instalment, the payment large, what's paid and left under it -->
+          <ul class="divide-y divide-gray-100 text-sm tabular-nums sm:hidden">
+            <li v-if="shown[0] && shown[0].number > 1 && !showAll" class="bg-gray-50/60 px-4 py-2 text-xs text-gray-600">
+              {{ paidCount }} instalment{{ paidCount === 1 ? '' : 's' }} before this already paid
+            </li>
+            <li
+              v-for="i in shown"
+              :key="i.number"
+              class="px-4 py-3"
+              :class="i.number === nextNumber ? 'bg-saffron-50/60' : isPaid(i) ? 'text-gray-400' : ''"
+            >
+              <div class="flex items-baseline justify-between gap-3">
+                <p class="font-medium" :class="isPaid(i) ? '' : 'text-ink'">
+                  <span class="text-gray-400">{{ i.number }}.</span> {{ formatDate(i.due_date) }}
+                  <span v-if="i.number === nextNumber" class="ml-1 rounded-full bg-saffron-100 px-2 py-0.5 text-[11px] font-semibold text-saffron-700">Next</span>
+                </p>
+                <p class="font-semibold" :class="isPaid(i) ? '' : 'text-ink'">{{ formatMoney(String(Number(i.principal) + Number(i.interest))) }}</p>
+              </div>
+              <div class="mt-0.5 flex items-baseline justify-between gap-3 text-xs text-gray-500">
+                <span>
+                  <template v-if="loan.installments?.length">
+                    <span :class="isPaid(i) ? 'text-emerald-700' : installmentState(i)?.style">{{ isPaid(i) ? '✓ Paid' : installmentState(i)?.label }}</span>
+                    <template v-if="paidOn(i) > 0 && !isPaid(i)"> · {{ formatMoney(String(paidOn(i))) }} paid</template>
+                  </template>
+                  <template v-else>Interest {{ formatMoney(i.interest) }}</template>
+                </span>
+                <span>Balance {{ formatMoney(String(balanceAfter[i.number])) }}</span>
+              </div>
+            </li>
+          </ul>
         </div>
         <button v-if="schedule.length > 12 && loan.installments?.length" type="button" class="mt-2 text-sm font-medium text-brand hover:underline" @click="showAll = !showAll">
           {{ showAll ? 'Show only what\'s next' : `Show all ${schedule.length} instalments` }}
@@ -529,7 +566,7 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
           <label for="note" class="label">Reason (the member will see this)</label>
           <input id="note" v-model="form.note" class="input" maxlength="255" />
         </div>
-        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <div class="sheet-actions flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>
           <button type="submit" class="btn-primary" :disabled="busy || !form.note.trim()">Reject loan</button>
         </div>
@@ -562,7 +599,7 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
             <SecurityFields :security="security" :kinds="SECURITY_KINDS" />
           </div>
         </div>
-        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <div class="sheet-actions flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>
           <button type="submit" class="btn-primary" :disabled="busy || !form.reference.trim() || (withSecurity && (!security.kind || !security.description.trim()))">Record payout</button>
         </div>
@@ -574,7 +611,7 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
         <div v-if="formError" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ formError }}</div>
         <p class="text-sm text-gray-700">Something {{ loan.borrower_name }} leaves with the SACCO for loan {{ loan.loan_no }}. They see it on their loan page, and the office is reminded to hand it back once the loan is repaid.</p>
         <SecurityFields :security="security" :kinds="SECURITY_KINDS" />
-        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <div class="sheet-actions flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>
           <button type="submit" class="btn-primary" :disabled="busy || !security.kind || !security.description.trim()">Save security</button>
         </div>
@@ -616,7 +653,7 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
         </div>
         <p v-else-if="previewError" class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{{ previewError }}</p>
 
-        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <div class="sheet-actions flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>
           <button type="submit" class="btn-primary" :disabled="busy || !form.amount || !!previewError">Record repayment</button>
         </div>
@@ -628,7 +665,7 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
         <div v-if="formError" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ formError }}</div>
         <p class="text-sm text-gray-700">The {{ formatMoney(reversing.amount) }} repayment of {{ formatDate(reversing.paid_on) }} will no longer count. Both entries stay in the history.</p>
         <div><label for="reason" class="label">Why?</label><input id="reason" v-model="form.reason" class="input" maxlength="255" placeholder="e.g. Cheque bounced" /></div>
-        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <div class="sheet-actions flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>
           <button type="submit" class="btn-primary" :disabled="busy || !form.reason.trim()">Reverse repayment</button>
         </div>
@@ -650,7 +687,7 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
           <textarea id="amsg" v-model="form.message" class="input min-h-[6rem]" maxlength="2000" />
           <p class="mt-1 text-xs text-gray-500">They see it under the bell when they log in. Add when and where to pick up the cheque.</p>
         </div>
-        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <div class="sheet-actions flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>
           <button type="submit" class="btn-primary" :disabled="busy || !form.message.trim()">Approve and send message</button>
         </div>
@@ -669,7 +706,7 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
         </dl>
         <MoneyAccountSelect id="s-money" v-model="form.money_account_id" label="Paid into" />
         <div><label for="sref" class="label">Reference <span class="font-normal text-gray-400">(optional)</span></label><input id="sref" v-model="form.reference" class="input" maxlength="80" placeholder="Receipt or bank slip" /></div>
-        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <div class="sheet-actions flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>
           <button type="submit" class="btn-primary" :disabled="busy">Record payment and close loan</button>
         </div>
@@ -681,7 +718,7 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
         <div v-if="formError" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ formError }}</div>
         <p class="text-sm text-gray-700">The {{ formatMoney(waiving.amount) }} penalty of {{ formatDate(waiving.charged_on) }} will no longer be owed.</p>
         <div><label for="wreason" class="label">Why?</label><input id="wreason" v-model="form.reason" class="input" maxlength="200" placeholder="e.g. Payroll was late, not the member" /></div>
-        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <div class="sheet-actions flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>
           <button type="submit" class="btn-primary" :disabled="busy || !form.reason.trim()">Waive penalty</button>
         </div>
@@ -702,7 +739,7 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
           <input v-model="newGuarantor.amount" class="input w-40 tabular-nums" inputmode="numeric" aria-label="Amount to guarantee" />
           <button type="button" class="btn-ghost px-2 py-1" @click="newGuarantor = null">Change</button>
         </div>
-        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <div class="sheet-actions flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>
           <button type="submit" class="btn-primary" :disabled="busy || !newGuarantor">Ask them</button>
         </div>
@@ -722,7 +759,7 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
           <input v-model="newGuarantor.amount" class="input w-40 tabular-nums" inputmode="numeric" aria-label="Amount to guarantee" />
           <button type="button" class="btn-ghost px-2 py-1" @click="newGuarantor = null">Change</button>
         </div>
-        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <div class="sheet-actions flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>
           <button type="submit" class="btn-primary" :disabled="busy || !newGuarantor || !newGuarantor.amount">Send request</button>
         </div>

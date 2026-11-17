@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
 import { CameraIcon, ChatBubbleLeftRightIcon, DevicePhoneMobileIcon, DocumentCheckIcon, DocumentTextIcon, IdentificationIcon } from '@heroicons/vue/24/outline'
 import UserAvatar from '@/components/UserAvatar.vue'
 import MemberCardView from '@/components/MemberCardView.vue'
@@ -112,8 +113,9 @@ onMounted(async () => {
   <div class="max-w-4xl">
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <p class="eyebrow">{{ t('My account') }}</p>
-        <h1 class="mt-1 text-2xl font-bold">{{ t('My profile') }}</h1>
+        <PageHeader :eyebrow="t('My account')">
+          <template #title>{{ t('My profile') }}</template>
+        </PageHeader>
       </div>
       <div class="flex flex-wrap gap-2">
         <button type="button" class="btn-secondary" :disabled="!user || making" @click="form"><DocumentTextIcon class="h-4 w-4" />My membership form</button>

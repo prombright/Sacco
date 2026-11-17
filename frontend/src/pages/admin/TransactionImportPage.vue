@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
 import { toast } from '@/toast'
 import EmptyState from '@/components/EmptyState.vue'
 import { computed, onMounted, ref } from 'vue'
@@ -140,8 +141,7 @@ const money = (v: string, sign = false) => (Number(v) ? formatMoney(v, { sign })
 
 <template>
   <div class="max-w-6xl">
-    <p class="eyebrow">Savings & shares</p>
-    <h1 class="mt-1 text-2xl font-bold">Import transactions from Excel</h1>
+    <PageHeader eyebrow="Savings & shares" title="Import transactions from Excel" />
     <p class="mt-1 max-w-3xl text-gray-600">
       Deposits, withdrawals, shares and loan repayments, each on its real date: for example everything since the old system's balance date.
       Every row is checked first, nothing is saved until you confirm, the same file can't go in twice, and a whole upload can be undone.
@@ -187,7 +187,7 @@ const money = (v: string, sign = false) => (Number(v) ? formatMoney(v, { sign })
           <button type="button" class="rounded-md px-3 py-1" :class="show === 'all' ? 'bg-ink text-white' : 'text-gray-600 hover:bg-gray-100'" @click="show = 'all'">All rows</button>
         </div>
         <div class="mt-2 max-h-96 overflow-auto rounded-xl border border-line">
-          <table class="w-full text-sm">
+          <table v-stack="'plain'" class="w-full text-sm">
             <thead class="sticky top-0 bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
               <tr><th class="px-3 py-2">Row</th><th class="px-3 py-2">Date</th><th class="px-3 py-2">Member</th><th class="px-3 py-2 text-right">Savings</th><th class="px-3 py-2 text-right">Shares</th><th class="px-3 py-2 text-right">Loan</th><th class="px-3 py-2">Reference</th></tr>
             </thead>

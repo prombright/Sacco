@@ -208,7 +208,9 @@ final class LoanController
             array_push($args, "%$q%", "%$q%", "%$q%");
         }
         $sqlWhere = $where ? 'WHERE ' . implode(' AND ', $where) : '';
-        $stmt = $db->prepare("SELECT l.id FROM loans l JOIN users u ON u.id = l.user_id $sqlWhere ORDER BY l.id DESC LIMIT 200");
+        // A quick search (Ctrl + K) asks for a few only
+        $limit = max(1, min(200, (int) ($request->string('limit') ?: 200)));
+        $stmt = $db->prepare("SELECT l.id FROM loans l JOIN users u ON u.id = l.user_id $sqlWhere ORDER BY l.id DESC LIMIT $limit");
         $stmt->execute($args);
 
         $counts = $db->query('SELECT status, COUNT(*) FROM loans GROUP BY status')->fetchAll(\PDO::FETCH_KEY_PAIR);

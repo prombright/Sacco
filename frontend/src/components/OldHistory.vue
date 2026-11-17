@@ -24,7 +24,7 @@ interface Result {
   interest_payable: { amount: string; as_at: string } | null
 }
 
-const props = defineProps<{ url: string }>()
+const props = defineProps<{ url: string; /** Say so when there is nothing (on its own tab) */ showEmpty?: boolean }>()
 const page = ref(1)
 const data = ref<Result | null>(null)
 const open = ref(false)
@@ -47,7 +47,8 @@ const cell = (v: string) => (Number(v) ? formatMoney(v) : '')
 </script>
 
 <template>
-  <section v-if="show && data" class="card mt-5 p-5">
+  <p v-if="showEmpty && data && !show" class="card p-5 text-sm text-gray-600">Nothing was brought in from the old system for this member.</p>
+  <section v-if="show && data" class="card p-5" :class="{ 'mt-5': !showEmpty }">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div class="min-w-0 flex-1">
         <h2 class="font-semibold">From the old system</h2>
@@ -62,7 +63,7 @@ const cell = (v: string) => (Number(v) ? formatMoney(v) : '')
     <div v-if="error" class="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
     <template v-if="open && data.total">
       <div class="mt-4 overflow-x-auto rounded-xl border border-line">
-        <table class="w-full text-sm">
+        <table v-stack class="w-full text-sm">
           <thead class="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
             <tr>
               <th class="px-3 py-2">Date</th>

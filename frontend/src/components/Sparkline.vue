@@ -16,7 +16,8 @@ const last = computed(() => points.value[points.value.length - 1])
 </script>
 
 <template>
-  <svg :width="width" :height="height" :viewBox="`0 0 ${width} ${height}`" role="img" :aria-label="`${label}: trend`" class="block max-w-full overflow-visible">
+  <!-- A trend needs two months at least -->
+  <svg v-if="values.length > 1" :width="width" :height="height" :viewBox="`0 0 ${width} ${height}`" role="img" :aria-label="`${label}: trend`" class="block max-w-full overflow-visible">
     <path class="chart-line" pathLength="1" :d="line" fill="none" :stroke="color" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
     <circle class="chart-area" :cx="last[0]" :cy="last[1]" r="3.5" :fill="color" />
   </svg>

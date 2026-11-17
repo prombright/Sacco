@@ -130,8 +130,9 @@ final class DevController
                     $totals[$k] += $k === 'members' ? $stats[$k] : Money::fromDecimal($stats[$k]);
                 }
                 $totals['waiting'] += $stats['waiting_total'];
-                foreach ($stats['funds'] as $i => $p) {
-                    $trend[$i] = ['month' => $p['month'], 'value' => ($trend[$i]['value'] ?? 0) + Money::fromDecimal($p['value'])];
+                // By month: each SACCO's chart starts when its own records do
+                foreach ($stats['funds'] as $p) {
+                    $trend[$p['month']] = ['month' => $p['month'], 'value' => ($trend[$p['month']]['value'] ?? 0) + Money::fromDecimal($p['value'])];
                 }
                 $row['error'] = null;
             } catch (\Throwable $e) {
@@ -148,7 +149,7 @@ final class DevController
         Response::ok([
             'saccos' => $rows,
             'totals' => $totals + ['saccos' => count($saccos), 'active_saccos' => count(array_filter($saccos, fn ($s) => $s['status'] === 'active'))],
-            'funds' => array_map(fn ($p) => ['month' => $p['month'], 'value' => Money::toDecimal($p['value'])], array_values($trend)),
+            'funds' => array_map(fn ($p) => ['month' => $p['month'], 'value' => Money::toDecimal($p['value'])], array_values((function () use ($trend) { ksort($trend); return $trend; })())),
             'pending_platform_updates' => count(Migrator::pending((string) Config::get('PLATFORM_DB_NAME', 'sacco'), 'platform')),
             'recent' => $this->platformLog(null, 12),
         ]);

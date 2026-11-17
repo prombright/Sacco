@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Crumbs from '@/components/Crumbs.vue'
 import SkeletonRows from '@/components/SkeletonRows.vue'
 import UserAvatar from '@/components/UserAvatar.vue'
 import CreditBadge from '@/components/CreditBadge.vue'
@@ -6,17 +7,21 @@ import { creditSummary } from '@/loans'
 import type { CreditStanding } from '@/types'
 import { downloadMemberCard, downloadMembershipForm, downloadShareCertificate } from '@/documents'
 import { computed, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { ChevronDownIcon, DocumentTextIcon, IdentificationIcon, ReceiptPercentIcon, PrinterIcon, CheckBadgeIcon } from '@heroicons/vue/24/outline'
+import { loanStatus } from '@/loans'
 import { api, ApiError } from '@/api'
 import { useAuth } from '@/stores/auth'
 import type { Account, Balances, NextOfKin, Page, Transaction, User } from '@/types'
-import { formatMoney } from '@/money'
+import { formatDate, formatMoney } from '@/money'
 import MemberDetails from '@/components/MemberDetails.vue'
 import OldHistory from '@/components/OldHistory.vue'
 import NextOfKinEditor from '@/components/NextOfKinEditor.vue'
 import Modal from '@/components/Modal.vue'
 import UserForm from './UserForm.vue'
-import BalanceTiles from '@/components/BalanceTiles.vue'
+import Money from '@/components/Money.vue'
+import StatusBadge from '@/components/StatusBadge.vue'
+import EmptyState from '@/components/EmptyState.vue'
 import AccountTabs from '@/components/AccountTabs.vue'
 import TransactionList from '@/components/TransactionList.vue'
 import Pager from '@/components/Pager.vue'
@@ -24,6 +29,7 @@ import RecordTransaction from './RecordTransaction.vue'
 import ReverseTransaction from './ReverseTransaction.vue'
 
 const route = useRoute()
+const router = useRouter()
 const auth = useAuth()
 const id = Number(route.params.id)
 
@@ -32,6 +38,45 @@ const balances = ref<Balances | null>(null)
 const sharePrice = ref('0')
 const credit = ref<CreditStanding | null>(null)
 const pledged = ref('0')
+
+/** Their loans and the colleagues' loans they guarantee (GET /members/{id}) */
+interface MemberLoan {
+  id: number
+  loan_no: string
+  amount: string
+  months: number
+  status: keyof typeof loanStatus
+  disbursed_on: string | null
+  applied_on: string
+  closed_on: string | null
+  total_left?: string
+  overdue?: string
+  next_due_date?: string | null
+}
+interface Guarantee { id: number; loan_no: string; status: string; amount: string; borrower_name: string }
+const loans = ref<MemberLoan[]>([])
+const loanOwed = ref('0')
+const loanOverdue = ref('0')
+const guarantees = ref<Guarantee[]>([])
+const runningLoans = computed(() => loans.value.filter((l) => l.status === 'active').length)
+const shareCount = computed(() => {
+  const price = Number(sharePrice.value)
+  return price > 0 && balances.value ? Math.floor(Number(balances.value.shares) / price) : null
+})
+
+/** The page's tabs, kept in the address so Back returns to the same one */
+const TABS = [
+  { key: 'money', label: 'Money' },
+  { key: 'loans', label: 'Loans' },
+  { key: 'details', label: 'Details & next of kin' },
+  { key: 'old', label: 'Old system' },
+] as const
+type Tab = (typeof TABS)[number]['key']
+const tab = computed<Tab>({
+  get: () => (TABS.some((t) => t.key === route.query.tab) ? (route.query.tab as Tab) : 'money'),
+  set: (v) => router.replace({ query: { ...route.query, tab: v === 'money' ? undefined : v } }),
+})
+const docsOpen = ref(false)
 const account = ref<Account>('savings')
 const page = ref(1)
 const ledger = ref<Page<Transaction> | null>(null)
@@ -78,8 +123,15 @@ const isSelf = id === auth.user?.id
 
 async function loadMember() {
   try {
-    const res = await api.get<{ user: User; balances: Balances; share_price: string; credit: CreditStanding; pledged: string }>(`/members/${id}`)
+    const res = await api.get<{
+      user: User; balances: Balances; share_price: string; credit: CreditStanding; pledged: string
+      loans: MemberLoan[]; loan_owed: string; loan_overdue: string; guarantees: Guarantee[]
+    }>(`/members/${id}`)
     credit.value = res.credit
+    loans.value = res.loans ?? []
+    loanOwed.value = res.loan_owed ?? '0'
+    loanOverdue.value = res.loan_overdue ?? '0'
+    guarantees.value = res.guarantees ?? []
     pledged.value = res.pledged
     member.value = res.user
     balances.value = res.balances
@@ -120,43 +172,56 @@ function certificate() {
 
 <template>
   <div>
-    <RouterLink :to="{ name: 'users' }" class="text-sm font-medium text-gray-600 hover:text-gray-900">← Members</RouterLink>
+    <Crumbs :trail="member ? [{ label: member.full_name }] : []" />
 
     <div v-if="error" class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
 
+    <div v-if="!member && !error" class="mt-4 space-y-4" aria-busy="true">
+      <div class="card h-36 animate-pulse" />
+      <div class="grid grid-cols-2 gap-3 lg:grid-cols-5"><div v-for="n in 5" :key="n" class="card h-24 animate-pulse" /></div>
+    </div>
+
     <template v-if="member">
-      <div class="mt-3 flex flex-wrap items-start justify-between gap-3">
-        <div class="flex items-start gap-3">
-          <UserAvatar :name="member.full_name" :photo-url="member.photo_url" size="h-14 w-14 text-lg" />
-          <div>
-            <h1 class="text-2xl font-bold">{{ member.full_name }}</h1>
-            <p class="mt-1 text-sm text-gray-600">
-              Account <span class="font-mono">{{ member.account_no }}</span>
-              <template v-if="member.employee_no"> · Employee {{ member.employee_no }}</template>
-              <template v-if="member.status !== 'active'"> · <span class="text-amber-700">{{ member.status === 'left' ? 'Left the school' : 'Suspended' }}</span></template>
-            </p>
-            <p v-if="isMember && credit" class="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-gray-600">
-              <CreditBadge :credit="credit" />
-              <span>{{ creditSummary(credit) }}<template v-if="credit.grade === 'poor'"> Can borrow {{ credit.limit_percent }}% of the usual limit.</template></span>
-              <span v-if="Number(pledged) > 0">· {{ formatMoney(pledged) }} held for loans and guarantees</span>
-            </p>
+      <!-- Who they are, and what can be done for them -->
+      <section class="card mt-3 p-5 sm:p-6">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div class="flex min-w-0 items-center gap-4">
+            <UserAvatar :name="member.full_name" :photo-url="member.photo_url" size="h-16 w-16 text-xl" />
+            <div class="min-w-0">
+              <h1 class="text-2xl font-bold tracking-tight sm:text-[1.7rem]">{{ member.full_name }}</h1>
+              <p class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-gray-600">
+                <span>Account <span class="font-mono font-medium text-ink">{{ member.account_no }}</span></span>
+                <span v-if="member.employee_no">· Employee {{ member.employee_no }}</span>
+                <span v-if="!isMember" class="rounded-full bg-navy-50 px-2 py-0.5 text-xs font-semibold text-navy-800">{{ member.role_label }}</span>
+                <span v-if="member.status !== 'active'" class="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800">{{ member.status === 'left' ? 'Left the SACCO' : 'Suspended' }}</span>
+              </p>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-2 max-sm:w-full">
+            <button v-can="'money'" v-if="isMember && !isSelf" type="button" class="btn-primary max-sm:flex-1" @click="recording = true">Record an entry</button>
+            <button v-can="'members'" type="button" class="btn-secondary max-sm:flex-1" @click="editingDetails = true">Edit details</button>
+            <!-- The papers for this member, in one menu -->
+            <div v-if="isMember" class="relative max-sm:flex-1">
+              <button type="button" class="btn-secondary w-full" :aria-expanded="docsOpen" aria-haspopup="menu" @click="docsOpen = !docsOpen">
+                <DocumentTextIcon class="h-4 w-4" aria-hidden="true" />Documents<ChevronDownIcon class="h-4 w-4" aria-hidden="true" />
+              </button>
+              <template v-if="docsOpen">
+                <div class="fixed inset-0 z-30" aria-hidden="true" @click="docsOpen = false" />
+                <div class="card absolute right-0 z-40 mt-2 w-60 p-1.5 shadow-lift" role="menu" @click="docsOpen = false">
+                  <RouterLink :to="{ name: 'member-statement', params: { id: member.id } }" class="menu-item" role="menuitem"><PrinterIcon class="h-4 w-4" />Print statement</RouterLink>
+                  <RouterLink :to="{ name: 'member-receipts', params: { id: member.id } }" class="menu-item" role="menuitem"><ReceiptPercentIcon class="h-4 w-4" />Receipts</RouterLink>
+                  <button type="button" class="menu-item" role="menuitem" @click="downloadMembershipForm(member, kin, balances, who())"><DocumentTextIcon class="h-4 w-4" />Membership form</button>
+                  <button type="button" class="menu-item" role="menuitem" @click="downloadMemberCard(member, who())"><IdentificationIcon class="h-4 w-4" />Member card</button>
+                  <button type="button" class="menu-item" role="menuitem" @click="certificate"><CheckBadgeIcon class="h-4 w-4" />Share certificate</button>
+                </div>
+              </template>
+            </div>
           </div>
         </div>
-        <div class="flex flex-wrap gap-2">
-          <button v-can="'members'" type="button" class="btn-secondary" @click="editingDetails = true">Edit details</button>
-          <template v-if="isMember">
-            <RouterLink :to="{ name: 'member-receipts', params: { id: member.id } }" class="btn-secondary">Receipts</RouterLink>
-            <button type="button" class="btn-secondary" @click="downloadMembershipForm(member, kin, balances, who())">Membership form</button>
-            <button type="button" class="btn-secondary" @click="downloadMemberCard(member, who())">Member card</button>
-            <button type="button" class="btn-secondary" @click="certificate">Share certificate</button>
-            <RouterLink :to="{ name: 'member-statement', params: { id: member.id } }" class="btn-secondary">Print statement</RouterLink>
-            <button v-can="'money'" v-if="!isSelf" type="button" class="btn-primary" @click="recording = true">Record an entry</button>
-          </template>
-        </div>
-      </div>
+      </section>
 
       <!-- Office accounts run the SACCO and hold no money of their own -->
-      <section v-if="!isMember" class="card mt-5 p-5">
+      <section v-if="!isMember" class="card mt-4 p-5">
         <p class="eyebrow">{{ member.role_label }} · office account</p>
         <p class="mt-2 text-sm text-gray-700">
           This account runs the SACCO: {{ member.role === 'super_admin' ? 'everything, including the rules, loan products and other admins' : 'members, loans, withdrawals, payroll and reports' }}.
@@ -165,27 +230,115 @@ function certificate() {
       </section>
 
       <template v-if="isMember">
-      <div class="mt-5">
-        <BalanceTiles :balances="balances" :share-price="sharePrice" />
-      </div>
+        <!-- Where they stand, at a glance -->
+        <section class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-5" aria-label="Summary">
+          <div class="col-span-2 rounded-2xl bg-navy-900 p-4 text-white shadow-lift sm:col-span-1">
+            <p class="text-xs font-semibold uppercase tracking-wider text-navy-200">Savings</p>
+            <p class="mt-1.5 text-xl font-bold tabular-nums sm:text-2xl"><Money v-if="balances" :value="balances.savings" /></p>
+          </div>
+          <div class="card p-4">
+            <p class="eyebrow">Share capital</p>
+            <p class="mt-1.5 text-xl font-bold tabular-nums"><Money v-if="balances" :value="balances.shares" /></p>
+            <p v-if="shareCount !== null" class="mt-0.5 text-xs text-gray-500">{{ shareCount.toLocaleString() }} share{{ shareCount === 1 ? '' : 's' }}</p>
+          </div>
+          <button type="button" class="card p-4 text-left transition hover:border-navy-100" @click="tab = 'loans'">
+            <p class="eyebrow">Loans owed</p>
+            <p class="mt-1.5 text-xl font-bold tabular-nums"><Money :value="loanOwed" /></p>
+            <p class="mt-0.5 text-xs" :class="Number(loanOverdue) > 0 ? 'font-semibold text-red-700' : 'text-gray-500'">
+              {{ Number(loanOverdue) > 0 ? `${formatMoney(loanOverdue)} overdue` : runningLoans ? `${runningLoans} running loan${runningLoans === 1 ? '' : 's'}, on time` : 'No running loan' }}
+            </p>
+          </button>
+          <div class="card p-4">
+            <p class="eyebrow">Held</p>
+            <p class="mt-1.5 text-xl font-bold tabular-nums"><Money :value="pledged" /></p>
+            <p class="mt-0.5 text-xs text-gray-500">{{ guarantees.length ? `Guaranteeing ${guarantees.length} loan${guarantees.length === 1 ? '' : 's'}` : 'For their own loans' }}</p>
+          </div>
+          <div class="card p-4" :title="credit ? creditSummary(credit) : undefined">
+            <p class="eyebrow">Credit standing</p>
+            <p v-if="credit" class="mt-2"><CreditBadge :credit="credit" /></p>
+            <p v-if="credit" class="mt-1 text-xs text-gray-500">{{ credit.due ? `${credit.on_time} of ${credit.due} paid on time` : 'No repayments yet' }}<template v-if="credit.grade === 'poor'"> · can borrow {{ credit.limit_percent }}% of the limit</template></p>
+          </div>
+        </section>
 
-      <div class="mt-8"><AccountTabs v-model="account" /></div>
-      <div class="card mt-3 overflow-hidden">
-        <SkeletonRows v-if="!ledger" :rows="5" /><TransactionList v-else by-month :transactions="ledger.transactions" :can-reverse="!isSelf" @reverse="reversing = $event" />
-      </div>
-      <Pager v-if="ledger" :page="ledger.page" :per-page="ledger.per_page" :total="ledger.total" @go="page = $event" />
+        <!-- Tabs -->
+        <div class="mt-6 flex gap-1 overflow-x-auto border-b border-line" role="tablist" aria-label="Member">
+          <button
+            v-for="t in TABS"
+            :key="t.key"
+            type="button"
+            role="tab"
+            :aria-selected="tab === t.key"
+            class="-mb-px shrink-0 border-b-2 px-3 py-2.5 text-sm font-semibold transition"
+            :class="tab === t.key ? 'border-brand text-brand' : 'border-transparent text-gray-500 hover:text-ink'"
+            @click="tab = t.key"
+          >
+            {{ t.label }}<span v-if="t.key === 'loans' && loans.length" class="ml-1.5 rounded-full bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-600">{{ loans.length }}</span>
+          </button>
+        </div>
 
-      <div class="mt-8 grid gap-6 lg:grid-cols-2">
-        <MemberDetails :user="member" />
-        <NextOfKinEditor :people="kin" :save-url="`/members/${member.id}/next-of-kin`" :editable="auth.can('members')" @saved="kin = $event" />
-      </div>
+        <!-- Money: every entry, account by account -->
+        <div v-show="tab === 'money'" class="mt-5" role="tabpanel">
+          <AccountTabs v-model="account" />
+          <div class="card mt-3 overflow-hidden">
+            <SkeletonRows v-if="!ledger" :rows="5" /><TransactionList v-else by-month :transactions="ledger.transactions" :can-reverse="!isSelf" @reverse="reversing = $event" />
+          </div>
+          <Pager v-if="ledger" :page="ledger.page" :per-page="ledger.per_page" :total="ledger.total" @go="page = $event" />
+        </div>
 
-      <section v-if="member.status !== 'left' && !isSelf" class="mt-8 rounded-2xl border border-red-200 bg-red-50/40 p-5">
-        <h2 class="font-semibold text-red-800">Close membership</h2>
-        <p class="mt-1 text-sm text-gray-700">When a member leaves the SACCO: pays out their savings and shares by cheque and marks them as left. They must owe nothing and guarantee nobody first.</p>
-        <button type="button" class="btn-secondary mt-3" @click="openExit">Close membership…</button>
-      </section>
-      <OldHistory :url="`/members/${member.id}/old-history`" />
+        <!-- Loans: theirs, and the ones they guarantee -->
+        <div v-if="tab === 'loans'" class="mt-5 space-y-6" role="tabpanel">
+          <div>
+            <h2 class="font-semibold">Their loans</h2>
+            <EmptyState v-if="!loans.length" class="mt-3" title="No loans" text="Loans they apply for, or that were brought in from the old system, show here." compact />
+            <ul v-else class="mt-3 grid gap-3 md:grid-cols-2">
+              <li v-for="l in loans" :key="l.id">
+                <RouterLink :to="{ name: 'loan', params: { id: l.id } }" class="card card-link flex h-full flex-col p-4">
+                  <div class="flex items-start justify-between gap-3">
+                    <div>
+                      <p class="font-semibold tabular-nums"><Money :value="l.amount" /> <span class="font-normal text-gray-500">· {{ l.months }} months</span></p>
+                      <p class="mt-0.5 text-xs text-gray-500">{{ l.loan_no }} · {{ l.disbursed_on ? `paid out ${formatDate(l.disbursed_on)}` : `applied ${formatDate(l.applied_on)}` }}</p>
+                    </div>
+                    <StatusBadge :label="loanStatus[l.status]?.label ?? l.status" :style-class="loanStatus[l.status]?.style ?? ''" />
+                  </div>
+                  <p v-if="l.total_left" class="mt-3 flex flex-wrap items-baseline justify-between gap-2 border-t border-line pt-3 text-sm">
+                    <span class="text-gray-600">Left to pay <span class="font-semibold tabular-nums text-ink">{{ formatMoney(l.total_left) }}</span></span>
+                    <span v-if="Number(l.overdue) > 0" class="text-xs font-semibold text-red-700">{{ formatMoney(l.overdue!) }} overdue</span>
+                    <span v-else-if="l.next_due_date" class="text-xs text-gray-500">next due {{ formatDate(l.next_due_date) }}</span>
+                  </p>
+                </RouterLink>
+              </li>
+            </ul>
+          </div>
+          <div v-if="guarantees.length">
+            <h2 class="font-semibold">Guaranteeing</h2>
+            <ul class="card mt-3 divide-y divide-line">
+              <li v-for="g in guarantees" :key="g.id">
+                <RouterLink :to="{ name: 'loan', params: { id: g.id } }" class="flex items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50">
+                  <span class="min-w-0"><span class="block truncate font-medium">{{ g.borrower_name }}</span><span class="text-xs text-gray-500">{{ g.loan_no }}</span></span>
+                  <span class="shrink-0 text-right text-sm tabular-nums"><span class="block font-semibold">{{ formatMoney(g.amount) }}</span><span class="text-xs text-gray-500">held</span></span>
+                </RouterLink>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Details, next of kin, and closing the membership -->
+        <div v-if="tab === 'details'" class="mt-5" role="tabpanel">
+          <div class="grid gap-6 lg:grid-cols-2">
+            <MemberDetails :user="member" />
+            <NextOfKinEditor :people="kin" :save-url="`/members/${member.id}/next-of-kin`" :editable="auth.can('members')" @saved="kin = $event" />
+          </div>
+          <section v-if="member.status !== 'left' && !isSelf" class="mt-8 rounded-2xl border border-red-200 bg-red-50/40 p-5">
+            <h2 class="font-semibold text-red-800">Close membership</h2>
+            <p class="mt-1 text-sm text-gray-700">When a member leaves the SACCO: pays out their savings and shares by cheque and marks them as left. They must owe nothing and guarantee nobody first.</p>
+            <button type="button" class="btn-secondary mt-3" @click="openExit">Close membership…</button>
+          </section>
+        </div>
+
+        <!-- What the old system held for them -->
+        <div v-if="tab === 'old'" class="mt-5" role="tabpanel">
+          <OldHistory :url="`/members/${member.id}/old-history`" show-empty />
+        </div>
       </template>
     </template>
 
@@ -210,7 +363,7 @@ function certificate() {
             <div><label for="xdate" class="label">Date</label><input id="xdate" v-model="exitForm.exit_date" type="date" class="input" /></div>
           </div>
         </template>
-        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <div class="sheet-actions flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="btn-secondary" @click="exitQuote = null">{{ exitQuote.blockers.length ? 'Close' : 'Cancel' }}</button>
           <button v-if="!exitQuote.blockers.length" type="button" class="btn-primary !bg-red-700 hover:!bg-red-800" :disabled="exiting || !exitForm.reason.trim()" @click="closeMembership">Pay out and close membership</button>
         </div>

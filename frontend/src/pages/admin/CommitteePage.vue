@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
 import SkeletonRows from '@/components/SkeletonRows.vue'
 import { computed, onMounted, ref } from 'vue'
 import { CheckCircleIcon, ClockIcon, DocumentArrowDownIcon, PlusIcon } from '@heroicons/vue/24/outline'
@@ -135,9 +136,9 @@ function agenda() {
   <div class="max-w-4xl">
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <p class="eyebrow">Settings</p>
-        <h1 class="mt-1 text-2xl font-bold">Committee decisions</h1>
-        <p class="mt-1 text-sm text-gray-600">Rules waiting for the committee. Until it decides, the system uses what's on Setup, shown with each question.</p>
+        <PageHeader eyebrow="Settings" title="Committee decisions">
+          Rules waiting for the committee. Until it decides, the system uses what's on Setup, shown with each question.
+        </PageHeader>
       </div>
       <div class="flex flex-wrap gap-2">
         <button type="button" class="btn-secondary" :disabled="!open.length" @click="agenda"><DocumentArrowDownIcon class="h-4 w-4" />Agenda (PDF)</button>

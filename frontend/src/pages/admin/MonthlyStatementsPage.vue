@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { MagnifyingGlassIcon, PaperAirplaneIcon, PrinterIcon } from '@heroicons/vue/24/outline'
 import { api, ApiError } from '@/api'
@@ -80,8 +81,7 @@ async function send() {
 <template>
   <div>
     <div class="print:hidden">
-      <p class="eyebrow">Reports</p>
-      <h1 class="mt-1 text-2xl font-bold">Monthly statements</h1>
+      <PageHeader eyebrow="Reports" title="Monthly statements" />
       <p class="mt-1 max-w-3xl text-gray-600">
         Each member's month in a few lines. Print them to hand out (one member per page), or send them to members' phones.
         <template v-if="data?.automatic"> They also go out by themselves on the 1st of each month.</template>

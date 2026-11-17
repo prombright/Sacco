@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
 import SkeletonRows from '@/components/SkeletonRows.vue'
 import { ref, watch } from 'vue'
 import { api, ApiError } from '@/api'
@@ -30,9 +31,9 @@ load()
   <div>
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <p class="eyebrow">My account</p>
-        <h1 class="mt-1 text-2xl font-bold">My statement</h1>
-        <p class="mt-1 text-sm text-gray-600">Every entry on your account, newest first.</p>
+        <PageHeader eyebrow="My account" title="My statement">
+          Every entry on your account, newest first.
+        </PageHeader>
       </div>
       <RouterLink :to="{ name: 'statement-print' }" class="btn-secondary">Print a statement</RouterLink>
     </div>

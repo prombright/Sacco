@@ -325,7 +325,7 @@ const waitingList = computed(() => {
           <input v-model="q" type="search" class="input pl-9" placeholder="Name, email, employee or account number" aria-label="Find a person" />
         </div>
         <div class="card mt-4 overflow-x-auto">
-          <table class="w-full min-w-[720px] text-sm">
+          <table v-stack class="w-full min-w-[720px] text-sm">
             <thead class="border-b border-line text-left text-xs uppercase tracking-wider text-gray-500">
               <tr><th class="px-4 py-3 font-semibold">Name</th><th class="px-4 py-3 font-semibold">Account</th><th class="px-4 py-3 text-right font-semibold">Savings</th><th class="px-4 py-3 text-right font-semibold">Shares</th><th class="px-4 py-3 text-right font-semibold">Loans</th><th class="px-4 py-3 font-semibold">Last logged in</th></tr>
             </thead>

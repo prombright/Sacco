@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
 import AmountWords from '@/components/AmountWords.vue'
 import MoneyAccountSelect from '@/components/MoneyAccountSelect.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
@@ -112,8 +113,9 @@ const byId = (id: unknown) => entries.value.find((e) => e.id === id)
   <div>
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <p class="eyebrow">Cash book</p>
-        <h1 class="mt-1 text-2xl font-bold">{{ isIncome ? 'Receipts (income)' : 'Payments (expenses)' }}</h1>
+        <PageHeader eyebrow="Cash book">
+          <template #title>{{ isIncome ? 'Receipts (income)' : 'Payments (expenses)' }}</template>
+        </PageHeader>
         <p class="mt-1 max-w-3xl text-gray-600">
           <template v-if="isIncome">Money the SACCO receives besides members' savings and loans: bank interest, membership fees, grants. Loan interest, penalties and fees are counted from the loans by themselves.</template>
           <template v-else>What the SACCO spends: stationery, bank charges, meetings, allowances. Each payment goes to an expense account in the chart.</template>

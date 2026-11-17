@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { ask } from '@/confirm'
 import { computed, onMounted, ref, watch } from 'vue'
@@ -150,9 +151,9 @@ function reset() {
 
 <template>
   <div>
-    <p class="eyebrow">Savings &amp; shares</p>
-    <h1 class="mt-1 text-2xl font-bold">Payroll deductions</h1>
-    <p class="mt-1 text-sm text-gray-600">Post the month's deductions for everyone at once: loan principal and interest, savings, shares, and the total taken from each person's pay.</p>
+    <PageHeader eyebrow="Savings &amp; shares" title="Payroll deductions">
+      Post the month's deductions for everyone at once: loan principal and interest, savings, shares, and the total taken from each person's pay.
+    </PageHeader>
 
     <section class="card mt-5 p-5">
       <h2 class="font-semibold">New upload</h2>
@@ -219,7 +220,7 @@ function reset() {
         </div>
 
         <div class="mt-3 overflow-x-auto rounded-lg border border-gray-200">
-          <table class="w-full text-sm">
+          <table v-stack="'plain'" class="w-full text-sm">
             <thead class="bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
               <tr>
                 <th class="px-3 py-2">Row</th>

@@ -27,11 +27,12 @@ import {
   XMarkIcon,
   QuestionMarkCircleIcon,
   ArrowsRightLeftIcon,
+  MagnifyingGlassIcon,
 } from '@heroicons/vue/24/outline'
 import { useAuth } from '@/stores/auth'
 import { useOffice } from '@/stores/office'
 import SaccoMark from '@/components/SaccoMark.vue'
-import MemberSearch from '@/components/MemberSearch.vue'
+import CommandPalette from '@/components/CommandPalette.vue'
 import ThemeSwitch from '@/components/ThemeSwitch.vue'
 import NotificationBell from '@/components/NotificationBell.vue'
 import { dashboardIcon, sectionOf, sections, type Section, type SectionItem } from '@/sections'
@@ -134,6 +135,9 @@ watch(
   },
   { immediate: true },
 )
+
+/** Quick search (Ctrl + K) */
+const searchOpen = ref(false)
 
 /** Office staff who also save: to their member account and back */
 async function switchAccount() {
@@ -336,9 +340,18 @@ async function signOut() {
           <Bars3Icon class="h-6 w-6" />
         </button>
         <p class="truncate font-semibold text-gray-800">{{ title }}</p>
-        <div v-if="auth.isAdmin" class="ml-auto hidden w-full max-w-md sm:block">
-          <MemberSearch />
-        </div>
+        <!-- Quick search (Ctrl + K): members, loans and pages -->
+        <button
+          v-if="auth.isAdmin"
+          type="button"
+          class="ml-auto hidden h-10 w-full max-w-md items-center gap-2.5 rounded-full bg-gray-100 px-4 text-left text-sm text-gray-500 transition hover:bg-gray-200/70 sm:flex"
+          aria-label="Find a member, loan or page (Ctrl + K)"
+          @click="searchOpen = true"
+        >
+          <MagnifyingGlassIcon class="h-4 w-4 shrink-0 text-gray-400" aria-hidden="true" />
+          <span class="flex-1 truncate">Find a member, loan or page…</span>
+          <kbd class="hidden shrink-0 rounded-md border border-line bg-surface px-1.5 py-0.5 font-sans text-[11px] font-semibold text-gray-500 md:inline">Ctrl K</kbd>
+        </button>
         <span class="hidden whitespace-nowrap text-sm text-gray-500 xl:inline" :class="auth.isAdmin ? 'ml-4' : 'ml-auto'">
           {{ new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }) }}
         </span>
@@ -346,12 +359,13 @@ async function signOut() {
         <button v-if="canInstall && !auth.isAdmin" type="button" class="tap ml-auto inline-flex items-center gap-1.5 rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-white lg:hidden" @click="install">
           <ArrowDownTrayIcon class="h-4 w-4" aria-hidden="true" />{{ t('Install the app') }}
         </button>
-        <NotificationBell :class="auth.isAdmin ? 'ml-auto sm:ml-2' : 'ml-auto xl:ml-2'" />
-      </div>
-      <div v-if="auth.isAdmin" class="px-4 pb-3 sm:hidden">
-        <MemberSearch />
+        <button v-if="auth.isAdmin" type="button" class="tap ml-auto rounded-full p-2 text-gray-600 hover:bg-gray-200/60 sm:hidden" aria-label="Find a member, loan or page" @click="searchOpen = true">
+          <MagnifyingGlassIcon class="h-6 w-6" />
+        </button>
+        <NotificationBell :class="auth.isAdmin ? 'sm:ml-2' : 'ml-auto xl:ml-2'" />
       </div>
     </header>
+    <CommandPalette v-if="auth.isAdmin" v-model="searchOpen" />
 
     <main class="mx-auto max-w-7xl px-4 pb-28 pt-6 sm:px-6 lg:px-8 lg:py-8">
       <SmsToast />

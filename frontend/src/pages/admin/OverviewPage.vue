@@ -195,7 +195,7 @@ const money = (v: number) => formatMoney(String(v))
         <div v-if="data" class="rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur">
           <div class="flex items-start justify-between gap-3">
             <p class="text-xs font-semibold uppercase tracking-wider text-navy-100/80">Member funds</p>
-            <span v-if="fundsChange !== null" class="rounded-full px-2 py-0.5 text-xs font-semibold" :class="fundsChange >= 0 ? 'bg-emerald-400/20 text-emerald-200' : 'bg-red-400/25 text-red-100'">{{ fundsChange >= 0 ? '+' : '' }}{{ fundsChange }}% this month</span>
+            <span v-if="fundsChange !== null" class="rounded-full px-2 py-0.5 text-xs font-semibold" :class="fundsChange >= 0 ? 'bg-emerald-400/20 text-emerald-200' : 'bg-red-400/25 text-red-100'">{{ fundsChange === 0 ? 'Same as last month' : `${fundsChange > 0 ? '+' : ''}${fundsChange}% this month` }}</span>
           </div>
           <p class="mt-1 text-3xl font-bold sm:text-4xl"><CountUp :value="funds" :duration="1500" /></p>
           <Sparkline class="mt-3 w-full" :values="data.funds.map((p) => Number(p.value))" color="#f2b934" label="Member funds" :width="320" :height="48" />

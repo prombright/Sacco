@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { PencilSquareIcon, PlusIcon } from '@heroicons/vue/24/outline'
@@ -97,9 +98,9 @@ const byId = (id: unknown) => accounts.value.find((a) => a.id === id)
   <div>
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <p class="eyebrow">Financial reports</p>
-        <h1 class="mt-1 text-2xl font-bold">Chart of accounts</h1>
-        <p class="mt-1 max-w-3xl text-gray-600">Every account in the SACCO's books. Deposits, loans, repayments, withdrawals, dividends, income and expenses post to them by themselves. Click an account to see its ledger.</p>
+        <PageHeader eyebrow="Financial reports" title="Chart of accounts">
+          Every account in the SACCO's books. Deposits, loans, repayments, withdrawals, dividends, income and expenses post to them by themselves. Click an account to see its ledger.
+        </PageHeader>
       </div>
       <button v-if="auth.isSuperAdmin" type="button" class="btn-primary" @click="start()"><PlusIcon class="h-4 w-4" />Add an account</button>
     </div>

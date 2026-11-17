@@ -97,7 +97,16 @@ const tip = computed(() => {
 </script>
 
 <template>
-  <div ref="box" class="relative w-full">
+  <!-- Under two months of records there is no line to draw yet: say so, with what there is -->
+  <div v-if="points.length < 2" class="flex h-[220px] flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 px-6 text-center">
+    <template v-if="points.length === 1">
+      <p class="text-xs text-gray-500">{{ label }} at the end of {{ monthLabel(points[0].month, true) }}</p>
+      <p class="mt-1 text-2xl font-semibold tabular-nums">{{ format(Number(points[0].value)) }}</p>
+      <p class="mt-2 max-w-xs text-sm text-gray-500">The records in this system start here. The chart fills in month by month.</p>
+    </template>
+    <p v-else class="max-w-xs text-sm text-gray-500">Nothing recorded yet. The chart fills in month by month.</p>
+  </div>
+  <div v-else ref="box" class="relative w-full">
     <svg
       :width="width"
       :height="height"

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
 import { ref } from 'vue'
 import { ArrowDownTrayIcon, ShieldCheckIcon } from '@heroicons/vue/24/outline'
 import { useAuth } from '@/stores/auth'
@@ -14,9 +15,9 @@ function download() {
 
 <template>
   <div class="max-w-3xl">
-    <p class="eyebrow">Administration</p>
-    <h1 class="mt-1 text-2xl font-bold">Download backup</h1>
-    <p class="mt-1 text-gray-600">A complete copy of {{ auth.sacco?.name }}'s database: members, balances, loans, the books and the audit log. Keep it somewhere safe off the server, such as a flash disk in the office safe or a cloud drive only the committee can open.</p>
+    <PageHeader eyebrow="Administration" title="Download backup">
+      A complete copy of {{ auth.sacco?.name }}'s database: members, balances, loans, the books and the audit log. Keep it somewhere safe off the server, such as a flash disk in the office safe or a cloud drive only the committee can open.
+    </PageHeader>
 
     <div class="card mt-5 p-6">
       <div class="flex items-start gap-4">

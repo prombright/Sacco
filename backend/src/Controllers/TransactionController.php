@@ -64,7 +64,7 @@ final class TransactionController
             ];
         }
         $savedThisYear = $db->prepare(
-            "SELECT COALESCE(SUM(t.amount), 0) FROM transactions t WHERE t.user_id = ? AND t.type IN ('deposit', 'opening_balance') AND t.value_date >= ?
+            "SELECT COALESCE(SUM(t.amount), 0) FROM transactions t WHERE t.user_id = ? AND t.type = 'deposit' AND t.value_date >= ? AND t.in_error = 0
              AND NOT EXISTS (SELECT 1 FROM transactions r WHERE r.reversal_of = t.id)"
         );
         $savedThisYear->execute([$id, date('Y-01-01')]);
@@ -226,8 +226,41 @@ final class TransactionController
     public function member(Request $request): never
     {
         $user = $this->findUser((int) $request->param('id'));
+        $db = Database::tenant();
+        $id = (int) $user['id'];
+
+        // Their loans, newest first, with what's left on the running ones
+        $rows = $db->prepare('SELECT id, loan_no, amount, months, status, disbursed_on, created_at, closed_on FROM loans WHERE user_id = ? ORDER BY id DESC');
+        $rows->execute([$id]);
+        $loans = [];
+        $owed = 0;
+        $overdue = 0;
+        foreach ($rows->fetchAll() as $l) {
+            $left = null;
+            if ($l['status'] === 'active') {
+                $p = Loans::position($db, (int) $l['id']);
+                $owed += $p['total_left'];
+                $overdue += $p['overdue'];
+                $left = ['total_left' => Money::toDecimal($p['total_left']), 'overdue' => Money::toDecimal($p['overdue']), 'next_due_date' => $p['next_due_date']];
+            }
+            $loans[] = ['id' => (int) $l['id'], 'loan_no' => $l['loan_no'], 'amount' => $l['amount'], 'months' => (int) $l['months'], 'status' => $l['status'],
+                'disbursed_on' => $l['disbursed_on'], 'applied_on' => substr((string) $l['created_at'], 0, 10), 'closed_on' => $l['closed_on']] + ($left ?? []);
+        }
+        // Colleagues' loans they stand behind
+        $g = $db->prepare(
+            "SELECT l.id, l.loan_no, l.status, g.amount, u.full_name AS borrower_name FROM loan_guarantors g
+             JOIN loans l ON l.id = g.loan_id JOIN users u ON u.id = l.user_id
+             WHERE g.guarantor_id = ? AND g.status = 'accepted' AND l.status IN ('pending_guarantors', 'pending_approval', 'approved', 'active')
+             ORDER BY l.id DESC"
+        );
+        $g->execute([$id]);
+
         Response::ok([
             'user' => AuthController::present($user),
+            'loans' => $loans,
+            'loan_owed' => Money::toDecimal($owed),
+            'loan_overdue' => Money::toDecimal($overdue),
+            'guarantees' => $g->fetchAll(),
             'balances' => Ledger::balances((int) $user['id']),
             'share_price' => Settings::get('share_price', '0'),
             'pledged' => Money::toDecimal(Loans::pledged(Database::tenant(), (int) $user['id'])),

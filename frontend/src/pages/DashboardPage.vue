@@ -112,6 +112,11 @@ const growth = computed(() => {
   return Number(p[p.length - 1].value) - Number(p[0].value)
 })
 
+/** When the chart is shorter than the period chosen, its records start at the first month shown */
+const sinceLabel = computed(() =>
+  points.value.length ? new Date(points.value[0].month + '-01T00:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) : '',
+)
+
 function daysUntil(date: string) {
   const d = Math.round((new Date(date + 'T00:00:00').getTime() - new Date(new Date().toDateString()).getTime()) / 86400000)
   return d < 0 ? `${-d} day${d === -1 ? '' : 's'} late` : d === 0 ? 'due today' : d === 1 ? 'due tomorrow' : `in ${d} days`
@@ -371,7 +376,7 @@ const welcome = ref(true)
             <div>
               <h2 class="font-semibold">{{ series === 'savings' ? t('How my savings have grown') : 'How my shares have grown' }}</h2>
               <p class="text-sm text-gray-500">
-                <template v-if="growth > 0"><span class="font-semibold text-emerald-700">+{{ show(growth) }}</span> in the last {{ range }} months</template>
+                <template v-if="growth > 0"><span class="font-semibold text-emerald-700">+{{ show(growth) }}</span> {{ points.length < range ? `since ${sinceLabel}` : `in the last ${range} months` }}</template>
                 <template v-else>Balance at the end of each month</template>
               </p>
             </div>

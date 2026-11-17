@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
 import SkeletonRows from '@/components/SkeletonRows.vue'
 import { ask } from '@/confirm'
 import { onMounted, ref, watch } from 'vue'
@@ -89,9 +90,10 @@ const statusLabel: Record<string, string> = { active: 'Active', suspended: 'Susp
   <div>
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <p class="eyebrow">Members</p>
-        <h1 class="mt-1 text-2xl font-bold">Member register <span v-if="total" class="text-base font-medium text-gray-500">· {{ total.toLocaleString() }}</span></h1>
-        <p class="mt-1 text-gray-600">Everyone who can log in to the SACCO, with their balances. Click a name to open their account.</p>
+        <PageHeader eyebrow="Members">
+          <template #title>Member register <span v-if="total" class="text-base font-medium text-gray-500">· {{ total.toLocaleString() }}</span></template>
+          Everyone who can log in to the SACCO, with their balances. Click a name to open their account.
+        </PageHeader>
       </div>
       <div class="flex flex-wrap gap-2">
         <RouterLink :to="{ name: 'member-import' }" class="btn-secondary">Import from Excel</RouterLink>

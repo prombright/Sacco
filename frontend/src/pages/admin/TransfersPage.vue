@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
 import AmountField from '@/components/AmountField.vue'
 import { toast } from '@/toast'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
@@ -142,9 +143,9 @@ const byId = (id: unknown) => list.value?.transfers.find((t) => t.id === id)
 
 <template>
   <div>
-    <p class="eyebrow">Savings &amp; shares</p>
-    <h1 class="mt-1 text-2xl font-bold">Internal transfers</h1>
-    <p class="mt-1 max-w-3xl text-gray-600">Move money between accounts without cash. The same rules as a withdrawal apply: the minimum savings stay, pledged savings stay, and members keep their minimum shares.</p>
+    <PageHeader eyebrow="Savings &amp; shares" title="Internal transfers">
+      Move money between accounts without cash. The same rules as a withdrawal apply: the minimum savings stay, pledged savings stay, and members keep their minimum shares.
+    </PageHeader>
 
     <section v-can="'money'" class="card mt-5 p-5">
       <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-5" role="radiogroup" aria-label="Kind of transfer">

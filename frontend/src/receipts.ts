@@ -1,6 +1,6 @@
 import { api } from '@/api'
 import type { Who } from '@/exporters'
-import { drawMark, loadLogo } from '@/documents'
+import { drawFooter, drawLetterhead, loadLogo } from '@/documents'
 
 export interface Receipt {
   no: string
@@ -66,22 +66,8 @@ export async function downloadReceipt(r: Receipt, member: ReceiptMember, who: Wh
   const currency = who.sacco?.currency ?? 'UGX'
   const incoming = r.direction === 'in'
 
-  // Letterhead
-  doc.setFillColor(...brand)
-  doc.rect(0, 0, W, 3.5, 'F')
-  doc.setFillColor(238, 169, 15)
-  doc.rect(0, 3.5, W, 0.9, 'F')
-  drawMark(doc, who, await loadLogo(who), M, 9, 11)
-  doc.setTextColor(21, 24, 33)
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(12)
-  doc.text(name, M + 14, 13.5)
-  if (who.sacco?.slogan) {
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(8)
-    doc.setTextColor(120, 113, 108)
-    doc.text(who.sacco.slogan, M + 14, 18)
-  }
+  // The same letterhead as every SACCO document, sized for A5
+  drawLetterhead(doc, who, await loadLogo(who), M, 0.8)
 
   // Title and number
   doc.setFont('helvetica', 'bold')
@@ -145,14 +131,12 @@ export async function downloadReceipt(r: Receipt, member: ReceiptMember, who: Wh
     doc.text('REVERSED', W / 2, H / 2 + 8, { align: 'center', angle: 28 })
   }
 
-  // Footer
-  doc.setDrawColor(231, 227, 218)
-  doc.line(M, H - 13, W - M, H - 13)
+  // Footer, as on every SACCO document
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(7)
   doc.setTextColor(120, 113, 108)
-  doc.text('This receipt is produced by the system and is valid without a signature.', M, H - 9.5)
-  doc.text(`Printed ${new Date().toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}${who.user ? ` by ${who.user}` : ''} · ${name}`, M, H - 6)
+  doc.text('This receipt is produced by the system and is valid without a signature.', M, H - 14)
+  drawFooter(doc, who, `${name} · ${r.no}`, M, '', 0.8)
   doc.save(`receipt-${r.no}.pdf`)
 }
 

@@ -149,7 +149,7 @@ async function importAll() {
         </div>
 
         <div class="mt-4 max-h-[28rem] overflow-auto rounded-xl border border-line">
-          <table class="w-full text-sm">
+          <table v-stack="'plain'" class="w-full text-sm">
             <thead class="sticky top-0 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
               <tr><th class="px-3 py-2">Row</th><th class="px-3 py-2">Name</th><th class="px-3 py-2">Logs in with</th><th class="px-3 py-2">Member since</th><th class="px-3 py-2 text-right">Savings</th><th class="px-3 py-2 text-right">Shares</th></tr>
             </thead>

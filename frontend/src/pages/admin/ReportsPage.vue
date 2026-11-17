@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
 import { onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { api, ApiError } from '@/api'
@@ -58,14 +59,15 @@ async function run() {
 <template>
   <div>
     <template v-if="route.meta.report">
-      <p class="eyebrow">Reports</p>
-      <h1 class="mt-1 text-2xl font-bold">{{ route.meta.title }}</h1>
-      <p class="mt-1 text-gray-600">{{ selected?.description }}</p>
+      <PageHeader eyebrow="Reports">
+        <template #title>{{ route.meta.title }}</template>
+        {{ selected?.description }}
+      </PageHeader>
     </template>
     <template v-else>
-      <p class="eyebrow">Administration</p>
-      <h1 class="mt-1 text-2xl font-bold">Other reports</h1>
-      <p class="mt-1 text-gray-600">For the office, the committee and the auditors. Each one downloads as Excel and prints or saves as PDF.</p>
+      <PageHeader eyebrow="Administration" title="Other reports">
+        For the office, the committee and the auditors. Each one downloads as Excel and prints or saves as PDF.
+      </PageHeader>
       <div class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <button
           v-for="r in list"

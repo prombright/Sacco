@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { DocumentTextIcon } from '@heroicons/vue/24/outline'
@@ -19,9 +20,9 @@ function open() {
 
 <template>
   <div>
-    <p class="eyebrow">Member reports</p>
-    <h1 class="mt-1 text-2xl font-bold">Member ledger</h1>
-    <p class="mt-1 max-w-3xl text-gray-600">A member's savings and shares, entry by entry with running balances, and their loans. It opens ready to print or save as PDF.</p>
+    <PageHeader eyebrow="Member reports" title="Member ledger">
+      A member's savings and shares, entry by entry with running balances, and their loans. It opens ready to print or save as PDF.
+    </PageHeader>
 
     <form class="card mt-5 grid max-w-3xl gap-4 p-5 sm:grid-cols-2" @submit.prevent="open">
       <div class="sm:col-span-2">

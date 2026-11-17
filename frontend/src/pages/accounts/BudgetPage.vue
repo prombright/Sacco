@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { CheckCircleIcon, PencilSquareIcon } from '@heroicons/vue/24/outline'
 import { api, ApiError } from '@/api'
@@ -61,9 +62,9 @@ async function save() {
   <div>
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <p class="eyebrow">Reports</p>
-        <h1 class="mt-1 text-2xl font-bold">Budget and actual</h1>
-        <p class="mt-1 max-w-3xl text-gray-600">Set what the SACCO expects to earn and spend in a year, account by account, and see how the year is going against it.</p>
+        <PageHeader eyebrow="Reports" title="Budget and actual">
+          Set what the SACCO expects to earn and spend in a year, account by account, and see how the year is going against it.
+        </PageHeader>
       </div>
       <div class="flex flex-wrap items-center gap-2">
         <div class="flex rounded-lg bg-gray-200/60 p-0.5 text-sm font-semibold" role="radiogroup" aria-label="Year">

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { ArrowUturnLeftIcon } from '@heroicons/vue/24/outline'
 import { api, ApiError } from '@/api'
@@ -97,9 +98,9 @@ async function reverse() {
 
 <template>
   <div>
-    <p class="eyebrow">Administration</p>
-    <h1 class="mt-1 text-2xl font-bold">Transactions &amp; reversals</h1>
-    <p class="mt-1 max-w-3xl text-gray-600">Every savings and shares entry. A mistake is never deleted: it is reversed with an equal and opposite entry, and the member is told. Transfers are reversed on the Internal transfers page, payroll uploads on Payroll deductions.</p>
+    <PageHeader eyebrow="Administration" title="Transactions &amp; reversals">
+      Every savings and shares entry. A mistake is never deleted: it is reversed with an equal and opposite entry, and the member is told. Transfers are reversed on the Internal transfers page, payroll uploads on Payroll deductions.
+    </PageHeader>
 
     <ReportView class="mt-5" :report="report" :busy="busy" :error="error">
       <template #controls>

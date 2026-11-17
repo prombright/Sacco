@@ -77,7 +77,7 @@ async function save() {
         <div><label for="xpur" class="label">Purpose <span class="font-normal text-gray-400">(optional)</span></label><input id="xpur" v-model="form.purpose" class="input" maxlength="255" /></div>
       </div>
 
-      <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+      <div class="sheet-actions flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <button type="button" class="btn-secondary" @click="emit('close')">Cancel</button>
         <button type="submit" class="btn-primary" :disabled="busy || !member || !form.amount || !form.disbursed_on">Record loan</button>
       </div>

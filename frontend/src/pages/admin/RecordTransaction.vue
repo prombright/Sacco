@@ -109,7 +109,7 @@ async function save() {
         Entries can't be edited or deleted. A mistake is put right by reversing the entry, which stays in the history.
       </p>
 
-      <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+      <div class="sheet-actions flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <button type="button" class="btn-secondary" @click="emit('close')">Cancel</button>
         <button type="submit" class="btn-primary" :disabled="busy || !form.amount">{{ busy ? 'Saving…' : 'Record entry' }}</button>
       </div>

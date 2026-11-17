@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
 import SkeletonRows from '@/components/SkeletonRows.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { computed, onMounted, ref } from 'vue'
@@ -28,9 +29,9 @@ onMounted(async () => {
   <div>
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <p class="eyebrow">My account</p>
-        <h1 class="mt-1 text-2xl font-bold">Loans</h1>
-        <p class="mt-1 text-sm text-gray-600">Your loans, and members who've asked you to guarantee theirs.</p>
+        <PageHeader eyebrow="My account" title="Loans">
+          Your loans, and members who've asked you to guarantee theirs.
+        </PageHeader>
       </div>
       <RouterLink v-if="loans && !inProgress" :to="{ name: 'loan-apply' }" class="btn-primary">Apply for a loan</RouterLink>
     </div>

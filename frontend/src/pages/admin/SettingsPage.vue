@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
 import { toast } from '@/toast'
 import SaccoMark from '@/components/SaccoMark.vue'
 import { computed, onMounted, ref } from 'vue'
@@ -124,8 +125,7 @@ async function removeLogo() {
 
 <template>
   <div class="max-w-5xl">
-    <p class="eyebrow">Settings</p>
-    <h1 class="mt-1 text-2xl font-bold">Setup & rules</h1>
+    <PageHeader eyebrow="Settings" title="Setup & rules" />
     <p class="mt-1 text-gray-600">
       The SACCO's rules, as the committee set them.
       <template v-if="!auth.isSuperAdmin">Only a super admin can change them.</template>

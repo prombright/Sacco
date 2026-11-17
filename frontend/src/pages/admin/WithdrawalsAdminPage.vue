@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import MoneyAccountSelect from '@/components/MoneyAccountSelect.vue'
 import { ask } from '@/confirm'
@@ -71,9 +72,9 @@ async function approve(r: Withdrawal) {
 
 <template>
   <div>
-    <p class="eyebrow">Savings &amp; shares</p>
-    <h1 class="mt-1 text-2xl font-bold">Withdrawal requests</h1>
-    <p class="mt-1 text-sm text-gray-600">Approve requests, then record the cheque. Savings go down when the cheque is recorded.</p>
+    <PageHeader eyebrow="Savings &amp; shares" title="Withdrawal requests">
+      Approve requests, then record the cheque. Savings go down when the cheque is recorded.
+    </PageHeader>
 
     <div class="mt-5 flex gap-1 overflow-x-auto pb-1" role="tablist">
       <button
@@ -127,7 +128,7 @@ async function approve(r: Withdrawal) {
       <form class="space-y-4" @submit.prevent="act(`/withdrawals/${dialog.request.id}/reject`, { note: form.note })">
         <div v-if="formError" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ formError }}</div>
         <div><label for="note" class="label">Reason (the member will see this)</label><input id="note" v-model="form.note" class="input" maxlength="255" /></div>
-        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <div class="sheet-actions flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>
           <button type="submit" class="btn-primary" :disabled="busy || !form.note.trim()">Reject</button>
         </div>
@@ -150,7 +151,7 @@ async function approve(r: Withdrawal) {
           <div><label for="pdate" class="label">Cheque date</label><input id="pdate" v-model="form.paid_on" type="date" :max="today" class="input" /></div>
           <MoneyAccountSelect id="w-money" v-model="form.money_account_id" label="Paid from" class="sm:col-span-2" />
         </div>
-        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <div class="sheet-actions flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>
           <button type="submit" class="btn-primary" :disabled="busy || !form.cheque_no.trim()">Record cheque</button>
         </div>

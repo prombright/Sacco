@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
 import AmountField from '@/components/AmountField.vue'
 import { toast } from '@/toast'
 import MoneyAccountSelect from '@/components/MoneyAccountSelect.vue'
@@ -77,9 +78,9 @@ const report = computed<Report>(() => ({
 
 <template>
   <div>
-    <p class="eyebrow">Savings &amp; shares</p>
-    <h1 class="mt-1 text-2xl font-bold">Deposit</h1>
-    <p class="mt-1 text-gray-600">Money a member pays in outside the payroll, in cash or by bank slip. It goes to the bank account in the books.</p>
+    <PageHeader eyebrow="Savings &amp; shares" title="Deposit">
+      Money a member pays in outside the payroll, in cash or by bank slip. It goes to the bank account in the books.
+    </PageHeader>
 
     <form v-can="'money'" class="card mt-5 grid gap-4 p-5 lg:grid-cols-2" @submit.prevent="save">
       <div class="space-y-2 lg:col-span-2">

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
 import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { api, ApiError } from '@/api'
@@ -69,9 +70,10 @@ async function reverse() {
     <template v-if="batch">
       <div class="mt-3 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p class="eyebrow">Payroll deductions</p>
-          <h1 class="mt-1 text-2xl font-bold">Payroll {{ batch.period }}</h1>
-          <p class="mt-1 text-sm text-gray-600">{{ batch.file_name }} · posted {{ formatDate(batch.created_at) }} by {{ batch.created_by_name }}</p>
+          <PageHeader eyebrow="Payroll deductions">
+            <template #title>Payroll {{ batch.period }}</template>
+            {{ batch.file_name }} · posted {{ formatDate(batch.created_at) }} by {{ batch.created_by_name }}
+          </PageHeader>
         </div>
         <StatusBadge v-if="batch.status === 'reversed'" label="Reversed" style-class="bg-gray-100 text-gray-600" />
         <StatusBadge v-else label="Posted" style-class="bg-green-50 text-green-800" />
@@ -89,7 +91,7 @@ async function reverse() {
       </div>
 
       <div class="card mt-5 overflow-x-auto">
-        <table class="w-full text-sm">
+        <table v-stack class="w-full text-sm">
           <thead class="border-b border-gray-200 bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
             <tr><th class="px-4 py-3">Member</th><th class="px-4 py-3">Account</th><th class="px-4 py-3 text-right">Savings</th><th class="px-4 py-3 text-right">Shares</th><th class="px-4 py-3 text-right">Loan</th></tr>
           </thead>
@@ -116,7 +118,7 @@ async function reverse() {
         <div v-if="formError" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ formError }}</div>
         <p class="text-sm text-gray-700">Every savings, shares and loan entry from this upload will be cancelled.</p>
         <div><label for="reason" class="label">Why?</label><input id="reason" v-model="reason" class="input" maxlength="255" placeholder="e.g. Wrong month's file" /></div>
-        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <div class="sheet-actions flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="btn-secondary" @click="reversing = false">Cancel</button>
           <button type="submit" class="btn-primary" :disabled="busy || !reason.trim()">Reverse upload</button>
         </div>

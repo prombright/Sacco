@@ -14,6 +14,7 @@ const SAFFRON: RGB = [238, 169, 15]
 const INK: RGB = [21, 24, 33]
 const LINE: RGB = [221, 217, 208]
 const MUTED: RGB = [120, 113, 108]
+const RULE: RGB = [231, 227, 218]
 
 export const brandRgb = (who: Who): RGB => {
   const hex = (who.sacco?.brand_color ?? '#2b35af').replace('#', '')
@@ -81,37 +82,56 @@ export function drawMark(doc: JsPDF, who: Who, logo: { data: string; ratio: numb
 }
 
 /** The letterhead used on letters: band, mark, name, slogan. Returns where the content starts. */
-async function letterhead(doc: JsPDF, who: Who) {
+/**
+ * The letterhead on every PDF the SACCO prints (letters, forms, certificates, reports, receipts):
+ * the brand band with its gold edge, the logo, the name and slogan, and a rule under them.
+ * `margin` is the page's side margin; `k` scales it down for smaller paper (a receipt on A5).
+ * Returns where the content starts.
+ */
+export function drawLetterhead(doc: JsPDF, who: Who, logo: { data: string; ratio: number } | null, margin = 18, k = 1): number {
   const W = doc.internal.pageSize.getWidth()
-  const brand = brandRgb(who)
-  doc.setFillColor(...brand)
-  doc.rect(0, 0, W, 4, 'F')
+  doc.setFillColor(...brandRgb(who))
+  doc.rect(0, 0, W, 4 * k, 'F')
   doc.setFillColor(...SAFFRON)
-  doc.rect(0, 4, W, 1, 'F')
-  drawMark(doc, who, await loadLogo(who), 18, 12, 15)
+  doc.rect(0, 4 * k, W, 1 * k, 'F')
+  drawMark(doc, who, logo, margin, 11 * k, 14 * k)
   doc.setTextColor(...INK)
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(15)
-  doc.text(who.sacco?.name ?? 'SACCO', 37, 18.5)
+  doc.setFontSize(14.5 * k)
+  doc.text(who.sacco?.name ?? 'SACCO', margin + 18 * k, 17.5 * k)
+  if (who.sacco?.slogan) {
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9 * k)
+    doc.setTextColor(...MUTED)
+    doc.text(who.sacco.slogan, margin + 18 * k, 22.5 * k)
+  }
+  doc.setDrawColor(...RULE)
+  doc.setLineWidth(0.2)
+  doc.line(margin, 30 * k, W - margin, 30 * k)
+  return 39 * k
+}
+
+/** The footer on every PDF: what it is on the left; when and by whom it was printed (and the page) on the right */
+export function drawFooter(doc: JsPDF, who: Who, note: string, margin = 18, page = '', k = 1) {
+  const W = doc.internal.pageSize.getWidth()
+  const H = doc.internal.pageSize.getHeight()
+  doc.setDrawColor(...RULE)
+  doc.setLineWidth(0.2)
+  doc.line(margin, H - 13 * k, W - margin, H - 13 * k)
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(9)
+  doc.setFontSize(7.5 * k)
   doc.setTextColor(...MUTED)
-  if (who.sacco?.slogan) doc.text(who.sacco.slogan, 37, 23.5)
-  doc.setDrawColor(231, 227, 218)
-  doc.line(18, 32, W - 18, 32)
-  return 42
+  doc.text(note, margin, H - 8.5 * k)
+  const printed = `Printed ${longDate(new Date())}${who.user ? ` by ${who.user}` : ''}`
+  doc.text(page ? `${printed} · ${page}` : printed, W - margin, H - 8.5 * k, { align: 'right' })
+}
+
+async function letterhead(doc: JsPDF, who: Who) {
+  return drawLetterhead(doc, who, await loadLogo(who)) + 3
 }
 
 function footer(doc: JsPDF, who: Who, note: string) {
-  const W = doc.internal.pageSize.getWidth()
-  const H = doc.internal.pageSize.getHeight()
-  doc.setDrawColor(231, 227, 218)
-  doc.line(18, H - 14, W - 18, H - 14)
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(7.5)
-  doc.setTextColor(...MUTED)
-  doc.text(note, 18, H - 9.5)
-  doc.text(`Printed ${longDate(new Date())}${who.user ? ` by ${who.user}` : ''}`, W - 18, H - 9.5, { align: 'right' })
+  drawFooter(doc, who, note)
 }
 
 async function newDoc(orientation: 'portrait' | 'landscape' = 'portrait', format: string | number[] = 'a4') {

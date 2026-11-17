@@ -127,12 +127,18 @@ async function download(kind: 'pdf' | 'excel') {
 
     <div v-if="error" class="mx-auto max-w-4xl rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{{ error }}</div>
 
-    <article v-if="data" class="mx-auto max-w-4xl rounded-2xl bg-surface p-5 shadow-card sm:p-8 print:max-w-none print:rounded-none print:p-0 print:shadow-none">
-      <header class="flex flex-wrap items-start gap-4 border-b-2 border-navy-900 pb-5">
+    <article v-if="data" class="mx-auto max-w-4xl overflow-hidden rounded-2xl bg-surface p-5 shadow-card sm:p-8 print:max-w-none print:overflow-visible print:rounded-none print:p-0 print:shadow-none">
+      <!-- The same letterhead as the SACCO's PDFs: the brand band with its gold edge, logo, name, slogan -->
+      <div class="-mx-5 -mt-5 mb-6 sm:-mx-8 sm:-mt-8 print:mx-0 print:mt-0" aria-hidden="true">
+        <div class="h-[5px] bg-navy-900 print:[-webkit-print-color-adjust:exact] print:[print-color-adjust:exact]" />
+        <div class="h-[2px] bg-saffron-500 print:[-webkit-print-color-adjust:exact] print:[print-color-adjust:exact]" />
+      </div>
+      <header class="flex flex-wrap items-center gap-4 border-b border-line pb-5">
         <SaccoMark :sacco="auth.sacco" size="lg" />
         <div>
           <p class="text-xl font-bold">{{ auth.sacco?.name }}</p>
-          <p class="text-sm font-semibold uppercase tracking-wider text-gray-500">Member statement</p>
+          <p v-if="auth.sacco?.slogan" class="text-sm text-gray-500">{{ auth.sacco.slogan }}</p>
+          <p class="mt-1 text-xs font-semibold uppercase tracking-wider text-navy-700">Member statement</p>
         </div>
         <div class="ml-auto text-right text-sm">
           <p class="font-semibold">{{ formatDate(data.from) }} – {{ formatDate(data.to) }}</p>

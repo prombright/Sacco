@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeftIcon, CheckCircleIcon, ExclamationTriangleIcon, InformationCircleIcon, PlusIcon } from '@heroicons/vue/24/outline'
@@ -149,9 +150,9 @@ async function saveEdit() {
     <template v-if="!id">
       <div class="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p class="eyebrow">Cash book</p>
-          <h1 class="mt-1 text-2xl font-bold">Bank reconciliation</h1>
-          <p class="mt-1 max-w-3xl text-gray-600">Check the books against the bank statement. Enter the statement's closing balance, tick each entry that appears on it, and the difference must come to zero.</p>
+          <PageHeader eyebrow="Cash book" title="Bank reconciliation">
+            Check the books against the bank statement. Enter the statement's closing balance, tick each entry that appears on it, and the difference must come to zero.
+          </PageHeader>
         </div>
         <button v-can="'money'" type="button" class="btn-primary" :disabled="!list" @click="start"><PlusIcon class="h-4 w-4" />New reconciliation</button>
       </div>

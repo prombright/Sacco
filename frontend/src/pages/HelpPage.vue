@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
 import { computed, onMounted, ref } from 'vue'
 import type { Component } from 'vue'
 import { BanknotesIcon, ChevronDownIcon, ClipboardDocumentCheckIcon, KeyIcon, MagnifyingGlassIcon, ReceiptPercentIcon, UserGroupIcon, WalletIcon } from '@heroicons/vue/24/outline'
@@ -106,9 +107,9 @@ const shown = computed(() =>
 
 <template>
   <div class="max-w-3xl">
-    <p class="eyebrow">{{ auth.isAdmin ? 'For members' : 'My account' }}</p>
-    <h1 class="mt-1 text-2xl font-bold">Help</h1>
-    <p class="mt-1 text-gray-600">Plain answers to what members ask most.</p>
+    <PageHeader :eyebrow="auth.isAdmin ? 'For members' : 'My account'" title="Help">
+      Plain answers to what members ask most.
+    </PageHeader>
 
     <div class="relative mt-5">
       <MagnifyingGlassIcon class="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" aria-hidden="true" />
