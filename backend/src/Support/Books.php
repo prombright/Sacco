@@ -43,7 +43,7 @@ final class Books
     {
         $print = md5((string) $db->query(
             "SELECT CONCAT_WS('|',
-                (SELECT COALESCE(MAX(id), 0) FROM transactions),
+                (SELECT CONCAT(COALESCE(MAX(id), 0), '-', COUNT(*), '-', COALESCE(SUM(amount), 0), '-', COALESCE(SUM(TO_DAYS(value_date)), 0)) FROM transactions),
                 (SELECT COALESCE(MAX(id), 0) FROM loan_payments),
                 (SELECT COUNT(*) FROM loans WHERE disbursed_on IS NOT NULL),
                 (SELECT COALESCE(MAX(updated_at), '') FROM loans),
@@ -57,6 +57,7 @@ final class Books
                 (SELECT COALESCE(MAX(id), 0) FROM investment_returns),
                 (SELECT COALESCE(MAX(id), 0) FROM transfers),
                 (SELECT CONCAT(COUNT(*), '-', COALESCE(SUM(amount), 0)) FROM savings_interest),
+                (SELECT CONCAT(COUNT(*), '-', COALESCE(SUM(amount), 0)) FROM savings_interest_payouts),
                 (SELECT COUNT(*) FROM transfers WHERE status = 'reversed'),
                 (SELECT CONCAT(COUNT(*), '-', COALESCE(SUM(status = 'paid' AND method = 'cash'), 0), '-', COALESCE(MAX(updated_at), '')) FROM membership_fees),
                 CURDATE())"
@@ -182,6 +183,7 @@ final class Books
                 'charge' => 'withdrawal_fee_income',
                 'membership_fee' => 'membership_fee_income',
                 'loan_fee' => 'loan_fee_income',
+                'interest' => 'savings_interest_payable',
                 'subscription' => 'subscription_income',
                 'adjustment' => 'suspense',
                 'opening_balance' => 'opening',
@@ -252,6 +254,14 @@ final class Books
                 [self::account($db, 'savings_interest_expense'), $cents, null, null],
                 [self::account($db, 'savings_interest_payable'), -$cents, null, null],
             ]);
+        }
+        // Paid out in cash: no longer owed to the member; the money leaves the bank (or cash)
+        foreach ($db->query("SELECT p.*, u.full_name FROM savings_interest_payouts p JOIN users u ON u.id = p.user_id WHERE p.method = 'cash'") as $p) {
+            $cents = Money::fromDecimal((string) $p['amount']);
+            self::add($db, $p['paid_on'], "Savings interest paid in cash to {$p['full_name']}", 'savings_interest_paid', (int) $p['id'], [
+                [self::account($db, 'savings_interest_payable'), $cents, (int) $p['user_id'], null],
+                [(int) ($p['money_account_id'] ?: self::account($db, 'bank')), -$cents, null, $p['reference']],
+            ], $p['reference']);
         }
     }
 

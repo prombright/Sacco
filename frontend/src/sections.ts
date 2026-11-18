@@ -127,6 +127,7 @@ export const sections: Section[] = [
     intro: 'Money coming in and going out of members\' accounts.',
     items: [
       { name: 'deposit', label: 'Deposit', description: 'Cash or bank slips into savings or shares', icon: BanknotesIcon, needs: 'money', figure: (s) => `${formatMoney(s.deposits_month)} in ${month}` },
+      { name: 'savings-interest', label: 'Savings interest', description: 'Interest held for members; pay it in cash or into savings', icon: ReceiptPercentIcon },
       { name: 'payroll', label: 'Payroll deductions', description: 'Upload the month\'s payroll file', icon: ArrowUpTrayIcon, also: ['payroll-batch'], figure: (s) => (s.last_payroll ? `Last: ${new Date(s.last_payroll + '-01').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}` : 'None posted yet') },
       { name: 'transaction-import', label: 'Import transactions', description: 'Dated deposits, withdrawals and repayments from Excel', icon: DocumentArrowUpIcon, superOnly: true },
       { name: 'transfers', label: 'Internal transfers', description: 'Savings to shares, to a colleague, or to a loan', icon: ArrowsRightLeftIcon, figure: (s) => `${s.transfers_month} in ${month}` },

@@ -690,6 +690,43 @@ final class Loans
     public const LATE_AMOUNT = '(CASE WHEN i.short > 0 THEN i.short ELSE i.principal + i.interest - i.principal_paid - i.interest_paid END)';
 
     /** Totals for a disbursed loan, in cents. Unpaid charges (penalties) count as owed and overdue. */
+    /**
+     * Who approves (or turns down) a loan:
+     *  - up to the borrower's savings: a super admin;
+     *  - more than their savings, or a loan to a super admin who is also a member: an admin
+     *    (a super admin may step in on the bigger loans; the main super admin may approve any);
+     *  - staff never, and nobody their own loan.
+     *
+     * @return array{needs: string, big: bool, borrower_is_super: bool, savings: int} what the loan needs
+     */
+    public static function approvalNeeds(PDO $db, array $loan): array
+    {
+        $savings = Ledger::balance($db, (int) $loan['user_id'], 'savings');
+        $big = Money::fromDecimal((string) $loan['amount']) > $savings;
+        $super = \Sacco\Auth\OfficeAccess::roleOf($db, (int) $loan['user_id']) === \Sacco\Auth\Roles::SUPER_ADMIN;
+        return ['needs' => $super || $big ? 'admin' : 'super_admin', 'big' => $big, 'borrower_is_super' => $super, 'savings' => $savings];
+    }
+
+    /** Why this person may not approve or turn down this loan, or null when they may */
+    public static function cannotDecide(PDO $db, array $loan, array $actor): ?string
+    {
+        if (!in_array($actor['role'], [\Sacco\Auth\Roles::SUPER_ADMIN, \Sacco\Auth\Roles::ADMIN], true)) {
+            return 'Only an admin or a super admin approves loans.';
+        }
+        if (\Sacco\Auth\Auth::isMe((int) $loan['user_id'])) {
+            return 'You can\'t decide on your own loan.';
+        }
+        $n = self::approvalNeeds($db, $loan);
+        if (\Sacco\Auth\Roles::isMain($actor)) {
+            return null;
+        }
+        if ($actor['role'] === \Sacco\Auth\Roles::SUPER_ADMIN) {
+            return $n['borrower_is_super'] ? 'This borrower is a super admin, so an admin approves their loan.' : null;
+        }
+        // An admin: the bigger loans and super admins' loans
+        return $n['needs'] === 'admin' ? null : 'This loan is within the member\'s savings, so a super admin approves it.';
+    }
+
     /** Whether a loan's processing fee comes from the borrower's savings (the SACCO's rule) */
     public static function feeFromSavings(): bool
     {

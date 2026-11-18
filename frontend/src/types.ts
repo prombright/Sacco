@@ -1,4 +1,4 @@
-export type Role = 'super_admin' | 'admin' | 'member'
+export type Role = 'super_admin' | 'admin' | 'staff' | 'member'
 export type UserStatus = 'active' | 'suspended' | 'left'
 
 export interface User {
@@ -62,6 +62,8 @@ export interface Transaction {
   reversed_by: number | null
   /** A mistake and its correction: hidden from the member */
   in_error?: boolean
+  /** A standalone entry the super admin may correct or delete */
+  editable?: boolean
   created_by_name: string | null
   created_at: string
 }
@@ -193,6 +195,8 @@ export interface Loan {
   projected?: Installment[]
   payments?: LoanPayment[]
   borrower_eligibility?: { savings: string; owed: string; limit: string } | null
+  /** Who approves it (up to the borrower's savings: a super admin; more, or a super admin's loan: an admin), and whether the viewer may */
+  decision?: { needs: 'admin' | 'super_admin'; why_needs: string; can: boolean; why_not: string | null }
   borrower_credit?: CreditStanding
   product_name: string | null
   /** Taken off the cheque at payout (an estimate until then) */

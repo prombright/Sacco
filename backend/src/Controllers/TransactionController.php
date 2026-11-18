@@ -479,6 +479,10 @@ final class TransactionController
         try {
             $row = Database::transaction(function (\PDO $db) use ($original, $reason, $inError) {
                 $row = Ledger::reverse($db, (int) $original['id'], $reason);
+                // Savings interest paid into savings and taken back: it is held for the member again
+                if ($original['type'] === 'interest') {
+                    $db->prepare('DELETE FROM savings_interest_payouts WHERE transaction_id = ?')->execute([$original['id']]);
+                }
                 if ($inError) {
                     $db->prepare('UPDATE transactions SET in_error = 1 WHERE id IN (?, ?)')->execute([$original['id'], $row['id']]);
                     $row['in_error'] = 1;
@@ -502,6 +506,119 @@ final class TransactionController
         }
 
         Response::ok(['transaction' => Ledger::present($row), 'balances' => Ledger::balances((int) $original['user_id'])], 201);
+    }
+
+    /**
+     * PATCH /api/transactions/{id} { amount, value_date, reference?, narration?, reason } (super admin)
+     * - corrects a standalone entry recorded by mistake (a deposit, withdrawal, adjustment or opening
+     * balance); every later balance is worked out again. The member is told.
+     */
+    public function edit(Request $request): never
+    {
+        $db = Database::tenant();
+        $t = Ledger::find($db, (int) $request->param('id')) ?? Response::error('That transaction doesn\'t exist.', 404);
+        if (Auth::isMe((int) $t['user_id'])) {
+            Response::error('You can\'t change entries on your own account. Ask another super admin.', 403);
+        }
+        if ($why = Ledger::fixable($t)) {
+            Response::error($why, 422);
+        }
+        $reason = mb_substr($request->string('reason'), 0, 255);
+        if ($reason === '') {
+            Response::error('Say what was wrong with it: the member sees this.', 422, ['reason' => 'Required']);
+        }
+        $cents = Money::parse($request->string('amount'));
+        if ($cents === null || $cents <= 0) {
+            Response::error('Enter the right amount.', 422, ['amount' => 'Required']);
+        }
+        $date = $request->string('value_date') ?: $t['value_date'];
+        $d = \DateTime::createFromFormat('!Y-m-d', $date);
+        if (!$d || $d->format('Y-m-d') !== $date || $date > date('Y-m-d')) {
+            Response::error('Enter a valid date, not in the future.', 422, ['value_date' => 'Invalid']);
+        }
+        // Money out stays money out: the amount keeps the entry's direction
+        $signed = Money::fromDecimal((string) $t['amount']) < 0 ? -$cents : $cents;
+        $reference = mb_substr($request->input('reference') !== null ? $request->string('reference') : (string) $t['reference'], 0, 80) ?: null;
+        $narration = mb_substr($request->input('narration') !== null ? $request->string('narration') : (string) $t['narration'], 0, 255) ?: null;
+        $changes = [];
+        foreach (['amount' => [$t['amount'], Money::toDecimal($signed)], 'value_date' => [$t['value_date'], $date], 'reference' => [$t['reference'], $reference], 'narration' => [$t['narration'], $narration]] as $k => [$from, $to]) {
+            if ((string) $from !== (string) $to) {
+                $changes[$k] = ['from' => $from, 'to' => $to];
+            }
+        }
+        if (!$changes) {
+            Response::error('Nothing was changed.', 422);
+        }
+        Periods::check($t['value_date']);
+        Periods::check($date);
+        $who = $db->prepare('SELECT full_name FROM users WHERE id = ?');
+        $who->execute([$t['user_id']]);
+        $name = (string) $who->fetchColumn();
+        Approvals::gate($request, [self::class, 'edit'], 'correction', 'money', max(abs(Money::fromDecimal((string) $t['amount'])), $cents),
+            'Correct a ' . str_replace('_', ' ', $t['type']) . ' of ' . Notify::money(ltrim($t['amount'], '-')) . " on $name's {$t['account']} to " . Notify::cents($cents) . ": $reason",
+            (int) $t['user_id']);
+        try {
+            Database::transaction(function (\PDO $db) use ($t, $signed, $date, $reference, $narration) {
+                $db->prepare('UPDATE transactions SET amount = ?, value_date = ?, reference = ?, narration = ? WHERE id = ?')
+                    ->execute([Money::toDecimal($signed), $date, $reference, $narration, $t['id']]);
+                Ledger::rebalance($db, (int) $t['user_id'], $t['account']);
+            });
+        } catch (LedgerException $e) {
+            Response::error($e->getMessage(), 422);
+        }
+        Audit::log('transaction.edited', 'transaction', (int) $t['id'], ['member' => (int) $t['user_id'], 'changes' => $changes, 'reason' => $reason]);
+        $balance = Notify::money(Ledger::balances((int) $t['user_id'])[$t['account']]);
+        $what = str_replace('_', ' ', $t['type']);
+        $detail = isset($changes['amount'])
+            ? 'was ' . Notify::money(ltrim($t['amount'], '-')) . ' and is now ' . Notify::cents($cents)
+            : 'was corrected';
+        if (isset($changes['value_date'])) {
+            $detail .= ', dated ' . date('j M Y', strtotime($date));
+        }
+        Notify::member((int) $t['user_id'], 'money_corrected', "An entry on your {$t['account']} was corrected",
+            "The $what dated " . date('j M Y', strtotime($t['value_date'])) . " $detail: $reason. Your {$t['account']} balance is now $balance.", '/statement');
+        Response::ok(['transaction' => Ledger::present(Ledger::find($db, (int) $t['id'])), 'balances' => Ledger::balances((int) $t['user_id'])]);
+    }
+
+    /**
+     * DELETE /api/transactions/{id} { reason } (super admin) - removes a standalone entry recorded by
+     * mistake, as if it had never been made: later balances are worked out again. The member isn't
+     * told; the office is, and the audit report keeps what was removed and why.
+     */
+    public function destroy(Request $request): never
+    {
+        $db = Database::tenant();
+        $t = Ledger::find($db, (int) $request->param('id')) ?? Response::error('That transaction doesn\'t exist.', 404);
+        if (Auth::isMe((int) $t['user_id'])) {
+            Response::error('You can\'t delete entries on your own account. Ask another super admin.', 403);
+        }
+        if ($why = Ledger::fixable($t)) {
+            Response::error($why, 422);
+        }
+        $reason = mb_substr($request->string('reason'), 0, 255);
+        if ($reason === '') {
+            Response::error('Say why it is being deleted: it is kept in the audit report.', 422, ['reason' => 'Required']);
+        }
+        Periods::check($t['value_date']);
+        $who = $db->prepare('SELECT full_name FROM users WHERE id = ?');
+        $who->execute([$t['user_id']]);
+        $name = (string) $who->fetchColumn();
+        Approvals::gate($request, [self::class, 'destroy'], 'deletion', 'money', abs(Money::fromDecimal((string) $t['amount'])),
+            'Delete a ' . str_replace('_', ' ', $t['type']) . ' of ' . Notify::money(ltrim($t['amount'], '-')) . " on $name's {$t['account']}: $reason",
+            (int) $t['user_id']);
+        try {
+            Database::transaction(function (\PDO $db) use ($t) {
+                $db->prepare('DELETE FROM transactions WHERE id = ?')->execute([$t['id']]);
+                Ledger::rebalance($db, (int) $t['user_id'], $t['account']);
+            });
+        } catch (LedgerException $e) {
+            Response::error($e->getMessage(), 422);
+        }
+        Audit::log('transaction.deleted', 'transaction', (int) $t['id'], [
+            'member' => (int) $t['user_id'], 'account' => $t['account'], 'type' => $t['type'], 'amount' => $t['amount'],
+            'value_date' => $t['value_date'], 'reference' => $t['reference'], 'narration' => $t['narration'], 'reason' => $reason,
+        ]);
+        Response::ok(['balances' => Ledger::balances((int) $t['user_id'])]);
     }
 
     private function findUser(int $id): array

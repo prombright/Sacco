@@ -44,6 +44,7 @@ export const transactionTypeLabel: Record<string, string> = {
   subscription: 'Annual subscription',
   charge: 'Fee',
   loan_fee: 'Loan processing fee',
+  interest: 'Interest on savings',
   membership_fee: 'Membership fee',
   reversal: 'Reversal',
   transfer: 'Transfer',

@@ -9,13 +9,16 @@ export const useAuth = defineStore('auth', () => {
   const loaded = ref(false)
 
   const isSuperAdmin = computed(() => user.value?.role === 'super_admin')
-  const isAdmin = computed(() => user.value?.role === 'admin' || isSuperAdmin.value)
+  /** Anyone working in the office: super admin, admin or staff (staff only look) */
+  const isAdmin = computed(() => user.value?.role === 'admin' || user.value?.role === 'staff' || isSuperAdmin.value)
+  /** Sees everything, approves and changes nothing */
+  const isStaff = computed(() => user.value?.role === 'staff')
   /** The main super admin: a login of its own, not anyone's member account (made by the developer) */
   const isMain = computed(() => isSuperAdmin.value && !user.value?.office_via_member)
   /** Whether this office account may make changes in an area (the super admin always may) */
   const can = (area: string) => isSuperAdmin.value || !!user.value?.permissions?.includes(area)
   /** An admin who can look and download but not change anything */
-  const viewOnly = computed(() => user.value?.role === 'admin' && !(user.value.permissions?.length))
+  const viewOnly = computed(() => user.value?.role === 'staff' || (user.value?.role === 'admin' && !(user.value.permissions?.length)))
 
   function apply(session: Session) {
     user.value = session.user
@@ -85,5 +88,5 @@ export const useAuth = defineStore('auth', () => {
     setCsrfToken(null)
   }
 
-  return { user, sacco, loaded, isAdmin, isSuperAdmin, isMain, can, viewOnly, load, login, twoStep, changePassword, switchAccount, logout, forget, useSacco }
+  return { user, sacco, loaded, isAdmin, isStaff, isSuperAdmin, isMain, can, viewOnly, load, login, twoStep, changePassword, switchAccount, logout, forget, useSacco }
 })

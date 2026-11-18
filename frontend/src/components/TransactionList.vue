@@ -8,7 +8,7 @@ import { accountLabel, formatDate, formatMoney, transactionTypeLabel } from '@/m
  * A ledger: a table on wide screens, a list on phones. Admins get a Reverse button per entry.
  * `byMonth` puts a heading over each month with what came in and went out.
  */
-const props = defineProps<{ transactions: Transaction[]; showAccount?: boolean; canReverse?: boolean; byMonth?: boolean }>()
+const props = defineProps<{ transactions: Transaction[]; showAccount?: boolean; canReverse?: boolean; byMonth?: boolean; canFix?: boolean }>()
 
 const groups = computed(() => {
   if (!props.byMonth) return [{ key: 'all', label: '', in: 0, out: 0, rows: props.transactions }]
@@ -28,7 +28,7 @@ const groups = computed(() => {
   }
   return out
 })
-const emit = defineEmits<{ reverse: [transaction: Transaction] }>()
+const emit = defineEmits<{ reverse: [transaction: Transaction]; fix: [transaction: Transaction, mode: 'edit' | 'delete'] }>()
 
 function detail(t: Transaction) {
   return [t.reference, t.narration].filter(Boolean).join(' · ')
@@ -73,7 +73,11 @@ function detail(t: Transaction) {
           <td class="whitespace-nowrap px-4 py-3 text-right font-medium tabular-nums" :class="!t.reversed_by && 'text-red-700'">{{ Number(t.amount) < 0 ? formatMoney(String(-Number(t.amount))) : '' }}</td>
           <td class="whitespace-nowrap px-4 py-3 text-right tabular-nums">{{ formatMoney(t.balance_after) }}</td>
           <td v-if="canReverse" class="px-4 py-3 text-right">
-            <button v-if="t.type !== 'reversal' && !t.reversed_by" type="button" class="btn-ghost px-2 py-1" @click="emit('reverse', t)">Reverse</button>
+            <span class="inline-flex whitespace-nowrap">
+              <button v-if="canFix && t.editable" type="button" class="btn-ghost px-2 py-1" @click="emit('fix', t, 'edit')">Edit</button>
+              <button v-if="t.type !== 'reversal' && !t.reversed_by" type="button" class="btn-ghost px-2 py-1" @click="emit('reverse', t)">Reverse</button>
+              <button v-if="canFix && t.editable" type="button" class="btn-ghost px-2 py-1 !text-red-700" @click="emit('fix', t, 'delete')">Delete</button>
+            </span>
           </td>
         </tr>
       </tbody>
@@ -104,7 +108,11 @@ function detail(t: Transaction) {
             <p class="text-xs tabular-nums text-gray-500">Bal. {{ formatMoney(t.balance_after) }}</p>
           </div>
         </div>
-        <button v-if="canReverse && t.type !== 'reversal' && !t.reversed_by" type="button" class="btn-secondary mt-2 px-3 py-1.5" @click="emit('reverse', t)">Reverse</button>
+        <span v-if="canReverse" class="mt-2 flex flex-wrap gap-2">
+          <button v-if="canFix && t.editable" type="button" class="btn-secondary px-3 py-1.5" @click="emit('fix', t, 'edit')">Edit</button>
+          <button v-if="t.type !== 'reversal' && !t.reversed_by" type="button" class="btn-secondary px-3 py-1.5" @click="emit('reverse', t)">Reverse</button>
+          <button v-if="canFix && t.editable" type="button" class="btn-secondary px-3 py-1.5 !text-red-700" @click="emit('fix', t, 'delete')">Delete</button>
+        </span>
       </li>
       </template>
     </ul>

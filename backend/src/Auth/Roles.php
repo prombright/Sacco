@@ -13,13 +13,23 @@ final class Roles
 {
     public const SUPER_ADMIN = 'super_admin';
     public const ADMIN = 'admin';
+    /** Sees everything in the office; approves and changes nothing */
+    public const STAFF = 'staff';
     public const MEMBER = 'member';
 
-    public const ALL = [self::SUPER_ADMIN, self::ADMIN, self::MEMBER];
+    public const ALL = [self::SUPER_ADMIN, self::ADMIN, self::STAFF, self::MEMBER];
 
+    /** Office roles, from the top */
+    public const OFFICE = [self::SUPER_ADMIN, self::ADMIN, self::STAFF];
+
+    /**
+     * Whether a role may open something meant for these roles. Staff may look wherever admins may
+     * (doing anything goes through can(), which staff never pass).
+     */
     public static function allows(string $role, array $allowed): bool
     {
-        return $role === self::SUPER_ADMIN || in_array($role, $allowed, true);
+        return $role === self::SUPER_ADMIN || in_array($role, $allowed, true)
+            || ($role === self::STAFF && in_array(self::ADMIN, $allowed, true));
     }
 
     /** What the main super admin is called to everyone else: they don't see who it is */
@@ -52,7 +62,7 @@ final class Roles
     public const PERMISSIONS = [
         'members' => 'Add and change members, import them, and close accounts',
         'money' => 'Record and reverse money: deposits, payroll, transfers, withdrawals, fees, income, expenses, journals',
-        'loans' => 'Approve, pay out and manage loans',
+        'loans' => 'Pay out and manage loans (admins approve loans by their role)',
         'notices' => 'Post and take down notices',
     ];
 
@@ -76,6 +86,7 @@ final class Roles
         return match ($role) {
             self::SUPER_ADMIN => 'Super Admin',
             self::ADMIN => 'Admin',
+            self::STAFF => 'Staff',
             default => 'Member',
         };
     }

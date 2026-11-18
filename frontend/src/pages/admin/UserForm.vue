@@ -14,7 +14,7 @@ const isSelf = props.user?.id === auth.user?.id
 
 /** An office login of its own (not a member's office access) */
 const isOffice = !!props.user && props.user.role !== 'member' && !props.user.office_via_member
-const roleLabel: Record<string, string> = { member: 'Member', admin: 'Admin', super_admin: 'Super Admin' }
+const roleLabel: Record<string, string> = { member: 'Member', staff: 'Staff', admin: 'Admin', super_admin: 'Super Admin' }
 /**
  * Office rights for an existing member: the main super admin gives Super admin or Admin; a super
  * admin who is a member gives Admin only, and leaves other super admins as they are. Office logins
@@ -136,7 +136,8 @@ async function save() {
             <label for="role" class="label">Office rights</label>
             <select id="role" v-model="form.role" class="input">
               <option value="member">None (member only)</option>
-              <option value="admin">Admin</option>
+              <option value="staff">Staff (sees everything, approves nothing)</option>
+              <option value="admin">Admin (approves loans)</option>
               <option v-if="auth.isMain" value="super_admin">Super Admin</option>
             </select>
             <p v-if="form.role !== 'member'" class="mt-1 rounded-lg bg-navy-50 px-2.5 py-1.5 text-xs text-navy-800">

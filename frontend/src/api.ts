@@ -83,5 +83,5 @@ export const api = {
   get: <T>(url: string, params?: Record<string, unknown>) => request<T>('get', url, undefined, params),
   post: <T>(url: string, body?: unknown) => request<T>('post', url, body),
   patch: <T>(url: string, body?: unknown) => request<T>('patch', url, body),
-  delete: <T>(url: string) => request<T>('delete', url),
+  delete: <T>(url: string, body?: unknown) => request<T>('delete', url, body),
 }

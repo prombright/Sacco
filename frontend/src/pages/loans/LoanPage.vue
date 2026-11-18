@@ -445,14 +445,19 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
           <span v-if="Number(loan.borrower_eligibility.limit) < Number(loan.amount)" class="font-medium text-amber-800">This loan is now above their limit.</span>
         </div>
 
+        <p v-if="canAdmin && loan.decision" class="mt-3 text-sm" :class="loan.decision.can ? 'text-gray-600' : 'text-amber-800'">
+          {{ loan.decision.why_needs }}: {{ loan.decision.needs === 'admin' ? 'an admin approves it' : 'a super admin approves it' }}.
+          <template v-if="!loan.decision.can && loan.decision.why_not"> {{ loan.decision.why_not }}</template>
+        </p>
+
         <div class="mt-4 flex flex-wrap gap-2">
           <template v-if="canAdmin">
-            <button v-can="'loans'" v-if="loan.status === 'pending_approval'" type="button" class="btn-primary" :disabled="busy" @click="open('approve')">Approve…</button>
+            <button v-if="loan.status === 'pending_approval' && loan.decision?.can" type="button" class="btn-primary" :disabled="busy" @click="open('approve')">Approve…</button>
             <button v-can="'loans'" v-if="loan.status === 'approved'" type="button" class="btn-primary" @click="open('disburse')">Record the payout</button>
             <button v-can="'loans'" v-if="loan.status === 'active'" type="button" class="btn-primary" @click="open('payment')">Record a repayment</button>
             <button v-can="'loans'" v-if="loan.status === 'active' && loan.settlement" type="button" class="btn-secondary" @click="open('settle')">Pay off early</button>
             <button v-can="'loans'" v-if="['pending_guarantors', 'pending_approval', 'approved', 'active'].includes(loan.status)" type="button" class="btn-secondary" @click="openMonths">Change duration</button>
-            <button v-can="'loans'" v-if="['pending_guarantors', 'pending_approval', 'approved'].includes(loan.status)" type="button" class="btn-secondary" @click="open('reject')">Reject</button>
+            <button v-if="['pending_guarantors', 'pending_approval', 'approved'].includes(loan.status) && loan.decision?.can" type="button" class="btn-secondary" @click="open('reject')">Reject</button>
           </template>
           <template v-if="isOwner">
             <button v-if="loan.status === 'pending_guarantors'" type="button" class="btn-primary" @click="open('guarantor')">Ask another guarantor</button>

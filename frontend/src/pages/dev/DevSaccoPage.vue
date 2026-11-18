@@ -26,7 +26,7 @@ interface OfficeAccount {
   full_name: string
   email: string | null
   employee_no: string | null
-  role: 'super_admin' | 'admin'
+  role: 'super_admin' | 'admin' | 'staff'
   role_label: string
   status: string
   must_change_password: boolean
@@ -59,7 +59,7 @@ interface MemberRow {
   savings: string | null
   shares: string | null
   active_loans: number
-  office_role: 'admin' | 'super_admin' | null
+  office_role: 'admin' | 'super_admin' | 'staff' | null
 }
 interface ActivityRow {
   id: number
@@ -135,7 +135,7 @@ watch(tab, (t) => {
 
 // --- Office accounts -------------------------------------------------------------------------
 const adding = ref(false)
-const newAccount = ref({ full_name: '', email: '', role: 'admin' as 'admin' | 'super_admin' })
+const newAccount = ref({ full_name: '', email: '', role: 'admin' as 'admin' | 'super_admin' | 'staff' })
 const secret = ref<{ who: string; login: string; password: string } | null>(null)
 const problem = ref('')
 async function addAccount() {
@@ -157,7 +157,7 @@ async function resetPassword(u: { id: number; full_name: string }) {
   await load()
 }
 // Office rights are given here only: the SACCO's own super admin can't hand them out
-const roleWords: Record<string, string> = { member: 'a member only (no office access)', admin: 'an Admin', super_admin: 'a Super admin' }
+const roleWords: Record<string, string> = { member: 'a member only (no office access)', staff: 'Staff', admin: 'an Admin', super_admin: 'a Super admin' }
 const roleProblem = ref('')
 async function setRole(personId: number, name: string, role: string, reset?: () => void) {
   roleProblem.value = ''
@@ -412,6 +412,7 @@ const waitingList = computed(() => {
                 <td class="px-4 py-3">
                   <select v-if="m.role === 'member'" class="input py-1.5 text-sm" :value="m.office_role ?? 'member'" :aria-label="`Office rights for ${m.full_name}`" @change="pickRole(m, $event)">
                     <option value="member">None (member)</option>
+                    <option value="staff">Staff</option>
                     <option value="admin">Admin</option>
                     <option value="super_admin">Super admin</option>
                   </select>
@@ -566,7 +567,7 @@ const waitingList = computed(() => {
         <fieldset>
           <legend class="label">Role</legend>
           <div class="grid gap-2 sm:grid-cols-2">
-            <label v-for="r in [{ v: 'admin', t: 'Admin login', d: 'Runs the SACCO day to day, with a login of its own (not a member).' }, { v: 'super_admin', t: 'Main super admin', d: 'Not a member. Makes members super admins and takes that away; hidden from the rest of the office.' }]" :key="r.v" class="flex cursor-pointer gap-2 rounded-xl border p-3 text-sm" :class="newAccount.role === r.v ? 'border-brand bg-navy-50/50' : 'border-line'">
+            <label v-for="r in [{ v: 'admin', t: 'Admin login', d: 'Approves loans and runs the SACCO day to day, with a login of its own (not a member).' }, { v: 'staff', t: 'Staff login', d: 'Sees everything; approves and changes nothing.' }, { v: 'super_admin', t: 'Main super admin', d: 'Not a member. Makes members super admins and takes that away; hidden from the rest of the office.' }]" :key="r.v" class="flex cursor-pointer gap-2 rounded-xl border p-3 text-sm" :class="newAccount.role === r.v ? 'border-brand bg-navy-50/50' : 'border-line'">
               <input v-model="newAccount.role" type="radio" :value="r.v" class="mt-0.5 accent-brand" />
               <span><span class="font-semibold">{{ r.t }}</span><span class="block text-xs text-gray-600">{{ r.d }}</span></span>
             </label>

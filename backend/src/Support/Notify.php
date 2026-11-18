@@ -67,8 +67,8 @@ final class Notify
     public static function office(string $kind, string $title, string $body, ?string $link = null, ?int $except = null): void
     {
         $db = Database::tenant();
-        $ids = $db->prepare("SELECT id FROM users WHERE status = 'active' AND role IN (?, ?) AND id <> ?");
-        $ids->execute([Roles::ADMIN, Roles::SUPER_ADMIN, $except ?? 0]);
+        $ids = $db->prepare("SELECT id FROM users WHERE status = 'active' AND role IN (?, ?, ?) AND id <> ?");
+        $ids->execute([Roles::ADMIN, Roles::SUPER_ADMIN, Roles::STAFF, $except ?? 0]);
         foreach ($ids->fetchAll(\PDO::FETCH_COLUMN) as $id) {
             self::member((int) $id, $kind, $title, $body, $link);
         }

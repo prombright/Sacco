@@ -76,7 +76,7 @@ final class UsageController
         $active = (int) $one("SELECT COUNT(DISTINCT l.user_id) FROM login_log l JOIN users u ON u.id = l.user_id WHERE l.success = 1 AND l.created_at >= ? AND u.role = 'member' AND u.status = 'active'", [$since]);
         $never = (int) $one("SELECT COUNT(*) FROM users WHERE role = 'member' AND status = 'active' AND last_login_at IS NULL");
         $hideMain = Roles::isMain(Auth::user()) ? '' : " AND NOT (role = 'super_admin' AND office_via_member = 0)";
-        $office = $all("SELECT id, full_name, email, role, status, last_login_at, must_change_password, totp_enabled_at FROM users WHERE role IN ('super_admin', 'admin')$hideMain ORDER BY FIELD(role, 'super_admin', 'admin'), full_name");
+        $office = $all("SELECT id, full_name, email, role, status, last_login_at, must_change_password, totp_enabled_at FROM users WHERE role IN ('super_admin', 'admin', 'staff')$hideMain ORDER BY FIELD(role, 'super_admin', 'admin', 'staff'), full_name");
         $activeOffice = array_filter($office, fn ($u) => $u['status'] === 'active');
         $supers = count(array_filter($activeOffice, fn ($u) => $u['role'] === Roles::SUPER_ADMIN));
         $withTwoStep = count(array_filter($activeOffice, fn ($u) => $u['totp_enabled_at']));

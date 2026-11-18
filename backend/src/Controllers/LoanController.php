@@ -309,6 +309,9 @@ final class LoanController
         if ($loan['status'] !== 'pending_approval') {
             Response::error('Only a loan whose guarantors have all agreed can be approved.', 422);
         }
+        if ($why = Loans::cannotDecide(Database::tenant(), $loan, Auth::user())) {
+            Response::error($why, 403);
+        }
         // The processing fee leaves the borrower's savings on approval (when the SACCO takes fees
         // from savings); off the cheque otherwise, at payout
         $fee = Loans::feeFromSavings()
@@ -353,6 +356,9 @@ final class LoanController
         $loan = $this->findForAdmin((int) $request->param('id'));
         if (!in_array($loan['status'], ['pending_guarantors', 'pending_approval', 'approved'], true)) {
             Response::error('This loan can no longer be rejected.', 422);
+        }
+        if ($why = Loans::cannotDecide(Database::tenant(), $loan, Auth::user())) {
+            Response::error($why, 403);
         }
         $note = mb_substr($request->string('note'), 0, 255);
         if ($note === '') {
@@ -1242,6 +1248,17 @@ final class LoanController
         $loan['borrower_eligibility'] = Roles::allows(Auth::user()['role'], [Roles::ADMIN])
             ? array_map([Money::class, 'toDecimal'], Loans::eligibility((int) $loan['user_id'], $id))
             : null;
+        // Who approves it, and whether the person looking may
+        if (in_array($loan['status'], ['pending_guarantors', 'pending_approval', 'approved'], true) && Roles::allows(Auth::user()['role'], [Roles::ADMIN])) {
+            $n = Loans::approvalNeeds($db, $loan);
+            $why = Loans::cannotDecide($db, $loan, Auth::user());
+            $loan['decision'] = [
+                'needs' => $n['needs'],
+                'why_needs' => $n['borrower_is_super'] ? 'The borrower is a super admin' : ($n['big'] ? 'More than their savings (' . number_format($n['savings'] / 100) . ')' : 'Within their savings (' . number_format($n['savings'] / 100) . ')'),
+                'can' => $why === null,
+                'why_not' => $why,
+            ];
+        }
 
         return $loan;
     }

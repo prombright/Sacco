@@ -79,7 +79,7 @@ final class PhotoController
     {
         $id = (int) $request->param('id');
         $me = Auth::user();
-        if ($id !== (int) $me['id'] && !in_array($me['role'], [Roles::ADMIN, Roles::SUPER_ADMIN], true)) {
+        if ($id !== (int) $me['id'] && !in_array($me['role'], Roles::OFFICE, true)) {
             Response::error('You do not have permission to do that.', 403);
         }
         $file = self::file($id);

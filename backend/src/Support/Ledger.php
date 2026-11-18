@@ -85,6 +85,51 @@ final class Ledger
         ]);
     }
 
+    /** Kinds of entry that stand on their own, so they can be corrected or deleted */
+    public const FIXABLE = ['deposit', 'withdrawal', 'adjustment', 'opening_balance'];
+
+    /** Why this entry can't be corrected or deleted, or null when it can */
+    public static function fixable(array $t): ?string
+    {
+        if (!in_array($t['type'], self::FIXABLE, true)) {
+            return 'Only a deposit, withdrawal, adjustment or opening balance can be changed here. A ' . str_replace('_', ' ', $t['type']) . ' is changed where it was made, or reversed.';
+        }
+        if (!empty($t['reversal_of']) || !empty($t['reversed_by'])) {
+            return 'This entry has been reversed, so it stays as it is.';
+        }
+        if (!empty($t['batch_id'])) {
+            return 'This entry is part of a payroll or import upload: reverse the upload instead.';
+        }
+        if (!empty($t['dividend_run_id']) || !empty($t['transfer_id'])) {
+            return 'This entry is part of a dividend or a transfer: change that instead.';
+        }
+        if (!empty($t['linked'])) {
+            return 'This entry belongs to a paid withdrawal, a fee or a loan: change that instead.';
+        }
+        return null;
+    }
+
+    /**
+     * Works out every running balance of one member's account again, oldest entry first (after an
+     * entry was corrected or deleted). Stops, and undoes everything, if any balance would go below
+     * zero. Call inside a transaction.
+     */
+    public static function rebalance(PDO $db, int $userId, string $account): void
+    {
+        $db->prepare('SELECT id FROM users WHERE id = ? FOR UPDATE')->execute([$userId]);
+        $rows = $db->prepare('SELECT id, amount, value_date FROM transactions WHERE user_id = ? AND account = ? ORDER BY id');
+        $rows->execute([$userId, $account]);
+        $update = $db->prepare('UPDATE transactions SET balance_after = ? WHERE id = ?');
+        $running = 0;
+        foreach ($rows->fetchAll() as $r) {
+            $running += Money::fromDecimal((string) $r['amount']);
+            if ($running < 0) {
+                throw new LedgerException('That would take the ' . $account . ' balance below zero on ' . date('j M Y', strtotime($r['value_date'])) . ': a later entry needs this money. Reverse that entry first.');
+            }
+            $update->execute([Money::toDecimal($running), $r['id']]);
+        }
+    }
+
     /** In cents */
     public static function balance(PDO $db, int $userId, string $account): int
     {
@@ -111,7 +156,9 @@ final class Ledger
         return $stmt->fetch() ?: null;
     }
 
-    public const SELECT = 'SELECT t.*, CASE WHEN u.role = \'super_admin\' AND u.office_via_member = 0 THEN \'System administrator\' ELSE u.full_name END AS created_by_name, r.id AS reversed_by
+    public const SELECT = 'SELECT t.*, CASE WHEN u.role = \'super_admin\' AND u.office_via_member = 0 THEN \'System administrator\' ELSE u.full_name END AS created_by_name, r.id AS reversed_by,
+            (EXISTS (SELECT 1 FROM withdrawal_requests w WHERE w.transaction_id = t.id) OR EXISTS (SELECT 1 FROM membership_fees f WHERE f.transaction_id = t.id)
+             OR EXISTS (SELECT 1 FROM loans fl WHERE fl.fee_transaction_id = t.id)) AS linked
         FROM transactions t
         LEFT JOIN users u ON u.id = t.created_by
         LEFT JOIN transactions r ON r.reversal_of = t.id';
@@ -131,6 +178,8 @@ final class Ledger
             'reversal_of' => $t['reversal_of'] ? (int) $t['reversal_of'] : null,
             'reversed_by' => $t['reversed_by'] ? (int) $t['reversed_by'] : null,
             'in_error' => (bool) ($t['in_error'] ?? false),
+            // A standalone entry the super admin may correct or delete
+            'editable' => self::fixable($t) === null,
             'created_by_name' => $t['created_by_name'],
             'created_at' => $t['created_at'],
         ];

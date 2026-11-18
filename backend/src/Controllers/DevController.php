@@ -165,7 +165,7 @@ final class DevController
                 "SELECT u.id, u.full_name, u.email, u.employee_no, u.role, u.status, u.must_change_password, u.last_login_at, u.created_at,
                         u.office_via_member, u.linked_member_id, m.full_name AS linked_member, m.account_no AS linked_account_no
                  FROM users u LEFT JOIN users m ON m.id = u.linked_member_id
-                 WHERE u.role IN ('super_admin', 'admin') ORDER BY FIELD(u.role, 'super_admin', 'admin'), u.full_name"
+                 WHERE u.role IN ('super_admin', 'admin', 'staff') ORDER BY FIELD(u.role, 'super_admin', 'admin', 'staff'), u.full_name"
             )->fetchAll();
             $rules = [];
             foreach ($db->query('SELECT `key`, `value`, updated_at FROM settings ORDER BY `key`')->fetchAll() as $r) {
@@ -334,8 +334,8 @@ final class DevController
         $name = mb_substr($request->string('full_name'), 0, 160);
         $email = strtolower($request->string('email'));
         $role = $request->string('role');
-        if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || !in_array($role, [Roles::SUPER_ADMIN, Roles::ADMIN], true)) {
-            Response::error('Enter a name, a valid email, and choose super admin or admin.', 422);
+        if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || !in_array($role, Roles::OFFICE, true)) {
+            Response::error('Enter a name, a valid email, and choose super admin, admin or staff.', 422);
         }
         $temporary = Passwords::temporary();
         $id = Tenant::actAs($s, function (\PDO $db) use ($name, $email, $role, $temporary) {
@@ -565,7 +565,7 @@ final class DevController
         $waiting = OfficeController::waiting();
         return [
             'members' => (int) $one("SELECT COUNT(*) FROM users WHERE role = 'member' AND status = 'active'"),
-            'office_accounts' => (int) $one("SELECT COUNT(*) FROM users WHERE role IN ('admin', 'super_admin') AND status = 'active'"),
+            'office_accounts' => (int) $one("SELECT COUNT(*) FROM users WHERE role IN ('admin', 'super_admin', 'staff') AND status = 'active'"),
             'savings' => Money::toDecimal(Money::fromDecimal($one("SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE account = 'savings'"))),
             'shares' => Money::toDecimal(Money::fromDecimal($one("SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE account = 'shares'"))),
             'loans_outstanding' => Money::toDecimal($outstanding),

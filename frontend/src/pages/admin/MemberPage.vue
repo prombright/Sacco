@@ -28,6 +28,7 @@ import TransactionList from '@/components/TransactionList.vue'
 import Pager from '@/components/Pager.vue'
 import RecordTransaction from './RecordTransaction.vue'
 import ReverseTransaction from './ReverseTransaction.vue'
+import FixTransaction from './FixTransaction.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -170,6 +171,8 @@ async function loadKin() {
 }
 loadKin().catch(() => {})
 const reversing = ref<Transaction | null>(null)
+/** The super admin correcting or deleting an entry made by mistake */
+const fixing = ref<{ t: Transaction; mode: 'edit' | 'delete' } | null>(null)
 
 // An admin's own account is handled by another admin
 // Your own member account, also from your office account: another admin handles its money
@@ -207,6 +210,7 @@ async function loadLedger() {
 function saved(newBalances: Balances) {
   recording.value = false
   reversing.value = null
+  fixing.value = null
   balances.value = newBalances
   if (page.value === 1) loadLedger()
   else page.value = 1 // the watch reloads
@@ -280,7 +284,7 @@ function certificate() {
       <section v-if="!isMember" class="card mt-4 p-5">
         <p class="eyebrow">{{ member.role_label }} · office account</p>
         <p class="mt-2 text-sm text-gray-700">
-          This account runs the SACCO: {{ member.role === 'super_admin' ? 'everything, including the rules, loan products and other admins' : 'members, loans, withdrawals, payroll and reports' }}.
+          This account {{ member.role === 'super_admin' ? 'runs the SACCO: everything, including the rules, loan products and other admins' : member.role === 'staff' ? 'sees the SACCO\'s records and reports; it approves and changes nothing' : 'runs the SACCO day to day: it approves loans, and does what Setup allows admins to do' }}.
           It has no savings, shares or loans, and can't apply for or guarantee a loan. If this person is also a member, they have a separate member account and log in with that for their own money.
         </p>
       </section>
@@ -382,7 +386,7 @@ function certificate() {
         <div v-show="tab === 'money'" class="mt-5" role="tabpanel">
           <AccountTabs v-model="account" />
           <div class="card mt-3 overflow-hidden">
-            <SkeletonRows v-if="!ledger" :rows="5" /><TransactionList v-else by-month :transactions="ledger.transactions" :can-reverse="!isSelf" @reverse="reversing = $event" />
+            <SkeletonRows v-if="!ledger" :rows="5" /><TransactionList v-else by-month :transactions="ledger.transactions" :can-reverse="!isSelf" :can-fix="auth.isSuperAdmin && !isSelf" @reverse="reversing = $event" @fix="(t, mode) => (fixing = { t, mode })" />
           </div>
           <Pager v-if="ledger" :page="ledger.page" :per-page="ledger.per_page" :total="ledger.total" @go="page = $event" />
         </div>
@@ -502,5 +506,6 @@ function certificate() {
 
     <RecordTransaction v-if="recording && member && balances" :member="member" :account="account" :balances="balances" @close="recording = false" @saved="saved" />
     <ReverseTransaction v-if="reversing" :transaction="reversing" @close="reversing = null" @saved="saved" />
+    <FixTransaction v-if="fixing" :transaction="fixing.t" :mode="fixing.mode" @close="fixing = null" @saved="saved" />
   </div>
 </template>

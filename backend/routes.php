@@ -98,6 +98,10 @@ $router->post('/api/members/{id}/slow-payer', [TransactionController::class, 'ma
 $router->get('/api/members/{id}/transactions', [TransactionController::class, 'memberTransactions'], $admins);
 $router->post('/api/members/{id}/transactions', [TransactionController::class, 'store'], $edit('money'));
 $router->post('/api/transactions/{id}/reverse', [TransactionController::class, 'reverse'], $edit('money'));
+$router->get('/api/savings-interest', [\Sacco\Controllers\SavingsInterestController::class, 'index'], $admins);
+$router->post('/api/savings-interest/pay', [\Sacco\Controllers\SavingsInterestController::class, 'pay'], ['roles' => [Roles::SUPER_ADMIN]]);
+$router->patch('/api/transactions/{id}', [TransactionController::class, 'edit'], ['roles' => [Roles::SUPER_ADMIN]]);
+$router->delete('/api/transactions/{id}', [TransactionController::class, 'destroy'], ['roles' => [Roles::SUPER_ADMIN]]);
 
 // Loans - members
 $router->get('/api/loans/quote', [LoanController::class, 'quote'], $members);
@@ -114,8 +118,8 @@ $router->post('/api/guarantees/{id}/decline', [LoanController::class, 'decline']
 
 // Loans - admins
 $router->get('/api/loans', [LoanController::class, 'index'], $admins);
-$router->post('/api/loans/{id}/approve', [LoanController::class, 'approve'], $edit('loans'));
-$router->post('/api/loans/{id}/reject', [LoanController::class, 'reject'], $edit('loans'));
+$router->post('/api/loans/{id}/approve', [LoanController::class, 'approve'], $admins);
+$router->post('/api/loans/{id}/reject', [LoanController::class, 'reject'], $admins);
 $router->post('/api/loans/{id}/disburse', [LoanController::class, 'disburse'], $edit('loans'));
 $router->post('/api/loans/{id}/securities', [LoanSecurityController::class, 'store'], $edit('loans'));
 $router->get('/api/loans/{id}/guarantee-form', [LoanController::class, 'guaranteeForm'], $admins);

@@ -56,7 +56,7 @@ final class SettingsController
                 ['average_savings' => 'Average savings over the year', 'year_end_savings' => 'Savings at the end of the year']],
             'admins_can_members' => ['Admins may add and change members', $yesNo, ['no' => 'No, view only', 'yes' => 'Yes']],
             'admins_can_money' => ['Admins may record and reverse money (deposits, payroll, transfers, withdrawals, fees, income, expenses, journals)', $yesNo, ['no' => 'No, view only', 'yes' => 'Yes']],
-            'admins_can_loans' => ['Admins may approve, pay out and manage loans', $yesNo, ['no' => 'No, view only', 'yes' => 'Yes']],
+            'admins_can_loans' => ['Admins may pay out and manage loans (approving is by role: admins approve loans above savings and super admins loans)', $yesNo, ['no' => 'No, view only', 'yes' => 'Yes']],
             'admins_can_notices' => ['Admins may post notices', $yesNo, ['no' => 'No, view only', 'yes' => 'Yes']],
             'profit_credit_account' => ['Members\' profit share is added to', fn ($v) => in_array($v, ['savings', 'shares'], true) ? $v : null,
                 ['savings' => 'Savings', 'shares' => 'Shares']],

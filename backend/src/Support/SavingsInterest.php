@@ -41,14 +41,16 @@ final class SavingsInterest
         return (int) (floor($savingsCents * $p / 100 / LoanMath::UNIT) * LoanMath::UNIT);
     }
 
-    /** What is held for one member: brought in from the old system, and earned since (in cents) */
+    /** What is held for one member: brought in from the old system and earned since, less what was paid out (in cents) */
     public static function held(PDO $db, int $userId): int
     {
         $old = $db->prepare('SELECT COALESCE(SUM(amount), 0) FROM old_system_interest_payable WHERE user_id = ?');
         $old->execute([$userId]);
         $new = $db->prepare('SELECT COALESCE(SUM(amount), 0) FROM savings_interest WHERE user_id = ?');
         $new->execute([$userId]);
-        return Money::fromDecimal((string) $old->fetchColumn()) + Money::fromDecimal((string) $new->fetchColumn());
+        $out = $db->prepare('SELECT COALESCE(SUM(amount), 0) FROM savings_interest_payouts WHERE user_id = ?');
+        $out->execute([$userId]);
+        return Money::fromDecimal((string) $old->fetchColumn()) + Money::fromDecimal((string) $new->fetchColumn()) - Money::fromDecimal((string) $out->fetchColumn());
     }
 
     /**
