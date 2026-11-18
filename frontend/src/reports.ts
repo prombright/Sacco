@@ -20,6 +20,8 @@ export interface Report {
   totals: Record<string, string> | null
   /** Statements say whether debits equal credits / assets equal liabilities and equity */
   balanced?: boolean
+  /** Lines to sign at the end of the printout (e.g. "Reviewed by", "Signature", "Date") */
+  signoff?: string[]
 }
 
 /** Downloads a report as an Excel file: real numbers in money columns, a title, and a totals row */

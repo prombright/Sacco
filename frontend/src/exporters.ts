@@ -195,6 +195,17 @@ function addSheet(wb: import('exceljs').Workbook, sheetName: string, report: Rep
       cell.border = { top: { style: 'medium', color: { argb: 'FF' + brand } }, bottom: { style: 'double', color: { argb: 'FF' + brand } } }
     })
     x.height = 22
+    r++
+  }
+
+  // Lines for the reviewer to sign
+  if (report.signoff?.length) {
+    r += 2
+    report.signoff.forEach((label, i) => {
+      const cell = ws.getCell(r, 1 + i * 2)
+      cell.value = `${label}: ____________________`
+      cell.font = { name: 'Calibri', size: 10, color: { argb: 'FF57534E' } }
+    })
   }
 
   // Widths from the content
@@ -385,6 +396,26 @@ export async function downloadPdfBook(reports: Report[], who: Who, title: string
         }
       },
     })
+    // Lines for the reviewer to sign, after the table
+    if (report.signoff?.length) {
+      let y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 18
+      if (y > H() - 40) {
+        doc.addPage()
+        y = 30
+      }
+      const gap = 10
+      const w = (W() - 2 * M - gap * (report.signoff.length - 1)) / report.signoff.length
+      doc.setDrawColor(120, 113, 108)
+      doc.setLineWidth(0.3)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8)
+      doc.setTextColor(120, 113, 108)
+      report.signoff.forEach((label, i) => {
+        const x = M + i * (w + gap)
+        doc.line(x, y, x + w, y)
+        doc.text(label, x, y + 4.5)
+      })
+    }
   })
 
   // Footer on every page but the cover
