@@ -33,7 +33,7 @@ final class InvestmentController
              FROM investments i ORDER BY i.status, i.started_on DESC, i.id DESC'
         )->fetchAll();
         $returns = $db->query(
-            'SELECT r.*, i.name AS investment_name, u.full_name AS created_by_name, (SELECT x.id FROM investment_returns x WHERE x.reversal_of = r.id) AS reversed_by
+            'SELECT r.*, i.name AS investment_name, CASE WHEN u.role = \'super_admin\' AND u.office_via_member = 0 THEN \'System administrator\' ELSE u.full_name END AS created_by_name, (SELECT x.id FROM investment_returns x WHERE x.reversal_of = r.id) AS reversed_by
              FROM investment_returns r JOIN investments i ON i.id = r.investment_id LEFT JOIN users u ON u.id = r.created_by
              ORDER BY r.received_on DESC, r.id DESC LIMIT 100'
         )->fetchAll();

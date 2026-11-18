@@ -29,7 +29,7 @@ final class BankRecController
         $accounts = array_values(array_filter(Books::chart($db), fn ($a) => $a['type'] === 'asset' && $a['status'] === 'active'
             && (in_array($a['system_key'], ['bank', 'cash'], true) || $a['system_key'] === null)));
         $recs = $db->query(
-            'SELECT r.*, a.code, a.name AS account_name, u.full_name AS completed_by_name FROM bank_reconciliations r
+            'SELECT r.*, a.code, a.name AS account_name, CASE WHEN u.role = \'super_admin\' AND u.office_via_member = 0 THEN \'System administrator\' ELSE u.full_name END AS completed_by_name FROM bank_reconciliations r
              JOIN gl_accounts a ON a.id = r.account_id LEFT JOIN users u ON u.id = r.completed_by
              ORDER BY r.statement_date DESC, r.id DESC LIMIT 60'
         )->fetchAll();
@@ -292,7 +292,7 @@ final class BankRecController
 
     private function find(int $id): array
     {
-        $stmt = Database::tenant()->prepare('SELECT r.*, a.code, a.name AS account_name, u.full_name AS completed_by_name FROM bank_reconciliations r JOIN gl_accounts a ON a.id = r.account_id LEFT JOIN users u ON u.id = r.completed_by WHERE r.id = ?');
+        $stmt = Database::tenant()->prepare('SELECT r.*, a.code, a.name AS account_name, CASE WHEN u.role = \'super_admin\' AND u.office_via_member = 0 THEN \'System administrator\' ELSE u.full_name END AS completed_by_name FROM bank_reconciliations r JOIN gl_accounts a ON a.id = r.account_id LEFT JOIN users u ON u.id = r.completed_by WHERE r.id = ?');
         $stmt->execute([$id]);
         return $stmt->fetch() ?: Response::error('Reconciliation not found.', 404);
     }

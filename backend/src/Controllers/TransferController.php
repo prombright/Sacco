@@ -40,7 +40,7 @@ final class TransferController
         $db = Database::tenant();
         $rows = $db->query(
             'SELECT t.*, f.full_name AS from_name, f.account_no AS from_account_no, r.full_name AS to_name, r.account_no AS to_account_no,
-                l.loan_no, c.full_name AS created_by_name
+                l.loan_no, CASE WHEN c.role = \'super_admin\' AND c.office_via_member = 0 THEN \'System administrator\' ELSE c.full_name END AS created_by_name
              FROM transfers t JOIN users f ON f.id = t.from_user_id JOIN users r ON r.id = t.to_user_id
              LEFT JOIN loans l ON l.id = t.loan_id LEFT JOIN users c ON c.id = t.created_by
              ORDER BY t.id DESC LIMIT ' . $per . ' OFFSET ' . (($page - 1) * $per)

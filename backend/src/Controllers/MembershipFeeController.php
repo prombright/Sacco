@@ -33,7 +33,7 @@ final class MembershipFeeController
         $db = Database::tenant();
         [$scope, $args] = $kind === 'membership' ? ["f.kind = 'membership'", []] : ["f.kind = 'subscription' AND f.year = ?", [$year]];
         $stmt = $db->prepare(
-            "SELECT f.*, u.full_name, u.account_no, u.employee_no, p.full_name AS paid_by_name
+            "SELECT f.*, u.full_name, u.account_no, u.employee_no, CASE WHEN p.role = 'super_admin' AND p.office_via_member = 0 THEN 'System administrator' ELSE p.full_name END AS paid_by_name
              FROM membership_fees f JOIN users u ON u.id = f.user_id LEFT JOIN users p ON p.id = f.paid_by
              WHERE $scope ORDER BY FIELD(f.status, 'unpaid', 'paid', 'waived'), u.full_name"
         );

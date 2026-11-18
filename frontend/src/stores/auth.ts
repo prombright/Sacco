@@ -10,6 +10,8 @@ export const useAuth = defineStore('auth', () => {
 
   const isSuperAdmin = computed(() => user.value?.role === 'super_admin')
   const isAdmin = computed(() => user.value?.role === 'admin' || isSuperAdmin.value)
+  /** The main super admin: a login of its own, not anyone's member account (made by the developer) */
+  const isMain = computed(() => isSuperAdmin.value && !user.value?.office_via_member)
   /** Whether this office account may make changes in an area (the super admin always may) */
   const can = (area: string) => isSuperAdmin.value || !!user.value?.permissions?.includes(area)
   /** An admin who can look and download but not change anything */
@@ -83,5 +85,5 @@ export const useAuth = defineStore('auth', () => {
     setCsrfToken(null)
   }
 
-  return { user, sacco, loaded, isAdmin, isSuperAdmin, can, viewOnly, load, login, twoStep, changePassword, switchAccount, logout, forget, useSacco }
+  return { user, sacco, loaded, isAdmin, isSuperAdmin, isMain, can, viewOnly, load, login, twoStep, changePassword, switchAccount, logout, forget, useSacco }
 })

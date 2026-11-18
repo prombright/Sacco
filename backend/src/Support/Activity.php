@@ -104,6 +104,7 @@ final class Activity
                 ? 'took away ' . ($d['name'] ?? 'someone') . "'s office access"
                 : 'made ' . ($d['name'] ?? 'someone') . ' ' . (($d['changes']['role']['to'] ?? '') === 'super_admin' ? 'a super admin' : 'an admin'),
             'users.unlinked' => 'unlinked an office login from its member account',
+            'platform.office_account_removed' => 'removed the office login ' . ($d['name'] ?? ''),
             'platform.migrated' => 'updated the system',
             'sacco.created' => 'set up the SACCO',
             'membership_fee.charged' => 'charged the ' . ($d['year'] ?? '') . ' fee to ' . ($d['count'] ?? '') . ' members',

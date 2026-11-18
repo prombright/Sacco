@@ -152,7 +152,7 @@ final class AccountingController
         $count = $db->prepare("SELECT COUNT(*) FROM journal_entries e WHERE $where");
         $count->execute($args);
         $stmt = $db->prepare(
-            "SELECT e.*, u.full_name AS created_by_name, (SELECT r.id FROM journal_entries r WHERE r.reversal_of = e.id) AS reversed_by
+            "SELECT e.*, CASE WHEN u.role = 'super_admin' AND u.office_via_member = 0 THEN 'System administrator' ELSE u.full_name END AS created_by_name, (SELECT r.id FROM journal_entries r WHERE r.reversal_of = e.id) AS reversed_by
              FROM journal_entries e LEFT JOIN users u ON u.id = e.created_by
              WHERE $where ORDER BY e.entry_date DESC, e.id DESC LIMIT $per OFFSET " . (($page - 1) * $per)
         );

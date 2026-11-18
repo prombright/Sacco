@@ -111,7 +111,7 @@ final class Ledger
         return $stmt->fetch() ?: null;
     }
 
-    public const SELECT = 'SELECT t.*, u.full_name AS created_by_name, r.id AS reversed_by
+    public const SELECT = 'SELECT t.*, CASE WHEN u.role = \'super_admin\' AND u.office_via_member = 0 THEN \'System administrator\' ELSE u.full_name END AS created_by_name, r.id AS reversed_by
         FROM transactions t
         LEFT JOIN users u ON u.id = t.created_by
         LEFT JOIN transactions r ON r.reversal_of = t.id';

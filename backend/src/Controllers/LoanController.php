@@ -1139,7 +1139,7 @@ final class LoanController
         }
 
         $p = $db->prepare(
-            'SELECT p.id, p.amount, p.paid_on, p.reference, p.narration, p.reversal_of, u.full_name AS created_by_name, p.created_at,
+            'SELECT p.id, p.amount, p.paid_on, p.reference, p.narration, p.reversal_of, CASE WHEN u.role = \'super_admin\' AND u.office_via_member = 0 THEN \'System administrator\' ELSE u.full_name END AS created_by_name, p.created_at,
                     (SELECT r.id FROM loan_payments r WHERE r.reversal_of = p.id) AS reversed_by
              FROM loan_payments p LEFT JOIN users u ON u.id = p.created_by WHERE p.loan_id = ? ORDER BY p.id DESC'
         );

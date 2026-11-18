@@ -78,7 +78,7 @@ final class ReceiptController
     private function transactions(string $where, array $args): array
     {
         $stmt = Database::tenant()->prepare(
-            "SELECT t.*, c.full_name AS recorded_by, r.id AS reversed_id, w.fee, w.fee_on_top, w.cheque_no
+            "SELECT t.*, CASE WHEN c.role = 'super_admin' AND c.office_via_member = 0 THEN 'System administrator' ELSE c.full_name END AS recorded_by, r.id AS reversed_id, w.fee, w.fee_on_top, w.cheque_no
              FROM transactions t LEFT JOIN users c ON c.id = t.created_by
              LEFT JOIN transactions r ON r.reversal_of = t.id
              LEFT JOIN withdrawal_requests w ON w.transaction_id = t.id
@@ -114,7 +114,7 @@ final class ReceiptController
     {
         $db = Database::tenant();
         $stmt = $db->prepare(
-            "SELECT p.*, l.loan_no, l.user_id, c.full_name AS recorded_by, r.id AS reversed_id
+            "SELECT p.*, l.loan_no, l.user_id, CASE WHEN c.role = 'super_admin' AND c.office_via_member = 0 THEN 'System administrator' ELSE c.full_name END AS recorded_by, r.id AS reversed_id
              FROM loan_payments p JOIN loans l ON l.id = p.loan_id LEFT JOIN users c ON c.id = p.created_by
              LEFT JOIN loan_payments r ON r.reversal_of = p.id
              WHERE $where AND p.reversal_of IS NULL ORDER BY p.id DESC"
@@ -149,7 +149,7 @@ final class ReceiptController
     private function fees(string $where, array $args): array
     {
         $stmt = Database::tenant()->prepare(
-            "SELECT f.*, c.full_name AS recorded_by FROM membership_fees f LEFT JOIN users c ON c.id = f.paid_by
+            "SELECT f.*, CASE WHEN c.role = 'super_admin' AND c.office_via_member = 0 THEN 'System administrator' ELSE c.full_name END AS recorded_by FROM membership_fees f LEFT JOIN users c ON c.id = f.paid_by
              WHERE $where AND f.status = 'paid' AND f.method = 'cash' ORDER BY f.id DESC"
         );
         $stmt->execute($args);

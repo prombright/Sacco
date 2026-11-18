@@ -444,7 +444,7 @@ final class TransactionController
         $count->execute($args);
         [$total, $in, $out] = $count->fetch(\PDO::FETCH_NUM);
         $stmt = $db->prepare(
-            "SELECT t.*, u.full_name, u.account_no, c.full_name AS created_by_name, r.id AS reversed_by
+            "SELECT t.*, u.full_name, u.account_no, CASE WHEN c.role = 'super_admin' AND c.office_via_member = 0 THEN 'System administrator' ELSE c.full_name END AS created_by_name, r.id AS reversed_by
              FROM transactions t JOIN users u ON u.id = t.user_id LEFT JOIN users c ON c.id = t.created_by
              LEFT JOIN transactions r ON r.reversal_of = t.id
              WHERE $where ORDER BY t.value_date DESC, t.id DESC LIMIT $per OFFSET " . (($page - 1) * $per)

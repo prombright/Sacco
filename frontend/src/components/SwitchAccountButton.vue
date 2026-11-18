@@ -17,8 +17,8 @@ const busy = ref(false)
 const panel = ref(false)
 
 const target = computed(() => auth.user?.switch_to ?? null)
-/** Shown to office accounts (linked or not) and to a member account reached from the office */
-const shown = computed(() => !!target.value || auth.isAdmin)
+/** Shown only when there is somewhere to switch to: never to the main super admin or a login with no member account */
+const shown = computed(() => !!target.value)
 const label = computed(() =>
   target.value ? (target.value.to === 'member' ? 'Switch to my member account' : target.value.label) : 'Switch to my member account',
 )

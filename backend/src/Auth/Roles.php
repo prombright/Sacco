@@ -22,6 +22,25 @@ final class Roles
         return $role === self::SUPER_ADMIN || in_array($role, $allowed, true);
     }
 
+    /** What the main super admin is called to everyone else: they don't see who it is */
+    public const MAIN_NAME = 'System administrator';
+
+    /**
+     * The main super admin: a super admin login of its own, made in the developer portal and not
+     * anyone's member account. It makes members super admins (and takes that away); it never
+     * switches into a member account, and the rest of the office doesn't see it.
+     */
+    public static function isMain(?array $user): bool
+    {
+        return $user !== null && ($user['role'] ?? null) === self::SUPER_ADMIN && empty($user['office_via_member']);
+    }
+
+    /** SQL for the name an office person sees for whoever is in `$alias` */
+    public static function shownNameSql(string $alias): string
+    {
+        return "CASE WHEN $alias.role = 'super_admin' AND $alias.office_via_member = 0 THEN '" . self::MAIN_NAME . "' ELSE $alias.full_name END";
+    }
+
     /** Only a super admin may create, change or reset admins and super admins */
     public static function canManage(string $actorRole, string $targetRole): bool
     {

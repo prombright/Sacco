@@ -35,7 +35,8 @@ final class Audit
         $actor = Auth::user();
         if ($actor && $actor['role'] === Roles::SUPER_ADMIN && !in_array($action, self::QUIET, true)) {
             $row = ['action' => $action, 'details' => $details, 'subject_type' => $subjectType, 'subject_id' => $subjectId];
-            self::tellOffice($actor['full_name'] . ' (super admin) ' . Activity::describe($row), $row, (int) $actor['id']);
+            $who = Roles::isMain($actor) ? Roles::MAIN_NAME : $actor['full_name'] . ' (super admin)';
+            self::tellOffice($who . ' ' . Activity::describe($row), $row, (int) $actor['id']);
         }
     }
 

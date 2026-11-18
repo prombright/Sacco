@@ -27,7 +27,7 @@ final class NoticeController
     public function index(Request $request): never
     {
         $rows = Database::tenant()->query(
-            'SELECT n.*, u.full_name AS created_by_name FROM notices n LEFT JOIN users u ON u.id = n.created_by ORDER BY n.starts_on DESC, n.id DESC LIMIT 100'
+            'SELECT n.*, CASE WHEN u.role = \'super_admin\' AND u.office_via_member = 0 THEN \'System administrator\' ELSE u.full_name END AS created_by_name FROM notices n LEFT JOIN users u ON u.id = n.created_by ORDER BY n.starts_on DESC, n.id DESC LIMIT 100'
         )->fetchAll();
         Response::ok(['notices' => $rows]);
     }

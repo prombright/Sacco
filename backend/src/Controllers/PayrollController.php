@@ -502,7 +502,7 @@ final class PayrollController
     private function batch(int $id): array
     {
         $stmt = Database::tenant()->prepare(
-            'SELECT b.*, c.full_name AS created_by_name, r.full_name AS reversed_by_name
+            'SELECT b.*, CASE WHEN c.role = \'super_admin\' AND c.office_via_member = 0 THEN \'System administrator\' ELSE c.full_name END AS created_by_name, CASE WHEN r.role = \'super_admin\' AND r.office_via_member = 0 THEN \'System administrator\' ELSE r.full_name END AS reversed_by_name
              FROM payroll_batches b LEFT JOIN users c ON c.id = b.created_by LEFT JOIN users r ON r.id = b.reversed_by WHERE b.id = ?'
         );
         $stmt->execute([$id]);

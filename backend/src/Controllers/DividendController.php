@@ -206,7 +206,7 @@ final class DividendController
     private function run(int $id): array
     {
         $stmt = Database::tenant()->prepare(
-            'SELECT d.*, c.full_name AS created_by_name, r.full_name AS reversed_by_name
+            'SELECT d.*, CASE WHEN c.role = \'super_admin\' AND c.office_via_member = 0 THEN \'System administrator\' ELSE c.full_name END AS created_by_name, CASE WHEN r.role = \'super_admin\' AND r.office_via_member = 0 THEN \'System administrator\' ELSE r.full_name END AS reversed_by_name
              FROM dividend_runs d LEFT JOIN users c ON c.id = d.created_by LEFT JOIN users r ON r.id = d.reversed_by WHERE d.id = ?'
         );
         $stmt->execute([$id]);

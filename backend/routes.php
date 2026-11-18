@@ -247,6 +247,7 @@ $router->post('/api/dev/saccos/{id}/users/{user}/reset-password', [DevController
 $router->post('/api/dev/saccos/{id}/users/{user}/status', [DevController::class, 'setUserStatus'], $dev);
 $router->post('/api/dev/saccos/{id}/users/{user}/role', [DevController::class, 'setRole'], $dev);
 $router->post('/api/dev/saccos/{id}/users/{user}/link', [DevController::class, 'linkMember'], $dev);
+$router->delete('/api/dev/saccos/{id}/users/{user}', [DevController::class, 'deleteOfficeAccount'], $dev);
 $router->post('/api/dev/saccos/{id}/update-system', [DevController::class, 'updateSystem'], $dev);
 
 // The books: chart of accounts, journal entries, statements

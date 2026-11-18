@@ -85,7 +85,7 @@ final class Credit
     /** The office's slow-payer mark on a member: since when, why and by whom, or null */
     public static function mark(PDO $db, int $userId): ?array
     {
-        $stmt = $db->prepare('SELECT u.slow_payer_since, u.slow_payer_note, b.full_name AS by_name FROM users u LEFT JOIN users b ON b.id = u.slow_payer_by WHERE u.id = ?');
+        $stmt = $db->prepare('SELECT u.slow_payer_since, u.slow_payer_note, CASE WHEN b.role = \'super_admin\' AND b.office_via_member = 0 THEN \'System administrator\' ELSE b.full_name END AS by_name FROM users u LEFT JOIN users b ON b.id = u.slow_payer_by WHERE u.id = ?');
         $stmt->execute([$userId]);
         $row = $stmt->fetch();
         return $row && $row['slow_payer_since'] ? ['since' => $row['slow_payer_since'], 'note' => $row['slow_payer_note'], 'by' => $row['by_name']] : null;

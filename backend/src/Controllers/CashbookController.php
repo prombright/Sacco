@@ -29,7 +29,7 @@ final class CashbookController
     {
         [$from, $to] = $this->period($request);
         $stmt = Database::tenant()->prepare(
-            'SELECT c.*, u.full_name AS created_by_name, (SELECT r.id FROM cashbook r WHERE r.reversal_of = c.id) AS reversed_by
+            'SELECT c.*, CASE WHEN u.role = \'super_admin\' AND u.office_via_member = 0 THEN \'System administrator\' ELSE u.full_name END AS created_by_name, (SELECT r.id FROM cashbook r WHERE r.reversal_of = c.id) AS reversed_by
              FROM cashbook c LEFT JOIN users u ON u.id = c.created_by
              WHERE c.entry_date BETWEEN ? AND ? ORDER BY c.entry_date DESC, c.id DESC'
         );

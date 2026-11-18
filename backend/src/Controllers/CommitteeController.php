@@ -22,7 +22,7 @@ final class CommitteeController
     public function index(Request $request): never
     {
         $rows = Database::tenant()->query(
-            "SELECT q.*, d.full_name AS decided_by_name FROM committee_questions q LEFT JOIN users d ON d.id = q.decided_by
+            "SELECT q.*, CASE WHEN d.role = 'super_admin' AND d.office_via_member = 0 THEN 'System administrator' ELSE d.full_name END AS decided_by_name FROM committee_questions q LEFT JOIN users d ON d.id = q.decided_by
              ORDER BY q.status = 'decided', q.decided_on DESC, q.id"
         )->fetchAll();
         Response::ok(['questions' => array_map(fn ($q) => self::present($q), $rows)]);
@@ -164,7 +164,7 @@ final class CommitteeController
 
     private static function find(int $id): array
     {
-        $stmt = Database::tenant()->prepare('SELECT q.*, d.full_name AS decided_by_name FROM committee_questions q LEFT JOIN users d ON d.id = q.decided_by WHERE q.id = ?');
+        $stmt = Database::tenant()->prepare('SELECT q.*, CASE WHEN d.role = \'super_admin\' AND d.office_via_member = 0 THEN \'System administrator\' ELSE d.full_name END AS decided_by_name FROM committee_questions q LEFT JOIN users d ON d.id = q.decided_by WHERE q.id = ?');
         $stmt->execute([$id]);
         $q = $stmt->fetch();
         if (!$q) {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Sacco\Controllers;
 
+use Sacco\Auth\Roles;
 use Sacco\Database;
 use Sacco\Http\Request;
 use Sacco\Http\Response;
@@ -90,7 +91,7 @@ final class OfficeController
 
         // Latest activity, in words
         $recent = $db->query(
-            'SELECT a.action, a.subject_type, a.subject_id, a.details, a.created_at, u.full_name AS actor, u.role AS actor_role
+            'SELECT a.action, a.subject_type, a.subject_id, a.details, a.created_at, ' . Roles::shownNameSql('u') . ' AS actor, u.role AS actor_role
              FROM audit_log a LEFT JOIN users u ON u.id = a.actor_id ORDER BY a.id DESC LIMIT 30'
         )->fetchAll();
 

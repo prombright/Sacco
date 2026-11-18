@@ -123,7 +123,7 @@ final class TransactionImportController
     {
         $stmt = Database::tenant()->prepare(
             "SELECT b.id, b.file_name, b.row_count, b.total_savings, b.total_withdrawn, b.total_shares, b.total_loans, b.quiet, b.first_date, b.last_date,
-                    b.status, b.created_at, b.reversed_at, b.reversal_reason, c.full_name AS created_by_name, r.full_name AS reversed_by_name, a.name AS money_account
+                    b.status, b.created_at, b.reversed_at, b.reversal_reason, CASE WHEN c.role = 'super_admin' AND c.office_via_member = 0 THEN 'System administrator' ELSE c.full_name END AS created_by_name, CASE WHEN r.role = 'super_admin' AND r.office_via_member = 0 THEN 'System administrator' ELSE r.full_name END AS reversed_by_name, a.name AS money_account
              FROM payroll_batches b LEFT JOIN users c ON c.id = b.created_by LEFT JOIN users r ON r.id = b.reversed_by LEFT JOIN gl_accounts a ON a.id = b.money_account_id
              WHERE b.id = ? AND b.kind = 'transactions'"
         );

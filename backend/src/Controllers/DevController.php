@@ -187,6 +187,7 @@ final class DevController
                     'last_login_at' => $u['last_login_at'],
                     // A member's office access (no login of its own), or an office login linked to a member
                     'via_member' => (bool) $u['office_via_member'],
+                    'main' => Roles::isMain($u),
                     'linked_member' => $u['linked_member_id'] ? ['id' => (int) $u['linked_member_id'], 'full_name' => $u['linked_member'], 'account_no' => $u['linked_account_no']] : null,
                 ], $office),
                 'rules' => $rules,
@@ -456,6 +457,9 @@ final class DevController
             if ($o['role'] === Roles::MEMBER || !empty($o['office_via_member'])) {
                 Response::error('Only an office login with its own password is linked to a member account.', 422);
             }
+            if ($memberId && Roles::isMain($o)) {
+                Response::error('The main super admin is never linked to a member account. To give a member Super admin, use their Office rights.', 422);
+            }
             $m = null;
             if ($memberId) {
                 $m = $this->user($db, $memberId);
@@ -474,6 +478,46 @@ final class DevController
         $this->record($s, $member ? 'users.linked' : 'users.unlinked', 'user', $userId, ['name' => $office['full_name'], 'member' => $memberId],
             $member ? "The system provider linked the office login {$office['full_name']} to {$member['full_name']}'s member account" : "The system provider unlinked the office login {$office['full_name']} from its member account");
         $this->show($request);
+    }
+
+    /**
+     * DELETE /api/dev/saccos/{id}/users/{user} - removes an office login of its own (not a member,
+     * not a member's office access). One that has done things in the SACCO keeps its name on those
+     * records: it is suspended and its password scrambled instead. There is always one active
+     * super admin left.
+     */
+    public function deleteOfficeAccount(Request $request): never
+    {
+        $s = $this->sacco((int) $request->param('id'));
+        $userId = (int) $request->param('user');
+        [$user, $removed] = Tenant::actAs($s, function (\PDO $db) use ($userId) {
+            $u = $this->user($db, $userId);
+            if ($u['role'] === Roles::MEMBER || !empty($u['office_via_member'])) {
+                Response::error('Only an office login of its own is removed here. For a member, take away their office rights.', 422);
+            }
+            $others = (int) $db->query("SELECT COUNT(*) FROM users WHERE role = 'super_admin' AND status = 'active' AND id <> " . $userId)->fetchColumn();
+            if ($u['role'] === Roles::SUPER_ADMIN && $u['status'] === 'active' && $others < 1) {
+                Response::error('There must always be one active super admin. Make someone else Super admin first.', 422);
+            }
+            $acted = (int) $db->query('SELECT COUNT(*) FROM audit_log WHERE actor_id = ' . $userId)->fetchColumn();
+            if (!$acted) {
+                try {
+                    $db->prepare('DELETE FROM users WHERE id = ?')->execute([$userId]);
+                    return [$u, true];
+                } catch (\PDOException) {
+                    // Referenced elsewhere: kept, below
+                }
+            }
+            $db->prepare("UPDATE users SET status = 'suspended', password_hash = ?, linked_member_id = NULL, totp_secret = NULL, totp_enabled_at = NULL WHERE id = ?")
+                ->execute([Passwords::hash(bin2hex(random_bytes(24))), $userId]);
+            return [$u, false];
+        });
+        $name = Roles::isMain($user) ? Roles::MAIN_NAME : $user['full_name'];
+        DevAuth::log('platform.office_account_removed', (int) $s['id'], ['name' => $user['full_name'], 'subject' => $userId, 'deleted' => $removed]);
+        if (!Roles::isMain($user)) {
+            Tenant::actAs($s, fn () => Audit::tellOffice("The system provider removed the office login $name", ['action' => 'platform.office_account_removed', 'details' => ['name' => $name], 'subject_type' => 'user', 'subject_id' => $userId]));
+        }
+        Response::ok(['deleted' => $removed]);
     }
 
     /** POST /api/dev/saccos/{id}/update-system - applies the SACCO's pending database updates */
@@ -543,8 +587,20 @@ final class DevController
         DevAuth::log($action, (int) $s['id'], $details + ['subject' => $subjectId]);
         Tenant::actAs($s, function () use ($action, $subjectType, $subjectId, $details, $title, $developer, $alsoTell) {
             $details['by'] = 'System provider (' . $developer['full_name'] . ')';
+            $main = false;
+            if ($subjectType === 'user' && $subjectId) {
+                $u = Database::tenant()->prepare('SELECT role, office_via_member, full_name FROM users WHERE id = ?');
+                $u->execute([$subjectId]);
+                if (Roles::isMain($u->fetch() ?: null)) {
+                    $main = true;
+                    $details['name'] = Roles::MAIN_NAME;
+                }
+            }
             Audit::log($action, $subjectType, $subjectId, $details);
             $row = ['action' => $action, 'details' => $details, 'subject_type' => $subjectType, 'subject_id' => $subjectId];
+            if ($main) {
+                return;
+            }
             Audit::tellOffice($title, $row);
             // The member whose account it was hears about it too, if they aren't office staff
             if ($alsoTell) {

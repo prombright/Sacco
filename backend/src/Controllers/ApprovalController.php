@@ -21,7 +21,7 @@ final class ApprovalController
         $done = $request->string('status') === 'done';
         $stmt = Database::tenant()->query(
             "SELECT a.id, a.kind, a.area, a.amount, a.summary, a.member_id, a.status, a.requested_at, a.decided_at, a.note,
-                    a.requested_by, r.full_name AS requested_by_name, d.full_name AS decided_by_name
+                    a.requested_by, CASE WHEN r.role = 'super_admin' AND r.office_via_member = 0 THEN 'System administrator' ELSE r.full_name END AS requested_by_name, CASE WHEN d.role = 'super_admin' AND d.office_via_member = 0 THEN 'System administrator' ELSE d.full_name END AS decided_by_name
              FROM approvals a JOIN users r ON r.id = a.requested_by LEFT JOIN users d ON d.id = a.decided_by
              WHERE a.status " . ($done ? "<> 'pending'" : "= 'pending'") . ' ORDER BY a.id DESC LIMIT 200'
         );

@@ -29,7 +29,7 @@ final class FinanceController
         Books::sync($db);
         $first = $db->query("SELECT MIN(entry_date) FROM journal_entries WHERE source <> 'year_end'")->fetchColumn();
         $firstYear = $first ? (int) substr($first, 0, 4) : (int) date('Y');
-        $closed = $db->query('SELECT c.*, u.full_name AS closed_by_name FROM closed_years c LEFT JOIN users u ON u.id = c.closed_by')->fetchAll(\PDO::FETCH_UNIQUE);
+        $closed = $db->query('SELECT c.*, CASE WHEN u.role = \'super_admin\' AND u.office_via_member = 0 THEN \'System administrator\' ELSE u.full_name END AS closed_by_name FROM closed_years c LEFT JOIN users u ON u.id = c.closed_by')->fetchAll(\PDO::FETCH_UNIQUE);
         $years = [];
         for ($y = (int) date('Y'); $y >= $firstYear; $y--) {
             $r = $this->result($db, $y);

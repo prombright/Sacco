@@ -40,7 +40,7 @@ final class ArrearsController
              WHERE g.loan_id = ? AND g.status = 'accepted' ORDER BY u.full_name"
         );
         $history = $db->prepare(
-            'SELECT f.kind, f.note, f.promise_date, f.created_at, u.full_name AS by_name FROM loan_followups f
+            'SELECT f.kind, f.note, f.promise_date, f.created_at, CASE WHEN u.role = \'super_admin\' AND u.office_via_member = 0 THEN \'System administrator\' ELSE u.full_name END AS by_name FROM loan_followups f
              LEFT JOIN users u ON u.id = f.created_by WHERE f.loan_id = ? ORDER BY f.id DESC LIMIT 5'
         );
         $loans = [];

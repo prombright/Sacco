@@ -231,7 +231,7 @@ final class WithdrawalController
     }
 
     private const SELECT = 'SELECT w.*, u.full_name, u.account_no, u.employee_no,
-            d.full_name AS decided_by_name, p.full_name AS paid_by_name
+            CASE WHEN d.role = \'super_admin\' AND d.office_via_member = 0 THEN \'System administrator\' ELSE d.full_name END AS decided_by_name, CASE WHEN p.role = \'super_admin\' AND p.office_via_member = 0 THEN \'System administrator\' ELSE p.full_name END AS paid_by_name
         FROM withdrawal_requests w
         JOIN users u ON u.id = w.user_id
         LEFT JOIN users d ON d.id = w.decided_by

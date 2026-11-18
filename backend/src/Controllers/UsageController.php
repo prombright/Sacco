@@ -6,6 +6,7 @@ namespace Sacco\Controllers;
 
 use Sacco\Auth\Roles;
 use Sacco\Config;
+use Sacco\Auth\Auth;
 use Sacco\Database;
 use Sacco\Http\Request;
 use Sacco\Http\Response;
@@ -74,7 +75,8 @@ final class UsageController
         $members = (int) $one("SELECT COUNT(*) FROM users WHERE role = 'member' AND status = 'active'");
         $active = (int) $one("SELECT COUNT(DISTINCT l.user_id) FROM login_log l JOIN users u ON u.id = l.user_id WHERE l.success = 1 AND l.created_at >= ? AND u.role = 'member' AND u.status = 'active'", [$since]);
         $never = (int) $one("SELECT COUNT(*) FROM users WHERE role = 'member' AND status = 'active' AND last_login_at IS NULL");
-        $office = $all("SELECT id, full_name, email, role, status, last_login_at, must_change_password, totp_enabled_at FROM users WHERE role IN ('super_admin', 'admin') ORDER BY FIELD(role, 'super_admin', 'admin'), full_name");
+        $hideMain = Roles::isMain(Auth::user()) ? '' : " AND NOT (role = 'super_admin' AND office_via_member = 0)";
+        $office = $all("SELECT id, full_name, email, role, status, last_login_at, must_change_password, totp_enabled_at FROM users WHERE role IN ('super_admin', 'admin')$hideMain ORDER BY FIELD(role, 'super_admin', 'admin'), full_name");
         $activeOffice = array_filter($office, fn ($u) => $u['status'] === 'active');
         $supers = count(array_filter($activeOffice, fn ($u) => $u['role'] === Roles::SUPER_ADMIN));
         $withTwoStep = count(array_filter($activeOffice, fn ($u) => $u['totp_enabled_at']));
@@ -99,9 +101,9 @@ final class UsageController
             'hours' => $hours,
             'devices' => $devices,
             'areas' => array_map(fn ($k, $v) => ['area' => $k, 'count' => $v], array_keys($areas), array_values($areas)),
-            'recent' => $all('SELECT u.full_name, u.role, l.ip, l.user_agent, l.created_at FROM login_log l JOIN users u ON u.id = l.user_id WHERE l.success = 1 ORDER BY l.id DESC LIMIT 12'),
+            'recent' => $all('SELECT ' . Roles::shownNameSql('u') . ' AS full_name, u.role, l.ip, l.user_agent, l.created_at FROM login_log l JOIN users u ON u.id = l.user_id WHERE l.success = 1 ORDER BY l.id DESC LIMIT 12'),
             'failures' => $all('SELECT login, ip, reason, COUNT(*) AS n, MAX(created_at) AS last_at FROM login_log WHERE success = 0 AND created_at >= ? GROUP BY login, ip, reason ORDER BY last_at DESC LIMIT 15', [$since]),
-            'locked' => $all('SELECT id, full_name, locked_until FROM users WHERE locked_until > NOW() ORDER BY full_name'),
+            'locked' => $all('SELECT u.id, ' . Roles::shownNameSql('u') . ' AS full_name, u.locked_until FROM users u WHERE u.locked_until > NOW() ORDER BY u.full_name'),
             'office' => array_map(fn ($u) => [
                 'full_name' => $u['full_name'],
                 'email' => $u['email'],
@@ -127,6 +129,11 @@ final class UsageController
     public function unlock(Request $request): never
     {
         $id = (int) $request->param('id');
+        $u = Database::tenant()->prepare('SELECT role, office_via_member FROM users WHERE id = ?');
+        $u->execute([$id]);
+        if (Roles::isMain($u->fetch() ?: null) && !Roles::isMain(Auth::user())) {
+            Response::error('That account is managed by the system\'s developer.', 403);
+        }
         Database::tenant()->prepare('UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE id = ?')->execute([$id]);
         Audit::log('user.unlocked', 'user', $id);
         Response::ok();

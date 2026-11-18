@@ -20,7 +20,7 @@ use Sacco\Support\Audit;
  */
 final class UserController
 {
-    private const DEV_ONLY = "Admin and Super admin rights are given and taken away by the system's developer, not in the office. Contact the developer.";
+    private const DEV_ONLY = "Office logins are managed by the system's developer. Contact the developer.";
 
     private const STATUSES = ['active', 'suspended', 'left'];
 
@@ -41,6 +41,10 @@ final class UserController
         if (in_array($request->string('status'), self::STATUSES, true)) {
             $where[] = 'status = ?';
             $args[] = $request->string('status');
+        }
+        // The main super admin is seen only by itself (and the developer)
+        if (!Roles::isMain(Auth::user())) {
+            $where[] = "NOT (role = 'super_admin' AND office_via_member = 0)";
         }
         $sqlWhere = $where ? 'WHERE ' . implode(' AND ', $where) : '';
 
@@ -106,11 +110,21 @@ final class UserController
         if (!Roles::canManage($actor['role'], $user['role']) || !Roles::canManage($actor['role'], $data['role'])) {
             Response::error('Only a super admin can change admins.', 403);
         }
-        // Office rights (Admin, Super admin) are the developer's to give, change and take away, and
-        // office logins are switched on and off there too: a super admin can't hand them out
-        $office = $user['role'] === Roles::MEMBER ? OfficeAccess::roleOf(Database::tenant(), (int) $user['id']) : null;
-        if ($user['role'] === Roles::MEMBER ? $data['role'] !== ($office ?? Roles::MEMBER) : ($data['role'] !== $user['role'] || $data['status'] !== $user['status'])) {
+        // Office logins of their own (and the main super admin above all) are the developer's
+        if ($user['role'] !== Roles::MEMBER && (Roles::isMain($user) || $data['role'] !== $user['role'] || $data['status'] !== $user['status'])) {
             Response::error(self::DEV_ONLY, 403);
+        }
+        // Office rights for members: the main super admin gives Super admin or Admin; a super admin
+        // who is a member gives Admin only, and can't change another super admin
+        $office = $user['role'] === Roles::MEMBER ? OfficeAccess::roleOf(Database::tenant(), (int) $user['id']) : null;
+        if ($user['role'] === Roles::MEMBER && $data['role'] !== ($office ?? Roles::MEMBER)) {
+            $main = Roles::isMain($actor);
+            if ($actor['role'] !== Roles::SUPER_ADMIN) {
+                Response::error('Only a super admin gives office rights.', 403);
+            }
+            if (!$main && ($data['role'] === Roles::SUPER_ADMIN || $office === Roles::SUPER_ADMIN)) {
+                Response::error('You can give or take away Admin. Super admin is not yours to give or take away.', 403);
+            }
         }
         if ((int) $user['id'] === (int) $actor['id'] && ($data['role'] !== $user['role'] || $data['status'] !== 'active')) {
             Response::error('You can\'t change your own role or deactivate yourself. Ask another super admin.', 422);
@@ -189,6 +203,9 @@ final class UserController
         $user = $this->find((int) $request->param('id'));
         if (!Roles::canManage(Auth::user()['role'], $user['role'])) {
             Response::error('Only a super admin can reset an admin\'s password.', 403);
+        }
+        if (Roles::isMain($user)) {
+            Response::error(self::DEV_ONLY, 403);
         }
         $temporary = Passwords::temporary();
         Database::tenant()->prepare(

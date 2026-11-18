@@ -14,8 +14,14 @@ const isSelf = props.user?.id === auth.user?.id
 
 /** An office login of its own (not a member's office access) */
 const isOffice = !!props.user && props.user.role !== 'member' && !props.user.office_via_member
-/** Office rights are given by the system's developer, so the role here is only shown */
 const roleLabel: Record<string, string> = { member: 'Member', admin: 'Admin', super_admin: 'Super Admin' }
+/**
+ * Office rights for an existing member: the main super admin gives Super admin or Admin; a super
+ * admin who is a member gives Admin only, and leaves other super admins as they are. Office logins
+ * of their own are the developer's.
+ */
+const startRole = props.user?.office_role ?? 'member'
+const canSetRole = !!props.user && props.user.role === 'member' && !isSelf && auth.isSuperAdmin && (auth.isMain || startRole !== 'super_admin')
 
 const form = reactive({
   full_name: props.user?.full_name ?? '',
@@ -126,11 +132,26 @@ async function save() {
 
       <div class="grid gap-4 sm:grid-cols-2">
         <div>
-          <p class="label">Role</p>
-          <p class="input flex items-center bg-gray-50 text-gray-700">
-            {{ roleLabel[form.role] }}<span v-if="form.role !== 'member' && user?.role === 'member'" class="ml-1 text-gray-500">(and a member)</span>
-          </p>
-          <p class="mt-1 text-xs text-gray-500">Admin and Super admin rights are given and taken away by the system's developer, not here. Ask the developer when someone needs them, or no longer should.</p>
+          <template v-if="canSetRole">
+            <label for="role" class="label">Office rights</label>
+            <select id="role" v-model="form.role" class="input">
+              <option value="member">None (member only)</option>
+              <option value="admin">Admin</option>
+              <option v-if="auth.isMain" value="super_admin">Super Admin</option>
+            </select>
+            <p v-if="form.role !== 'member'" class="mt-1 rounded-lg bg-navy-50 px-2.5 py-1.5 text-xs text-navy-800">
+              {{ user!.full_name.split(' ')[0] }} keeps their savings and their own login. They log in as usual and tap the round switch at the top to work in the office, and again to come back.
+            </p>
+            <p v-else-if="startRole !== 'member'" class="mt-1 text-xs text-gray-500">Saving takes their office access away. Their member account stays as it is.</p>
+          </template>
+          <template v-else>
+            <p class="label">Role</p>
+            <p class="input flex items-center bg-gray-50 text-gray-700">
+              {{ roleLabel[form.role] }}<span v-if="form.role !== 'member' && user?.role === 'member'" class="ml-1 text-gray-500">(and a member)</span>
+            </p>
+            <p v-if="!user" class="mt-1 text-xs text-gray-500">Everyone is added as a member. A super admin can then give them office rights.</p>
+            <p v-else-if="isOffice" class="mt-1 text-xs text-gray-500">This office login is managed by the system's developer.</p>
+          </template>
         </div>
         <div v-if="user">
           <label for="status" class="label">Status</label>

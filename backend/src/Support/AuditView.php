@@ -83,7 +83,7 @@ final class AuditView
             return $s->fetchColumn();
         };
         $label = match ($type) {
-            'user' => ($n = $one("SELECT CONCAT(full_name, IF(account_no IS NULL, '', CONCAT(' (', account_no, ')'))) FROM users WHERE id = ?")) ? $n : null,
+            'user' => ($n = $one("SELECT IF(role = 'super_admin' AND office_via_member = 0, '" . \Sacco\Auth\Roles::MAIN_NAME . "', CONCAT(full_name, IF(account_no IS NULL, '', CONCAT(' (', account_no, ')')))) FROM users WHERE id = ?")) ? $n : null,
             'loan' => ($n = $one('SELECT loan_no FROM loans WHERE id = ?')) ? "Loan $n" : null,
             'withdrawal' => ($n = $one('SELECT request_no FROM withdrawal_requests WHERE id = ?')) ? "Withdrawal $n" : null,
             'transaction' => ($n = $one("SELECT CONCAT(u.full_name, ': ', t.type, ' ', FORMAT(ABS(t.amount), 0)) FROM transactions t JOIN users u ON u.id = t.user_id WHERE t.id = ?")) ? str_replace('_', ' ', $n) : null,
@@ -107,7 +107,7 @@ final class AuditView
         // A person's number in the details: their name instead ("Member: 29" -> "Member: Ddamulira Daniel")
         $people = ['member', 'guarantor', 'from', 'to', 'office', 'user', 'borrower'];
         $person = function ($id) use ($db): ?string {
-            $s = $db->prepare('SELECT full_name FROM users WHERE id = ?');
+            $s = $db->prepare('SELECT ' . \Sacco\Auth\Roles::shownNameSql('users') . ' FROM users WHERE id = ?');
             $s->execute([(int) $id]);
             return $s->fetchColumn() ?: null;
         };

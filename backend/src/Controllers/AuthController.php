@@ -263,7 +263,7 @@ final class AuthController
      */
     private static function switchTarget(array $user): ?array
     {
-        if ((int) $user['id'] !== Auth::id()) {
+        if ((int) $user['id'] !== Auth::id() || Roles::isMain($user)) {
             return null;
         }
         $db = Database::tenant();

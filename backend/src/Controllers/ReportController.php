@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Sacco\Controllers;
 
+use Sacco\Auth\Roles;
 use Sacco\Database;
 use Sacco\Http\Request;
 use Sacco\Http\Response;
@@ -224,7 +225,7 @@ final class ReportController
     {
         $db = Database::tenant();
         $stmt = $db->prepare(
-            "SELECT t.value_date AS date, t.created_at, u.account_no, u.full_name, t.account, t.type, t.amount, t.reference, t.narration, c.full_name AS recorded_by
+            "SELECT t.value_date AS date, t.created_at, u.account_no, u.full_name, t.account, t.type, t.amount, t.reference, t.narration, CASE WHEN c.role = 'super_admin' AND c.office_via_member = 0 THEN 'System administrator' ELSE c.full_name END AS recorded_by
              FROM transactions t JOIN users u ON u.id = t.user_id LEFT JOIN users c ON c.id = t.created_by
              WHERE t.value_date BETWEEN ? AND ?
              UNION ALL
@@ -293,7 +294,7 @@ final class ReportController
     public static function auditEntries(\PDO $db, string $from, string $to): array
     {
         $stmt = $db->prepare(
-            'SELECT a.id, a.created_at, a.actor_id, u.full_name AS actor, u.role AS actor_role, a.action, a.subject_type, a.subject_id, a.details, a.ip
+            'SELECT a.id, a.created_at, a.actor_id, ' . Roles::shownNameSql('u') . ' AS actor, u.role AS actor_role, a.action, a.subject_type, a.subject_id, a.details, a.ip
              FROM audit_log a LEFT JOIN users u ON u.id = a.actor_id
              WHERE a.created_at >= ? AND a.created_at < DATE_ADD(?, INTERVAL 1 DAY) ORDER BY a.id'
         );

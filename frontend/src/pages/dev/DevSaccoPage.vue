@@ -33,6 +33,8 @@ interface OfficeAccount {
   last_login_at: string | null
   /** A member's office access (they log in as themselves), not a login of its own */
   via_member: boolean
+  /** The main super admin: a login of its own, not a member; hidden from the rest of the office */
+  main: boolean
   linked_member: { id: number; full_name: string; account_no: string | null } | null
 }
 interface Detail {
@@ -202,6 +204,17 @@ async function link(u: OfficeAccount, m: MemberRow | null) {
     linkQ.value = ''
   } catch (e) {
     roleProblem.value = e instanceof ApiError ? e.message : 'Couldn\'t save the link.'
+  }
+}
+async function removeAccount(u: OfficeAccount) {
+  roleProblem.value = ''
+  if (!await ask(`Remove the office login ${u.full_name}? It stops working at once. If it has done things in the SACCO, it is kept suspended with its password scrambled, so its name stays on those records.`)) return
+  try {
+    const res = await api.delete<{ deleted: boolean }>(`/dev/saccos/${id.value}/users/${u.id}`)
+    await load()
+    roleProblem.value = res.deleted ? '' : `${u.full_name} has done things in the SACCO, so it was suspended and its password scrambled instead of deleted.`
+  } catch (e) {
+    roleProblem.value = e instanceof ApiError ? e.message : 'Couldn\'t remove the account.'
   }
 }
 async function setStatus(u: OfficeAccount, status: 'active' | 'suspended') {
@@ -421,7 +434,7 @@ const waitingList = computed(() => {
       <!-- Office accounts -->
       <section v-else-if="tab === 'office'" class="mt-6">
         <div class="flex flex-wrap items-center justify-between gap-3">
-          <p class="max-w-2xl text-sm text-gray-600">Super admins set the rules and can do everything in the SACCO; admins run it day to day. Every change you make here is logged and sent to the SACCO's office accounts.</p>
+          <p class="max-w-2xl text-sm text-gray-600">The <strong>main</strong> super admin is a login of its own (not a member): it makes members super admins and takes that away, has no switch, and the rest of the office doesn't see it. A member who is super admin gives Admin to other members. Every change here is logged.</p>
           <button type="button" class="btn-primary" @click="adding = true"><PlusIcon class="h-4 w-4" />Add an office account</button>
         </div>
         <p v-if="roleProblem" class="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ roleProblem }}</p>
@@ -429,7 +442,7 @@ const waitingList = computed(() => {
           <div v-for="u in data.office" :key="u.id" class="flex flex-wrap items-center gap-3 p-4">
             <span class="inline-flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold" :class="u.role === 'super_admin' ? 'bg-saffron-100 text-saffron-700' : 'bg-navy-50 text-navy-800'">{{ u.full_name.split(' ').map((w) => w[0]).slice(0, 2).join('') }}</span>
             <div class="min-w-0 flex-1">
-              <p class="font-semibold">{{ u.full_name }} <span class="ml-1 rounded px-1.5 py-0.5 text-xs font-semibold" :class="u.role === 'super_admin' ? 'bg-saffron-100 text-saffron-700' : 'bg-navy-50 text-navy-800'">{{ u.role_label }}</span></p>
+              <p class="font-semibold">{{ u.full_name }} <span class="ml-1 rounded px-1.5 py-0.5 text-xs font-semibold" :class="u.role === 'super_admin' ? 'bg-saffron-100 text-saffron-700' : 'bg-navy-50 text-navy-800'">{{ u.role_label }}</span><span v-if="u.main" class="ml-1 rounded bg-navy-900 px-1.5 py-0.5 text-xs font-semibold text-white" title="Not a member; makes members super admins; the rest of the office doesn't see it">Main</span></p>
               <p v-if="u.via_member" class="text-sm text-gray-500">
                 A member's office access: logs in with their member login{{ u.linked_member ? ` (${u.linked_member.account_no})` : '' }} · {{ u.status === 'active' ? 'active' : 'taken away' }}
               </p>
@@ -456,10 +469,11 @@ const waitingList = computed(() => {
             </template>
             <template v-else>
               <button type="button" class="btn-ghost" @click="setRole(u.id, u.full_name, u.role === 'admin' ? 'super_admin' : 'admin')">Make {{ u.role === 'admin' ? 'super admin' : 'admin' }}</button>
-              <button v-if="!u.linked_member" type="button" class="btn-ghost" @click="openLink(u)">Link to a member</button>
+              <button v-if="!u.linked_member && !u.main" type="button" class="btn-ghost" @click="openLink(u)">Link to a member</button>
               <button type="button" class="btn-ghost" @click="resetPassword(u)"><KeyIcon class="h-4 w-4" />Reset password</button>
               <button v-if="u.status === 'active'" type="button" class="btn-ghost !text-red-700" @click="setStatus(u, 'suspended')"><NoSymbolIcon class="h-4 w-4" />Suspend</button>
               <button v-else type="button" class="btn-ghost" @click="setStatus(u, 'active')"><CheckCircleIcon class="h-4 w-4" />Reactivate</button>
+              <button type="button" class="btn-ghost !text-red-700" @click="removeAccount(u)">Delete</button>
             </template>
           </div>
           <p v-if="!data.office.length" class="p-6 text-center text-sm text-gray-500">No office accounts.</p>
@@ -552,7 +566,7 @@ const waitingList = computed(() => {
         <fieldset>
           <legend class="label">Role</legend>
           <div class="grid gap-2 sm:grid-cols-2">
-            <label v-for="r in [{ v: 'admin', t: 'Admin', d: 'Runs the SACCO day to day; is told of every super admin change.' }, { v: 'super_admin', t: 'Super admin', d: 'Sets the rules and can do everything.' }]" :key="r.v" class="flex cursor-pointer gap-2 rounded-xl border p-3 text-sm" :class="newAccount.role === r.v ? 'border-brand bg-navy-50/50' : 'border-line'">
+            <label v-for="r in [{ v: 'admin', t: 'Admin login', d: 'Runs the SACCO day to day, with a login of its own (not a member).' }, { v: 'super_admin', t: 'Main super admin', d: 'Not a member. Makes members super admins and takes that away; hidden from the rest of the office.' }]" :key="r.v" class="flex cursor-pointer gap-2 rounded-xl border p-3 text-sm" :class="newAccount.role === r.v ? 'border-brand bg-navy-50/50' : 'border-line'">
               <input v-model="newAccount.role" type="radio" :value="r.v" class="mt-0.5 accent-brand" />
               <span><span class="font-semibold">{{ r.t }}</span><span class="block text-xs text-gray-600">{{ r.d }}</span></span>
             </label>
