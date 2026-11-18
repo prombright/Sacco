@@ -276,7 +276,7 @@ final class AuthController
         if ($user['role'] === Roles::MEMBER) {
             // Back to the office: when this login started there, or when the office access was given
             // to this member (it has no login of its own; the member's login opens it)
-            $s = $db->prepare("SELECT id, full_name, office_via_member FROM users WHERE linked_member_id = ? AND role <> 'member' AND status = 'active'");
+            $s = $db->prepare("SELECT id, full_name, office_via_member FROM users WHERE linked_member_id = ? AND role <> 'member' AND status = 'active' AND NOT (role = 'super_admin' AND office_via_member = 0)");
             $s->execute([$user['id']]);
             $o = $s->fetch();
             if ($o && ((int) $o['office_via_member'] === 1 || (int) ($_SESSION['office_id'] ?? 0) === (int) $o['id'])) {

@@ -223,7 +223,7 @@ final class DevController
                     (SELECT balance_after FROM transactions t WHERE t.user_id = u.id AND t.account = 'savings' ORDER BY t.id DESC LIMIT 1) AS savings,
                     (SELECT balance_after FROM transactions t WHERE t.user_id = u.id AND t.account = 'shares' ORDER BY t.id DESC LIMIT 1) AS shares,
                     (SELECT COUNT(*) FROM loans l WHERE l.user_id = u.id AND l.status = 'active') AS active_loans,
-                    (SELECT o.role FROM users o WHERE o.linked_member_id = u.id AND o.role <> 'member' AND o.status = 'active' LIMIT 1) AS office_role
+                    (SELECT o.role FROM users o WHERE o.linked_member_id = u.id AND o.role <> 'member' AND o.status = 'active' AND NOT (o.role = 'super_admin' AND o.office_via_member = 0) LIMIT 1) AS office_role
                  FROM users u WHERE $where ORDER BY u.full_name LIMIT $per OFFSET " . (($page - 1) * $per)
             );
             $stmt->execute($args);

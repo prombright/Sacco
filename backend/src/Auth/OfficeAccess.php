@@ -19,7 +19,8 @@ final class OfficeAccess
     /** The office account linked to a member (any status), or null */
     public static function officeOf(PDO $db, int $memberId): ?array
     {
-        $stmt = $db->prepare("SELECT * FROM users WHERE linked_member_id = ? AND role <> 'member'");
+        // The main super admin is nobody's office access, even if it was once linked to a member
+        $stmt = $db->prepare("SELECT * FROM users WHERE linked_member_id = ? AND role <> 'member' AND NOT (role = 'super_admin' AND office_via_member = 0)");
         $stmt->execute([$memberId]);
         return $stmt->fetch() ?: null;
     }

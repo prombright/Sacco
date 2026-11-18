@@ -2,6 +2,7 @@
 import PageHeader from '@/components/PageHeader.vue'
 import SkeletonRows from '@/components/SkeletonRows.vue'
 import { ask } from '@/confirm'
+import { toast } from '@/toast'
 import { onMounted, ref, watch } from 'vue'
 import { api, ApiError } from '@/api'
 import { useAuth } from '@/stores/auth'
@@ -200,7 +201,7 @@ const statusLabel: Record<string, string> = { active: 'Active', suspended: 'Susp
       </div>
     </div>
 
-    <UserForm v-if="editing !== undefined" :user="editing" @close="editing = undefined" @saved="saved" />
+    <UserForm v-if="editing !== undefined" :user="editing" @close="editing = undefined" @saved="saved" @deleted="editing = undefined; toast('The member was deleted'); load()" />
     <TemporaryPassword v-if="issued" :user="issued.user" :password="issued.password" @close="issued = null" />
   </div>
 </template>

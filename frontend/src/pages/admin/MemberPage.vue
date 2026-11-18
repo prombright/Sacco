@@ -469,7 +469,7 @@ function certificate() {
       </template>
     </template>
 
-    <UserForm v-if="editingDetails && member" :user="member" @close="editingDetails = false" @saved="editingDetails = false; loadMember()" />
+    <UserForm v-if="editingDetails && member" :user="member" @close="editingDetails = false" @saved="editingDetails = false; loadMember()" @deleted="toast('The member was deleted'); router.replace({ name: 'users' })" />
 
     <Modal v-if="slowOpen && member && credit" :title="credit.marked ? `Lift ${member.full_name.split(' ')[0]}'s slow-payer mark` : `Mark ${member.full_name.split(' ')[0]} as a slow payer`" @close="slowOpen = false">
       <form class="space-y-4" @submit.prevent="saveSlow">

@@ -4,10 +4,32 @@ import { api, ApiError } from '@/api'
 import { useAuth } from '@/stores/auth'
 import type { Role, User, UserStatus } from '@/types'
 import Modal from '@/components/Modal.vue'
+import { ask } from '@/confirm'
 
 /** Add a user (user is null) or edit one */
 const props = defineProps<{ user: User | null }>()
-const emit = defineEmits<{ close: []; saved: [user: User, temporaryPassword: string | null] }>()
+const emit = defineEmits<{ close: []; saved: [user: User, temporaryPassword: string | null]; deleted: [] }>()
+
+/**
+ * The super admin deletes a member added by mistake or twice. Only one with no money history here
+ * can go; the server says what they have if not (close their membership instead).
+ */
+const canDelete = !!props.user && props.user.role === 'member' && useAuth().isSuperAdmin && props.user.id !== useAuth().user?.id
+const deleting = ref(false)
+async function remove() {
+  if (!props.user) return
+  if (!await ask(`Delete ${props.user.full_name} for good? Use this only for a member added by mistake or twice. Their details, next of kin and messages go too; the audit report keeps who they were.`)) return
+  error.value = ''
+  deleting.value = true
+  try {
+    await api.delete(`/users/${props.user.id}`)
+    emit('deleted')
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.message : 'Could not delete the member.'
+  } finally {
+    deleting.value = false
+  }
+}
 
 const auth = useAuth()
 const isSelf = props.user?.id === auth.user?.id
@@ -165,6 +187,7 @@ async function save() {
       </div>
 
       <div class="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+        <button v-if="canDelete" type="button" class="btn-ghost !text-red-700 sm:mr-auto" :disabled="deleting || busy" @click="remove">{{ deleting ? 'Deleting…' : 'Delete member…' }}</button>
         <button type="button" class="btn-secondary" @click="emit('close')">Cancel</button>
         <button type="submit" class="btn-primary" :disabled="busy">{{ busy ? 'Saving…' : user ? 'Save changes' : 'Add user' }}</button>
       </div>
