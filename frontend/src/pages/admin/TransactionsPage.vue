@@ -87,7 +87,11 @@ const reverseError = ref('')
 async function reverse() {
   reverseError.value = ''
   try {
-    await api.post(`/transactions/${reversing.value!.id}/reverse`, { reason: reason.value })
+    const res = await api.post<{ pending_approval?: unknown } | null>(`/transactions/${reversing.value!.id}/reverse`, { reason: reason.value })
+    if (res?.pending_approval) {
+      reversing.value = null
+      return
+    }
     reversing.value = null
     await load()
   } catch (e) {

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Sacco\Controllers;
 
+use Sacco\Support\Notify;
+use Sacco\Support\Approvals;
 use Sacco\Support\Periods;
 use Sacco\Auth\Auth;
 use Sacco\Database;
@@ -228,6 +230,7 @@ final class AccountingController
         if ($debits !== $credits) {
             Response::error('Debits (' . number_format($debits / 100, 2) . ') and credits (' . number_format($credits / 100, 2) . ') must be equal.', 422);
         }
+        Approvals::gate($request, [self::class, 'createJournal'], 'journal', 'money', $debits, 'Journal entry of ' . Notify::cents($debits) . ": $narration");
         $id = Database::transaction(function (\PDO $db) use ($date, $narration, $request, $lines) {
             $db->prepare("INSERT INTO journal_entries (entry_date, narration, reference, auto, source, created_by) VALUES (?, ?, ?, 0, 'manual', ?)")
                 ->execute([$date, $narration, mb_substr($request->string('reference'), 0, 80) ?: null, Auth::id()]);

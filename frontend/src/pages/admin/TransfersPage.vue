@@ -73,7 +73,7 @@ async function submit() {
   try {
     const c = chosen.value
     const recipient = c.other || (c.key === 'loan' && form.loan_owner === 'other') ? to.value : from.value
-    const res = await api.post<{ transfer: Transfer }>('/transfers', {
+    const res = await api.post<{ transfer: Transfer; pending_approval?: unknown }>('/transfers', {
       from_user_id: from.value?.id,
       from_account: c.from,
       to_user_id: recipient?.id,
@@ -83,6 +83,11 @@ async function submit() {
       value_date: form.value_date,
       reason: form.reason,
     })
+    if (res.pending_approval) {
+      done.value = 'Sent for a second approval: it will be done once another office member approves it.'
+      Object.assign(form, { amount: '', reason: '' })
+      return
+    }
     done.value = `Transfer ${res.transfer.transfer_no} done: ${formatMoney(res.transfer.amount)}. Both members have been told.`
     toast(`Transfer ${res.transfer.transfer_no} done: ${formatMoney(res.transfer.amount)}`)
     Object.assign(form, { amount: '', reason: '' })
@@ -131,7 +136,11 @@ const reverseError = ref('')
 async function reverse() {
   reverseError.value = ''
   try {
-    await api.post(`/transfers/${reversing.value!.id}/reverse`, { reason: reason.value })
+    const back = await api.post<{ pending_approval?: unknown } | null>(`/transfers/${reversing.value!.id}/reverse`, { reason: reason.value })
+    if (back?.pending_approval) {
+      reversing.value = null
+      return
+    }
     reversing.value = null
     await load()
   } catch (e) {

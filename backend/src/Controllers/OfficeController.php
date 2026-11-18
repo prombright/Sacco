@@ -238,6 +238,7 @@ final class OfficeController
                 (SELECT COUNT(*) FROM loans WHERE status = 'approved') AS loans_to_pay_out,
                 (SELECT COUNT(*) FROM loans WHERE status = 'pending_guarantors') AS loans_waiting_guarantors,
                 (SELECT COUNT(*) FROM withdrawal_requests WHERE status = 'pending') AS withdrawals_to_approve,
+                (SELECT COUNT(*) FROM approvals WHERE status = 'pending') AS approvals_waiting,
                 (SELECT COUNT(*) FROM withdrawal_requests WHERE status = 'approved') AS withdrawals_to_pay,
                 (SELECT COUNT(*) FROM users WHERE status = 'active' AND role = 'member' AND must_change_password = 1) AS members_not_signed_in,
                 (SELECT COUNT(DISTINCT i.loan_id) FROM loan_installments i JOIN loans l ON l.id = i.loan_id

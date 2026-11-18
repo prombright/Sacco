@@ -32,7 +32,7 @@ final class AuditView
         'membership_fee.waived', 'membership_fee.undone',
         'transfer.reversed', 'payroll.reversed', 'dividend.reversed', 'cashbook.reversed', 'journal.reversed', 'journal.posted',
         'investment.return_reversed', 'bank_rec.deleted', 'bank_rec.reopened',
-        'year.closed', 'year.reopened', 'backup.downloaded', 'two_step.disabled', 'committee.decided',
+        'year.closed', 'year.reopened', 'backup.downloaded', 'two_step.disabled', 'committee.decided', 'approval.rejected',
     ];
 
     /** Everyday entries hidden unless asked for: they would drown the rest */
@@ -43,7 +43,7 @@ final class AuditView
         [$head] = explode('.', $action);
         return match (true) {
             in_array($action, ['users.imported', 'transactions.imported'], true), $head === 'old_system' => 'imports',
-            in_array($head, ['transaction', 'transfer', 'payroll', 'withdrawal', 'membership_fee', 'dividend', 'profit_share'], true) => 'money',
+            in_array($head, ['transaction', 'transfer', 'payroll', 'withdrawal', 'membership_fee', 'dividend', 'profit_share', 'approval'], true) => 'money',
             in_array($head, ['loan'], true) => 'loans',
             in_array($head, ['user', 'users', 'member', 'notice', 'next_of_kin', 'statements'], true) => 'members',
             in_array($head, ['settings', 'loan_product', 'committee'], true) => 'rules',

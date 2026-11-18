@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Sacco\Controllers;
 
+use Sacco\Support\Approvals;
 use Sacco\Support\Periods;
 use Sacco\Auth\Auth;
 use Sacco\Auth\Roles;
@@ -342,6 +343,7 @@ final class LoanController
         if ($loan['status'] !== 'approved') {
             Response::error('Only an approved loan can be paid out.', 422);
         }
+        Approvals::sameApprover(Money::fromDecimal($loan['amount']), $loan['decided_by'] ? (int) $loan['decided_by'] : null, 'pays out a loan');
         $date = $this->date($request->string('disbursed_on') ?: date('Y-m-d'), 'disbursed_on');
         $reference = mb_substr($request->string('reference'), 0, 80);
         if ($reference === '') {

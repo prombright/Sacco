@@ -26,6 +26,7 @@ final class SettingsController
 
         $yesNo = fn ($v) => in_array($v, ['yes', 'no'], true) ? $v : null;
         return [
+            'approval_limit' => ['A second office person approves money actions of this amount or more (0 = off)', $decimal(0, 1_000_000_000)],
             'loan_max_months' => ['Longest a member can choose to repay a loan over, in months (a loan type may be shorter)', $int(1, 120)],
             'loan_min_member_months' => ['Months of saving before a loan', $int(0, 120)],
             'guarantor_min_member_months' => ['Months of membership to be a guarantor', $int(0, 120)],

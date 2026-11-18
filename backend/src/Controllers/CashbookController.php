@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Sacco\Controllers;
 
+use Sacco\Support\Notify;
+use Sacco\Support\Approvals;
 use Sacco\Support\Periods;
 use Sacco\Auth\Auth;
 use Sacco\Database;
@@ -79,6 +81,8 @@ final class CashbookController
             Response::error('Describe the entry, e.g. "Receipt books for the office".', 422, ['description' => 'Required']);
         }
         Periods::check($date);
+        Approvals::gate($request, [self::class, 'store'], 'cashbook', 'money', $cents,
+            ($kind === 'expense' ? 'Payment' : 'Receipt') . ' of ' . Notify::cents($cents) . " ($category): $description");
         $db->prepare('INSERT INTO cashbook (kind, category, account_id, money_account_id, amount, entry_date, description, reference, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
             ->execute([$kind, $category, $account['id'], Periods::moneyAccount($request), Money::toDecimal($cents), $date, $description, mb_substr($request->string('reference'), 0, 80) ?: null, Auth::id()]);
         $id = (int) $db->lastInsertId();

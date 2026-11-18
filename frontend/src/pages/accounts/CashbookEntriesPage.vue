@@ -86,7 +86,11 @@ function start() {
 async function save() {
   formError.value = ''
   try {
-    await api.post('/cashbook', { ...form, kind: kind.value })
+    const res = await api.post<{ pending_approval?: unknown } | null>('/cashbook', { ...form, kind: kind.value })
+    if (res?.pending_approval) {
+      adding.value = false
+      return
+    }
     adding.value = false
     await load()
   } catch (e) {

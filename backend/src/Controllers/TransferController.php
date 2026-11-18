@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Sacco\Controllers;
 
+use Sacco\Support\Approvals;
 use Sacco\Auth\Auth;
 use Sacco\Database;
 use Sacco\Http\Request;
@@ -99,6 +100,9 @@ final class TransferController
             $loan = $stmt->fetch() ?: Response::error('Choose an active loan of ' . $to['full_name'] . '.', 422, ['loan_id' => 'Required']);
         }
 
+        Approvals::gate($request, [self::class, 'store'], 'transfer', 'money', $cents,
+            'Move ' . Notify::cents($cents) . " from {$from['full_name']}'s $fromAccount to " . ((int) $from['id'] === (int) $to['id'] ? 'their' : "{$to['full_name']}'s") . " $toAccount: $reason",
+            (int) $from['id']);
         try {
             $id = Database::transaction(function (\PDO $db) use ($from, $to, $fromAccount, $toAccount, $loan, $cents, $date, $reason) {
                 $db->prepare('SELECT id FROM users WHERE id IN (?, ?) FOR UPDATE')->execute([$from['id'], $to['id']]);
@@ -159,6 +163,8 @@ final class TransferController
         if ($reason === '') {
             Response::error('Say why this transfer is being reversed.', 422, ['reason' => 'Required']);
         }
+        Approvals::gate($request, [self::class, 'reverse'], 'transfer_reversal', 'money', Money::fromDecimal($t['amount']),
+            "Reverse transfer {$t['transfer_no']} of " . Notify::money($t['amount']) . ": $reason");
         try {
             Database::transaction(function (\PDO $db) use ($t, $reason) {
                 $db->prepare('SELECT id FROM transfers WHERE id = ? FOR UPDATE')->execute([$t['id']]);

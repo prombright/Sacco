@@ -18,7 +18,11 @@ async function save() {
   error.value = ''
   busy.value = true
   try {
-    const res = await api.post<{ balances: Balances }>(`/transactions/${props.transaction.id}/reverse`, { reason: reason.value, entered_in_error: inError.value })
+    const res = await api.post<{ balances: Balances; pending_approval?: unknown }>(`/transactions/${props.transaction.id}/reverse`, { reason: reason.value, entered_in_error: inError.value })
+    if (res.pending_approval) {
+      emit('close')
+      return
+    }
     emit('saved', res.balances)
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Something went wrong. Please try again.'

@@ -69,6 +69,7 @@ const tasks = computed(() => {
   const w = data.value?.waiting
   if (!w) return []
   return [
+    { n: w.approvals_waiting, text: 'money action', verb: 'waiting for a second approval', to: { name: 'approvals' } },
     { n: w.loans_to_approve, text: 'loan application', verb: 'to approve', to: { name: 'admin-loans' } },
     { n: w.loans_to_pay_out, text: 'approved loan', verb: 'to pay out', to: { name: 'admin-loans' } },
     { n: w.withdrawals_to_approve, text: 'withdrawal request', verb: 'to approve', to: { name: 'admin-withdrawals' } },

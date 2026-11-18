@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Sacco\Controllers;
 
+use Sacco\Support\Approvals;
 use Sacco\Loans\Credit;
 use Sacco\Support\Periods;
 use Sacco\Auth\Auth;
@@ -358,6 +359,9 @@ final class TransactionController
         if ($errors) {
             Response::error(reset($errors), 422, $errors);
         }
+        Approvals::gate($request, [self::class, 'store'], 'entry', 'money', $cents,
+            ucfirst(str_replace('_', ' ', $type)) . ' of ' . Notify::cents($cents) . ($sign < 0 ? ' from ' : ' to ') . $user['full_name'] . "'s $account" . ($narration !== '' ? " ($narration)" : ''),
+            (int) $user['id']);
 
         $moneyAccount = in_array($type, ['deposit', 'withdrawal'], true) ? Periods::moneyAccount($request) : null;
         try {
@@ -467,6 +471,11 @@ final class TransactionController
 
         // Entered in error (e.g. on the wrong member): the entry and its correction are hidden from the member
         $inError = (bool) $request->input('entered_in_error', false);
+        $who = Database::tenant()->prepare('SELECT full_name FROM users WHERE id = ?');
+        $who->execute([$original['user_id']]);
+        Approvals::gate($request, [self::class, 'reverse'], 'reversal', 'money', abs(Money::fromDecimal($original['amount'])),
+            'Reverse ' . str_replace('_', ' ', $original['type']) . ' of ' . Notify::money(ltrim($original['amount'], '-')) . ' on ' . $who->fetchColumn() . "'s {$original['account']}" . ($inError ? ' (entered in error)' : '') . ": $reason",
+            (int) $original['user_id']);
         try {
             $row = Database::transaction(function (\PDO $db) use ($original, $reason, $inError) {
                 $row = Ledger::reverse($db, (int) $original['id'], $reason);

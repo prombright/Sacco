@@ -37,7 +37,11 @@ async function save() {
   error.value = ''
   busy.value = true
   try {
-    const res = await api.post<{ balances: Balances }>(`/members/${props.member.id}/transactions`, form)
+    const res = await api.post<{ balances: Balances; pending_approval?: unknown }>(`/members/${props.member.id}/transactions`, form)
+    if (res.pending_approval) {
+      emit('close')
+      return
+    }
     emit('saved', res.balances)
   } catch (e) {
     if (e instanceof ApiError) {

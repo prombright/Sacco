@@ -15,6 +15,14 @@ final class Request
     ) {
     }
 
+    /** A request made again later, as it was (an approved request, carried out by the approver) */
+    public static function replay(string $method, string $path, array $params, array $body): self
+    {
+        $r = new self($method, $path, $params);
+        $r->json = $body;
+        return $r;
+    }
+
     public static function capture(): self
     {
         $uri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';

@@ -36,7 +36,12 @@ async function save() {
   done.value = ''
   busy.value = true
   try {
-    const res = await api.post<{ balances: Balances; transaction: { id: number } }>(`/members/${member.value!.id}/transactions`, { ...form, type: 'deposit' })
+    const res = await api.post<{ balances: Balances; transaction: { id: number }; pending_approval?: unknown }>(`/members/${member.value!.id}/transactions`, { ...form, type: 'deposit' })
+    if (res.pending_approval) {
+      member.value = null
+      form.amount = ''
+      return
+    }
     coins()
     lastReceipt.value = 'RCT-T' + String(res.transaction.id).padStart(6, '0')
     done.value = `${formatMoney(form.amount)} added to ${member.value!.full_name}'s ${form.account}. They have been told.`

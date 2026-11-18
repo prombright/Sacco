@@ -104,7 +104,11 @@ async function save() {
   saving.value = true
   formError.value = ''
   try {
-    await api.post('/accounting/journal', form)
+    const res = await api.post<{ pending_approval?: unknown } | null>('/accounting/journal', form)
+    if (res?.pending_approval) {
+      adding.value = false
+      return
+    }
     adding.value = false
     page.value = 1
     await load()

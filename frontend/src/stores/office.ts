@@ -9,6 +9,8 @@ export interface Waiting {
   loans_waiting_guarantors: number
   withdrawals_to_approve: number
   withdrawals_to_pay: number
+  /** Big money actions waiting for a second office person */
+  approvals_waiting: number
   members_not_signed_in: number
   /** Running loans with an instalment past due */
   loans_behind: number

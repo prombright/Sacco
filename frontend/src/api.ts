@@ -55,6 +55,11 @@ async function request<T>(method: string, url: string, body?: unknown, params?: 
   if (tracked) netStart()
   try {
     const res = await http.request({ method, url, data: body, params })
+    // Big money: kept for a second office person (Waiting for approval), not done yet
+    if (res.status === 202 && res.data?.data?.pending_approval) {
+      const { toast } = await import('@/toast')
+      toast(`Sent for a second approval: ${res.data.data.pending_approval.summary}`)
+    }
     return res.data.data as T
   } catch (e) {
     const err = e as AxiosError<{ message?: string; errors?: Record<string, string> }>

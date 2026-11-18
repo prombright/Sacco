@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Sacco\Controllers;
 
+use Sacco\Support\Approvals;
 use Sacco\Support\Periods;
 use Sacco\Auth\Auth;
 use Sacco\Auth\Roles;
@@ -166,6 +167,9 @@ final class WithdrawalController
         if ($w['status'] !== 'approved') {
             Response::error('Approve the request before recording the cheque.', 422);
         }
+        $approver = Database::tenant()->prepare('SELECT decided_by FROM withdrawal_requests WHERE id = ?');
+        $approver->execute([$w['id']]);
+        Approvals::sameApprover(Money::fromDecimal($w['amount']), ($v = $approver->fetchColumn()) ? (int) $v : null, 'records the cheque');
         $cheque = mb_substr($request->string('cheque_no'), 0, 80);
         if ($cheque === '') {
             Response::error('Enter the cheque number.', 422, ['cheque_no' => 'Required']);
