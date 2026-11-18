@@ -138,6 +138,8 @@ $router->post('/api/withdrawals/{id}/pay', [WithdrawalController::class, 'pay'],
 // Payroll uploads
 $router->get('/api/payroll/members', [PayrollController::class, 'members'], $admins);
 $router->post('/api/payroll/preview', [PayrollController::class, 'preview'], $admins);
+$router->get('/api/payroll/schedule', [PayrollController::class, 'schedule'], $admins);
+$router->get('/api/payroll/batches/{id}/shortfalls', [PayrollController::class, 'shortfalls'], $admins);
 $router->get('/api/payroll/batches', [PayrollController::class, 'index'], $admins);
 $router->post('/api/payroll/batches', [PayrollController::class, 'post'], $edit('money'));
 $router->get('/api/payroll/batches/{id}', [PayrollController::class, 'show'], $admins);

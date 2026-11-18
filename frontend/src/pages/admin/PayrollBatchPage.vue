@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PayrollShortfalls from '@/components/PayrollShortfalls.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
@@ -16,6 +17,8 @@ interface Batch {
   total_shares: string
   total_loans: string
   status: 'posted' | 'reversed'
+  /** payroll, or an Excel import of dated transactions */
+  kind?: 'payroll' | 'transactions'
   created_by_name: string | null
   created_at: string
   reversed_by_name: string | null
@@ -106,6 +109,8 @@ async function reverse() {
           </tbody>
         </table>
       </div>
+
+      <PayrollShortfalls v-if="batch.status === 'posted' && batch.kind !== 'transactions'" :batch-id="batch.id" />
 
       <div v-if="batch.status === 'posted'" class="mt-6">
         <button v-can="'money'" type="button" class="btn-secondary" @click="reversing = true">Reverse this upload</button>

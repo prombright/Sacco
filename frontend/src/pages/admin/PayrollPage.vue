@@ -7,6 +7,7 @@ import MoneyAccountSelect from '@/components/MoneyAccountSelect.vue'
 import { useRouter } from 'vue-router'
 import { api, ApiError } from '@/api'
 import { formatDate, formatMoney } from '@/money'
+import DeductionSchedule from '@/components/DeductionSchedule.vue'
 import { downloadTemplate, readPayrollFile, type PayrollRow, type TemplateMember } from '@/payroll'
 import StatusBadge from '@/components/StatusBadge.vue'
 
@@ -266,6 +267,8 @@ function reset() {
         </div>
       </div>
     </section>
+
+    <DeductionSchedule />
 
     <h2 class="mt-8 font-semibold">Past uploads</h2>
     <ul class="card mt-3 divide-y divide-gray-100">

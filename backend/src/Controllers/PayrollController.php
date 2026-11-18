@@ -44,15 +44,24 @@ final class PayrollController
 
         // The next instalment of each active loan, so the loan column comes pre-filled
         foreach ($members as &$m) {
-            $loan = $db->prepare("SELECT id, loan_no FROM loans WHERE user_id = ? AND status = 'active' ORDER BY id LIMIT 1");
-            $loan->execute([$m['id']]);
-            $loan = $loan->fetch();
-            $m['loan_no'] = $loan['loan_no'] ?? null;
-            $m['loan_due'] = $loan ? Money::toDecimal(Loans::position($db, (int) $loan['id'])['next_due_amount']) : null;
-            // The next instalment split, for the Loan Principal and Loan Interest columns
-            $next = $loan ? $db->query('SELECT principal - principal_paid AS p, interest - interest_paid AS i FROM loan_installments WHERE loan_id = ' . (int) $loan['id'] . ' AND cleared_on IS NULL ORDER BY number LIMIT 1')->fetch() : null;
-            $m['loan_principal_due'] = $next ? $next['p'] : null;
-            $m['loan_interest_due'] = $next ? $next['i'] : null;
+            $loans = $db->prepare("SELECT id, loan_no FROM loans WHERE user_id = ? AND status = 'active' ORDER BY id");
+            $loans->execute([$m['id']]);
+            $loans = $loans->fetchAll();
+            // One loan: its number; several: none, and the upload shares the amount across them
+            $m['loan_no'] = count($loans) === 1 ? $loans[0]['loan_no'] : null;
+            $due = $principal = $interest = 0;
+            foreach ($loans as $loan) {
+                $due += Loans::position($db, (int) $loan['id'])['next_due_amount'];
+                // The next instalment split, for the Loan Principal and Loan Interest columns
+                $next = $db->query('SELECT principal - principal_paid AS p, interest - interest_paid AS i FROM loan_installments WHERE loan_id = ' . (int) $loan['id'] . ' AND cleared_on IS NULL ORDER BY number LIMIT 1')->fetch();
+                if ($next) {
+                    $principal += Money::fromDecimal((string) $next['p']);
+                    $interest += Money::fromDecimal((string) $next['i']);
+                }
+            }
+            $m['loan_due'] = $loans ? Money::toDecimal($due) : null;
+            $m['loan_principal_due'] = $loans ? Money::toDecimal($principal) : null;
+            $m['loan_interest_due'] = $loans ? Money::toDecimal($interest) : null;
             unset($m['id']);
         }
         unset($m);
@@ -115,9 +124,11 @@ final class PayrollController
                     Ledger::post($db, $r['member_id'], 'shares', 'deposit', $r['shares'], $meta);
                 }
                 if ($r['loan'] > 0) {
-                    $db->prepare('SELECT id FROM loans WHERE id = ? FOR UPDATE')->execute([$r['loan_id']]);
-                    $payment->execute([$r['loan_id'], Money::toDecimal($r['loan']), $valueDate, "Payroll $period", $batchId, $moneyAccount, Auth::id()]);
-                    Loans::applyPayments($db, $r['loan_id']);
+                    foreach ($r['split'] ?? [['loan_id' => $r['loan_id'], 'cents' => $r['loan']]] as $part) {
+                        $db->prepare('SELECT id FROM loans WHERE id = ? FOR UPDATE')->execute([$part['loan_id']]);
+                        $payment->execute([$part['loan_id'], Money::toDecimal($part['cents']), $valueDate, "Payroll $period", $batchId, $moneyAccount, Auth::id()]);
+                        Loans::applyPayments($db, $part['loan_id']);
+                    }
                 }
             }
             return $batchId;
@@ -176,9 +187,9 @@ final class PayrollController
         );
         $stmt->execute([$id]);
         foreach ($stmt->fetchAll() as $r) {
-            $byMember[$r['id']] ??= ['full_name' => $r['full_name'], 'account_no' => $r['account_no'], 'savings' => '0.00', 'shares' => '0.00'];
-            $byMember[$r['id']]['loan'] = $r['amount'];
-            $byMember[$r['id']]['loan_no'] = $r['loan_no'];
+            $byMember[$r['id']] ??= ['full_name' => $r['full_name'], 'account_no' => $r['account_no'], 'savings' => '0.00', 'shares' => '0.00', 'loan' => '0.00', 'loan_no' => null];
+            $byMember[$r['id']]['loan'] = Money::toDecimal(Money::fromDecimal($byMember[$r['id']]['loan'] ?? '0') + Money::fromDecimal($r['amount']));
+            $byMember[$r['id']]['loan_no'] = trim(($byMember[$r['id']]['loan_no'] ? $byMember[$r['id']]['loan_no'] . ', ' : '') . $r['loan_no']);
         }
         usort($byMember, fn ($a, $b) => strcmp($a['full_name'], $b['full_name']));
 
@@ -369,7 +380,47 @@ final class PayrollController
                 }
             }
 
-            if ($r['member_id'] && $r['loan'] > 0) {
+            if ($r['member_id'] && $r['loan'] > 0 && trim((string) ($raw['loan_no'] ?? '')) === '' && count($activeLoans[$r['member_id']] ?? []) > 1) {
+                // Several running loans and no loan number: each loan, oldest first, takes what it
+                // needs this month (instalments due and arrears), anything over goes to the oldest
+                $parts = [];
+                $left = $r['loan'];
+                $owing = [];
+                foreach ($activeLoans[$r['member_id']] as $l) {
+                    $lid = (int) $l['id'];
+                    $loanLeft[$lid] ??= Loans::position($db, $lid)['total_left'];
+                    $need = $db->prepare('SELECT COALESCE(SUM(principal + interest - principal_paid - interest_paid), 0) FROM loan_installments WHERE loan_id = ? AND due_date <= LAST_DAY(?)');
+                    $need->execute([$lid, "$period-01"]);
+                    $owing[$lid] = [$l, min(Money::fromDecimal((string) $need->fetchColumn()), $loanLeft[$lid])];
+                }
+                foreach ($owing as $lid => [$l, $need]) {
+                    $take = min($left, $need);
+                    if ($take > 0) {
+                        $parts[$lid] = ['loan_id' => $lid, 'loan_no' => $l['loan_no'], 'cents' => $take];
+                        $left -= $take;
+                    }
+                }
+                foreach ($owing as $lid => [$l]) {
+                    $room = $loanLeft[$lid] - ($parts[$lid]['cents'] ?? 0);
+                    $take = min($left, $room);
+                    if ($take > 0) {
+                        $parts[$lid] ??= ['loan_id' => $lid, 'loan_no' => $l['loan_no'], 'cents' => 0];
+                        $parts[$lid]['cents'] += $take;
+                        $left -= $take;
+                    }
+                }
+                if ($left > 0) {
+                    $r['errors'][] = 'Loan repayment is ' . number_format($left / 100) . ' more than this member owes on all their loans.';
+                } else {
+                    foreach ($parts as $part) {
+                        $loanLeft[$part['loan_id']] -= $part['cents'];
+                    }
+                    $r['split'] = array_values($parts);
+                    $r['loan_id'] = $r['split'][0]['loan_id'];
+                    $r['loan_no'] = implode(', ', array_map(fn ($x) => $x['loan_no'] . ' ' . number_format($x['cents'] / 100), $r['split']));
+                    $r['warnings'][] = 'Shared across their loans: ' . $r['loan_no'] . '.';
+                }
+            } elseif ($r['member_id'] && $r['loan'] > 0) {
                 $theirs = $activeLoans[$r['member_id']] ?? [];
                 $wanted = trim((string) ($raw['loan_no'] ?? ''));
                 $loan = $wanted !== ''
@@ -459,5 +510,129 @@ final class PayrollController
         $b['id'] = (int) $b['id'];
         $b['row_count'] = (int) $b['row_count'];
         return $b;
+    }
+
+    /**
+     * What each member's loans ask of the payroll in a month: every instalment falling due in it,
+     * across all their running loans, and what was already late before it began.
+     *
+     * @return array<int, array{due: int, arrears: int, loans: string[]}> by member id
+     */
+    private static function loanDues(\PDO $db, string $period): array
+    {
+        $start = "$period-01";
+        $end = date('Y-m-t', strtotime($start));
+        $stmt = $db->prepare(
+            "SELECT l.user_id, l.loan_no,
+                    COALESCE(SUM(CASE WHEN i.due_date BETWEEN ? AND ? THEN i.principal + i.interest END), 0) AS due,
+                    COALESCE(SUM(CASE WHEN i.due_date < ? THEN i.principal + i.interest - i.principal_paid - i.interest_paid END), 0) AS arrears
+             FROM loans l JOIN loan_installments i ON i.loan_id = l.id
+             WHERE l.status = 'active' OR (l.status = 'closed' AND l.closed_on >= ?)
+             GROUP BY l.id, l.user_id, l.loan_no"
+        );
+        $stmt->execute([$start, $end, $start, $start]);
+        $out = [];
+        foreach ($stmt->fetchAll() as $r) {
+            $due = Money::fromDecimal((string) $r['due']);
+            $arrears = max(0, Money::fromDecimal((string) $r['arrears']));
+            if (!$due && !$arrears) {
+                continue;
+            }
+            $m = &$out[(int) $r['user_id']];
+            $m ??= ['due' => 0, 'arrears' => 0, 'loans' => []];
+            $m['due'] += $due;
+            $m['arrears'] += $arrears;
+            $m['loans'][] = $r['loan_no'];
+            unset($m);
+        }
+        return $out;
+    }
+
+    /**
+     * GET /api/payroll/schedule?period=YYYY-MM (office) - the deduction schedule for the bursar: each
+     * active member's savings and shares (as in the last payroll), every loan instalment due that
+     * month across all their loans, what was late before it, and the total to deduct.
+     */
+    public function schedule(Request $request): never
+    {
+        $period = $request->string('period') ?: date('Y-m');
+        if (!preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $period)) {
+            Response::error('Choose a month.', 422);
+        }
+        $db = Database::tenant();
+        $last = $db->query("SELECT id FROM payroll_batches WHERE kind = 'payroll' AND status = 'posted' ORDER BY period DESC, id DESC LIMIT 1")->fetchColumn() ?: 0;
+        $members = $db->prepare(
+            "SELECT u.id, u.full_name, u.account_no, u.employee_no,
+                    COALESCE((SELECT SUM(t.amount) FROM transactions t WHERE t.batch_id = ? AND t.user_id = u.id AND t.account = 'savings' AND t.type = 'deposit'), 0) AS savings,
+                    COALESCE((SELECT SUM(t.amount) FROM transactions t WHERE t.batch_id = ? AND t.user_id = u.id AND t.account = 'shares' AND t.type = 'deposit'), 0) AS shares
+             FROM users u WHERE u.status = 'active' AND u.role = 'member' ORDER BY u.full_name"
+        );
+        $members->execute([$last, $last]);
+        $dues = self::loanDues($db, $period);
+        $rows = [];
+        $sum = ['savings' => 0, 'shares' => 0, 'loan_due' => 0, 'arrears' => 0, 'total' => 0];
+        foreach ($members->fetchAll() as $m) {
+            $savings = Money::fromDecimal((string) $m['savings']);
+            $shares = Money::fromDecimal((string) $m['shares']);
+            $d = $dues[(int) $m['id']] ?? ['due' => 0, 'arrears' => 0, 'loans' => []];
+            $total = $savings + $shares + $d['due'] + $d['arrears'];
+            if (!$total) {
+                continue;
+            }
+            foreach (['savings' => $savings, 'shares' => $shares, 'loan_due' => $d['due'], 'arrears' => $d['arrears'], 'total' => $total] as $k => $v) {
+                $sum[$k] += $v;
+            }
+            $rows[] = [
+                'full_name' => $m['full_name'], 'account_no' => $m['account_no'], 'employee_no' => $m['employee_no'],
+                'savings' => Money::toDecimal($savings), 'shares' => Money::toDecimal($shares),
+                'loans' => implode(', ', $d['loans']), 'loan_due' => Money::toDecimal($d['due']), 'arrears' => Money::toDecimal($d['arrears']),
+                'total' => Money::toDecimal($total),
+            ];
+        }
+        Response::ok([
+            'period' => $period,
+            'based_on' => $last ? $db->query('SELECT period FROM payroll_batches WHERE id = ' . (int) $last)->fetchColumn() : null,
+            'rows' => $rows,
+            'totals' => array_map([Money::class, 'toDecimal'], $sum),
+        ]);
+    }
+
+    /**
+     * GET /api/payroll/batches/{id}/shortfalls (office) - after a month's payroll: every member whose
+     * loan deduction came in under what fell due that month (or who wasn't on the payroll at all).
+     */
+    public function shortfalls(Request $request): never
+    {
+        $batch = $this->batch((int) $request->param('id'));
+        $db = Database::tenant();
+        $dues = self::loanDues($db, $batch['period']);
+        $paid = $db->prepare(
+            'SELECT l.user_id, SUM(p.amount) FROM loan_payments p JOIN loans l ON l.id = p.loan_id
+             WHERE p.batch_id = ? AND p.reversal_of IS NULL AND NOT EXISTS (SELECT 1 FROM loan_payments r WHERE r.reversal_of = p.id)
+             GROUP BY l.user_id'
+        );
+        $paid->execute([$batch['id']]);
+        $paid = array_map(fn ($v) => Money::fromDecimal((string) $v), $paid->fetchAll(\PDO::FETCH_KEY_PAIR));
+        $names = $db->query("SELECT id, full_name, account_no, employee_no FROM users WHERE role = 'member'")->fetchAll(\PDO::FETCH_UNIQUE);
+        $rows = [];
+        $short = 0;
+        foreach ($dues as $uid => $d) {
+            if (!$d['due']) {
+                continue;
+            }
+            $got = $paid[$uid] ?? 0;
+            if ($got >= $d['due']) {
+                continue;
+            }
+            $short += $d['due'] - $got;
+            $rows[] = [
+                'full_name' => $names[$uid]['full_name'] ?? '?', 'account_no' => $names[$uid]['account_no'] ?? null, 'employee_no' => $names[$uid]['employee_no'] ?? null,
+                'loans' => implode(', ', $d['loans']),
+                'due' => Money::toDecimal($d['due']), 'deducted' => Money::toDecimal($got), 'short' => Money::toDecimal($d['due'] - $got),
+                'missing' => !isset($paid[$uid]),
+            ];
+        }
+        usort($rows, fn ($a, $b) => Money::fromDecimal($b['short']) <=> Money::fromDecimal($a['short']));
+        Response::ok(['period' => $batch['period'], 'rows' => $rows, 'short_total' => Money::toDecimal($short)]);
     }
 }
