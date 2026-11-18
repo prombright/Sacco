@@ -10,6 +10,10 @@ import UserAvatar from '@/components/UserAvatar.vue'
 import AmountField from '@/components/AmountField.vue'
 import CountUp from '@/components/CountUp.vue'
 import Money from '@/components/Money.vue'
+import { useAuth } from '@/stores/auth'
+import { downloadPdf } from '@/exporters'
+import type { Report } from '@/reports'
+import { ArrowDownTrayIcon } from '@heroicons/vue/24/outline'
 
 interface Quote {
   products: LoanProduct[]
@@ -103,6 +107,45 @@ const cost = computed(() => {
 })
 
 const ready = computed(() => amountNumber.value > 0 && form.purpose.trim() !== '' && problems.value.length === 0)
+
+/** The payment plan as a PDF to keep: the loan, what it costs, and every month's payment */
+const auth = useAuth()
+const saving = ref(false)
+/** 157698 -> "157,698": the plan's table says the currency once */
+const plain = (v: string | number | undefined) => Math.round(Number(v ?? 0)).toLocaleString("en-US")
+async function downloadPlan() {
+  const q = quote.value?.schedule
+  if (!q) return
+  saving.value = true
+  const product = quote.value?.products.find((p) => p.id === form.product_id)?.name ?? 'Loan'
+  const parts = [
+    `${product} of ${formatMoney(String(amountNumber.value))} over ${form.months} month${form.months === 1 ? '' : 's'} at ${quote.value?.rules.interest_rate_monthly}% a month on what is still owed`,
+    `about ${formatMoney(String(cost.value.monthly))} a month`,
+    `total interest ${formatMoney(String(cost.value.interest))}`,
+    `total to repay ${formatMoney(String(cost.value.total))}`,
+  ]
+  if (cost.value.fee > 0) parts.push(`processing fee ${formatMoney(String(cost.value.fee))}${cost.value.fromSavings ? ' from savings when approved' : ' off the cheque'}`)
+  parts.push(`you receive ${formatMoney(String(cost.value.receive))}. Dates assume the loan is paid out today; they are fixed when it is`)
+  const report: Report = {
+    title: `Payment plan for ${auth.user?.full_name ?? 'my loan'}`,
+    subtitle: parts.join(' · '),
+    columns: [
+      { key: 'number', label: 'Month', type: 'number' },
+      { key: 'due_date', label: 'Due', type: 'date' },
+      { key: 'principal', label: 'Principal', type: 'money' },
+      { key: 'interest', label: 'Interest', type: 'money' },
+      { key: 'total', label: 'Payment', type: 'money' },
+      { key: 'balance_after', label: 'Still owed', type: 'money' },
+    ],
+    rows: q.rows.map((r) => ({ number: r.number, due_date: r.due_date, principal: r.principal, interest: r.interest, total: r.total, balance_after: r.balance_after })),
+    totals: { principal: String(amountNumber.value), interest: q.total_interest, total: q.total_repayable },
+  }
+  try {
+    await downloadPdf(report, { sacco: auth.sacco, user: auth.user?.full_name ?? null })
+  } finally {
+    saving.value = false
+  }
+}
 
 async function loadQuote() {
   try {
@@ -224,6 +267,7 @@ async function submit() {
 
       <!-- Step 1: the calculator -->
       <section v-show="step === 0" class="grid gap-5 lg:grid-cols-[1.15fr_1fr]">
+        <div class="min-w-0 space-y-5">
         <div class="card space-y-6 p-5 sm:p-6">
           <div class="flex flex-wrap items-baseline justify-between gap-2">
             <h2 class="font-semibold">How much do you need?</h2>
@@ -297,7 +341,40 @@ async function submit() {
           </div>
         </div>
 
-        <!-- What it costs, as you move the sliders -->
+        <div v-if="showSchedule && quote?.schedule" id="payment-plan" class="card overflow-x-auto p-4">
+          <div class="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+            <h3 class="font-semibold">Your payment plan</h3>
+            <button type="button" class="btn-secondary px-3 py-1.5 text-sm" :disabled="saving" @click="downloadPlan"><ArrowDownTrayIcon class="h-4 w-4" />{{ saving ? 'Making the PDF…' : 'Download the plan (PDF)' }}</button>
+            <p class="w-full text-sm text-gray-600">{{ form.months }} monthly payment{{ form.months === 1 ? '' : 's' }} of about <span class="font-semibold text-ink">{{ formatMoney(String(cost.monthly)) }}</span>, off your pay</p>
+          </div>
+          <table class="w-full text-sm tabular-nums max-sm:hidden">
+            <thead class="text-left text-xs uppercase tracking-wide text-gray-500">
+              <tr><th class="py-1 pr-3">Month</th><th class="py-1 pr-3">Due</th><th class="py-1 pr-3 text-right">Principal</th><th class="py-1 pr-3 text-right">Interest</th><th class="py-1 pr-3 text-right">Payment</th><th class="py-1 text-right">Still owed</th></tr>
+              <tr><th colspan="6" class="pb-1 text-left text-[11px] font-normal normal-case tracking-normal text-gray-400">Amounts in {{ auth.sacco?.currency ?? 'UGX' }}</th></tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+              <tr v-for="r in quote.schedule.rows" :key="r.number">
+                <td class="py-1 pr-3">{{ r.number }}</td>
+                <td class="whitespace-nowrap py-1 pr-3">{{ formatDate(r.due_date) }}</td>
+                <td class="whitespace-nowrap py-1 pr-3 text-right">{{ plain(r.principal) }}</td>
+                <td class="whitespace-nowrap py-1 pr-3 text-right">{{ plain(r.interest) }}</td>
+                <td class="whitespace-nowrap py-1 pr-3 text-right font-medium">{{ plain(r.total) }}</td>
+                <td class="whitespace-nowrap py-1 text-right">{{ plain(r.balance_after) }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <!-- Phones: one line a month, the payment large, what's left under it -->
+          <ol class="divide-y divide-line text-sm tabular-nums sm:hidden">
+            <li v-for="r in quote.schedule.rows" :key="r.number" class="flex items-baseline justify-between gap-3 py-2">
+              <span><span class="text-gray-400">{{ r.number }}.</span> {{ formatDate(r.due_date) }}</span>
+              <span class="text-right"><span class="block font-semibold">{{ formatMoney(r.total) }}</span><span class="text-xs text-gray-500">{{ formatMoney(r.balance_after) }} left</span></span>
+            </li>
+          </ol>
+          <p class="mt-2 text-xs text-gray-500">Dates assume the loan is paid out today; they're fixed when it actually is.</p>
+        </div>
+        </div>
+
+        <!-- What it costs, as you move the sliders; it stays in view beside the form and the plan -->
         <aside class="bg-gradient-to-br from-navy-800 via-navy-900 to-navy-950 relative overflow-hidden rounded-2xl p-5 text-white shadow-lift sm:p-6 lg:sticky lg:top-24 lg:self-start" aria-live="polite">
           <p class="text-sm text-navy-100/80">Each month you pay</p>
           <p class="mt-1 text-4xl font-bold tracking-tight"><CountUp :value="cost.monthly" :duration="450" /></p>
@@ -317,7 +394,7 @@ async function submit() {
           <dl class="mt-5 space-y-2 border-t border-white/10 pt-4 text-sm">
             <div class="flex justify-between gap-3"><dt class="text-navy-100/80">Total interest</dt><dd class="font-semibold"><Money :value="cost.interest" /></dd></div>
             <div class="flex justify-between gap-3"><dt class="text-navy-100/80">Total to repay</dt><dd class="font-semibold"><Money :value="cost.total" /></dd></div>
-            <div v-if="cost.fee > 0" class="flex justify-between gap-3"><dt class="text-navy-100/80">Processing fee<span v-if="cost.fromSavings" class="block text-[11px]">from your savings, not the loan</span></dt><dd class="font-semibold">{{ cost.fromSavings ? '' : '−' }}<Money :value="cost.fee" /></dd></div>
+            <div v-if="cost.fee > 0" class="flex justify-between gap-3"><dt class="text-navy-100/80">Processing fee<span v-if="cost.fromSavings" class="block text-[11px]">from your savings when the loan is approved</span></dt><dd class="font-semibold">{{ cost.fromSavings ? '' : '−' }}<Money :value="cost.fee" /></dd></div>
             <div class="flex justify-between gap-3 border-t border-white/10 pt-2"><dt class="font-semibold text-saffron-300">You receive</dt><dd class="text-lg font-bold"><Money :value="cost.receive" /></dd></div>
           </dl>
           <p class="mt-4 text-xs text-navy-100/70">{{ quote?.rules.interest_rate_monthly }}% a month on what you still owe, so each month's interest is a little smaller.</p>
@@ -326,35 +403,6 @@ async function submit() {
           </button>
         </aside>
 
-        <div v-if="showSchedule && quote?.schedule" class="card overflow-x-auto p-4 lg:col-span-2">
-          <div class="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-            <h3 class="font-semibold">Your payment plan</h3>
-            <p class="text-sm text-gray-600">{{ form.months }} monthly payment{{ form.months === 1 ? '' : 's' }} of about <span class="font-semibold text-ink">{{ formatMoney(String(cost.monthly)) }}</span>, off your pay</p>
-          </div>
-          <table class="w-full text-sm tabular-nums max-sm:hidden">
-            <thead class="text-left text-xs uppercase tracking-wide text-gray-500">
-              <tr><th class="py-1 pr-3">Month</th><th class="py-1 pr-3">Due</th><th class="py-1 pr-3 text-right">Principal</th><th class="py-1 pr-3 text-right">Interest</th><th class="py-1 pr-3 text-right">Payment</th><th class="py-1 text-right">Still owed</th></tr>
-            </thead>
-            <tbody class="divide-y divide-gray-200">
-              <tr v-for="r in quote.schedule.rows" :key="r.number">
-                <td class="py-1 pr-3">{{ r.number }}</td>
-                <td class="whitespace-nowrap py-1 pr-3">{{ formatDate(r.due_date) }}</td>
-                <td class="py-1 pr-3 text-right">{{ formatMoney(r.principal) }}</td>
-                <td class="py-1 pr-3 text-right">{{ formatMoney(r.interest) }}</td>
-                <td class="py-1 pr-3 text-right font-medium">{{ formatMoney(r.total) }}</td>
-                <td class="py-1 text-right">{{ formatMoney(r.balance_after) }}</td>
-              </tr>
-            </tbody>
-          </table>
-          <!-- Phones: one line a month, the payment large, what's left under it -->
-          <ol class="divide-y divide-line text-sm tabular-nums sm:hidden">
-            <li v-for="r in quote.schedule.rows" :key="r.number" class="flex items-baseline justify-between gap-3 py-2">
-              <span><span class="text-gray-400">{{ r.number }}.</span> {{ formatDate(r.due_date) }}</span>
-              <span class="text-right"><span class="block font-semibold">{{ formatMoney(r.total) }}</span><span class="text-xs text-gray-500">{{ formatMoney(r.balance_after) }} left</span></span>
-            </li>
-          </ol>
-          <p class="mt-2 text-xs text-gray-500">Dates assume the loan is paid out today; they're fixed when it actually is.</p>
-        </div>
       </section>
 
       <!-- Step 2: guarantors -->

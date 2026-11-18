@@ -175,6 +175,7 @@ export const sections: Section[] = [
     tone: 'from-violet-500 to-violet-700',
     intro: 'Statements for the committee, the AGM and the auditors. Each downloads as Excel or PDF, or prints.',
     items: [
+      { name: 'income', label: 'Income', description: 'Fees, subscriptions, loan interest and investments, each with who paid', icon: BanknotesIcon },
       { name: 'board-pack', label: 'Board pack', description: 'The month in one PDF for the board meeting', icon: PresentationChartBarIcon },
       { name: 'annual-report', label: 'Annual report', description: 'The year in one PDF for the AGM and auditors', icon: DocumentChartBarIcon, figure: (s) => `${short(s.income_year)} income this year` },
       { name: 'budget', label: 'Budget and actual', description: 'Planned income and spending against the real figures', icon: CalculatorIcon },

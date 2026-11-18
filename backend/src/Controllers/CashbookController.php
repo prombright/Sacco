@@ -120,7 +120,7 @@ final class CashbookController
         );
         $stmt->execute([$from, $to]);
         $parts = $stmt->fetchAll(\PDO::FETCH_KEY_PAIR);
-        $fees = $db->prepare('SELECT COALESCE(SUM(processing_fee), 0) FROM loans WHERE disbursed_on BETWEEN ? AND ?');
+        $fees = $db->prepare('SELECT COALESCE(SUM(processing_fee), 0) FROM loans WHERE COALESCE(fee_charged_on, disbursed_on) BETWEEN ? AND ?');
         $fees->execute([$from, $to]);
         $wfees = $db->prepare("SELECT COALESCE(SUM(fee), 0) FROM withdrawal_requests WHERE status = 'paid' AND paid_on BETWEEN ? AND ?");
         $wfees->execute([$from, $to]);

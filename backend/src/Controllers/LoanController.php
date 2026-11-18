@@ -309,11 +309,40 @@ final class LoanController
         if ($loan['status'] !== 'pending_approval') {
             Response::error('Only a loan whose guarantors have all agreed can be approved.', 422);
         }
-        Database::tenant()->prepare("UPDATE loans SET status = 'approved', decided_by = ?, decided_at = NOW(), decision_note = ? WHERE id = ?")
-            ->execute([Auth::id(), mb_substr($request->string('note'), 0, 255) ?: null, $loan['id']]);
-        Audit::log('loan.approved', 'loan', (int) $loan['id']);
+        // The processing fee leaves the borrower's savings on approval (when the SACCO takes fees
+        // from savings); off the cheque otherwise, at payout
+        $fee = Loans::feeFromSavings()
+            ? Loans::processingFee(Loans::productRules(Database::tenant(), $loan['product_id'] ? (int) $loan['product_id'] : null), Money::fromDecimal($loan['amount']))
+            : 0;
+        $today = date('Y-m-d');
+        if ($fee > 0) {
+            Periods::check($today);
+        }
+        $note = mb_substr($request->string('note'), 0, 255) ?: null;
+        Database::transaction(function (\PDO $db) use ($loan, $fee, $today, $note) {
+            $now = $db->prepare('SELECT status FROM loans WHERE id = ? FOR UPDATE');
+            $now->execute([$loan['id']]);
+            if ($now->fetchColumn() !== 'pending_approval') {
+                throw new LedgerException('This loan has already been decided.');
+            }
+            $tx = null;
+            if ($fee > 0) {
+                if (Ledger::balance($db, (int) $loan['user_id'], 'savings') < $fee) {
+                    throw new LedgerException('The borrower\'s savings can\'t cover the ' . number_format($fee / 100) . ' processing fee.');
+                }
+                $tx = Ledger::post($db, (int) $loan['user_id'], 'savings', 'loan_fee', -$fee, [
+                    'value_date' => $today, 'reference' => $loan['loan_no'], 'narration' => "Processing fee for loan {$loan['loan_no']}",
+                ]);
+            }
+            $db->prepare("UPDATE loans SET status = 'approved', decided_by = ?, decided_at = NOW(), decision_note = ?, processing_fee = ?, fee_from_savings = ?, fee_charged_on = ?, fee_transaction_id = ? WHERE id = ?")
+                ->execute([Auth::id(), $note, Money::toDecimal($fee), $fee > 0 ? 1 : 0, $fee > 0 ? $today : null, $tx['id'] ?? null, $loan['id']]);
+        });
+        Audit::log('loan.approved', 'loan', (int) $loan['id'], $fee > 0 ? ['fee' => Money::toDecimal($fee)] : []);
         $message = mb_substr($request->string('message'), 0, 2000)
             ?: 'Your loan ' . $loan['loan_no'] . ' of ' . Notify::money($loan['amount']) . ' has been approved. Please pick up your cheque from the SACCO office.';
+        if ($fee > 0) {
+            $message .= ' The ' . Notify::cents($fee) . ' processing fee has been taken from your savings.';
+        }
         Notify::member((int) $loan['user_id'], 'loan_approved', 'Your loan is approved', $message, '/loans/' . $loan['id']);
         Response::ok(['loan' => $this->detail((int) $loan['id'])]);
     }
@@ -332,7 +361,8 @@ final class LoanController
         $this->close((int) $loan['id'], 'rejected', $note);
         Audit::log('loan.rejected', 'loan', (int) $loan['id'], ['note' => $note]);
         Notify::member((int) $loan['user_id'], 'loan_rejected', 'Your loan application was not approved',
-            'Your application ' . $loan['loan_no'] . ' for ' . Notify::money($loan['amount']) . " was not approved: $note", '/loans/' . $loan['id']);
+            'Your application ' . $loan['loan_no'] . ' for ' . Notify::money($loan['amount']) . " was not approved: $note"
+            . ($this->refunded ? '. The ' . Notify::cents($this->refunded) . ' processing fee has been put back into your savings.' : ''), '/loans/' . $loan['id']);
         Response::ok(['loan' => $this->detail((int) $loan['id'])]);
     }
 
@@ -353,10 +383,16 @@ final class LoanController
         // The product's processing fee: from the borrower's savings (the cheque is the full loan), or
         // off the cheque, as the SACCO's rule says; the loan itself is the full amount either way
         $fromSavings = Loans::feeFromSavings();
-        $fee = Loans::processingFee(Loans::productRules(Database::tenant(), $loan['product_id'] ? (int) $loan['product_id'] : null), Money::fromDecimal($loan['amount']));
+        $charged = !empty($loan['fee_charged_on']);
+        $fee = $charged
+            ? Money::fromDecimal((string) $loan['processing_fee'])
+            : Loans::processingFee(Loans::productRules(Database::tenant(), $loan['product_id'] ? (int) $loan['product_id'] : null), Money::fromDecimal($loan['amount']));
+        if ($charged) {
+            $fromSavings = (bool) $loan['fee_from_savings'];
+        }
         Periods::check($date);
         $moneyAccount = Periods::moneyAccount($request);
-        $cleared = Database::transaction(function (\PDO $db) use ($loan, $date, $reference, $fee, $moneyAccount, $fromSavings) {
+        $cleared = Database::transaction(function (\PDO $db) use ($loan, $date, $reference, $fee, $moneyAccount, $fromSavings, $charged) {
             // Checked again under a lock: two clicks (or two staff) at the same moment pay it out once
             $now = $db->prepare('SELECT status FROM loans WHERE id = ? FOR UPDATE');
             $now->execute([$loan['id']]);
@@ -380,7 +416,7 @@ final class LoanController
                     $db->prepare('UPDATE loans SET settled_early_on = ? WHERE id = ?')->execute([$date, $old['id']]);
                 }
             }
-            if ($fromSavings && $fee > 0) {
+            if ($fromSavings && $fee > 0 && !$charged) {
                 if (Ledger::balance($db, (int) $loan['user_id'], 'savings') < $fee) {
                     throw new LedgerException('The borrower\'s savings can\'t cover the ' . number_format($fee / 100) . ' processing fee.');
                 }
@@ -388,8 +424,8 @@ final class LoanController
                     'value_date' => $date, 'reference' => $loan['loan_no'], 'narration' => "Processing fee for loan {$loan['loan_no']}",
                 ]);
             }
-            $db->prepare("UPDATE loans SET status = 'active', disbursed_by = ?, disbursed_on = ?, disbursement_ref = ?, money_account_id = ?, processing_fee = ?, fee_from_savings = ?, settled_amount = ? WHERE id = ? AND status = 'approved'")
-                ->execute([Auth::id(), $date, $reference, $moneyAccount, Money::toDecimal($fee), $fromSavings ? 1 : 0, Money::toDecimal($cleared), $loan['id']]);
+            $db->prepare("UPDATE loans SET status = 'active', disbursed_by = ?, disbursed_on = ?, disbursement_ref = ?, money_account_id = ?, processing_fee = ?, fee_from_savings = ?, fee_charged_on = COALESCE(fee_charged_on, IF(? > 0, ?, NULL)), settled_amount = ? WHERE id = ? AND status = 'approved'")
+                ->execute([Auth::id(), $date, $reference, $moneyAccount, Money::toDecimal($fee), $fromSavings ? 1 : 0, $fee, $date, Money::toDecimal($cleared), $loan['id']]);
             Loans::createSchedule($db, $loan, $date);
             return $cleared;
         });
@@ -397,7 +433,7 @@ final class LoanController
         $offCheque = ($fromSavings ? 0 : $fee) + $cleared;
         Notify::member((int) $loan['user_id'], 'loan_disbursed', 'Your loan has been paid out',
             'Cheque ' . $reference . ' for ' . Notify::money(Money::toDecimal(Money::fromDecimal($loan['amount']) - $offCheque)) . ' has been issued for loan ' . $loan['loan_no']
-            . ($fromSavings && $fee ? '. The ' . Notify::cents($fee) . ' processing fee was taken from your savings' : '')
+            . ($fromSavings && $fee && !$charged ? '. The ' . Notify::cents($fee) . ' processing fee was taken from your savings' : '')
             . ($cleared ? '. It first cleared the ' . Notify::cents($cleared) . ' still owed on your earlier loan' : '')
             . '. Your repayment schedule starts now; see it under Loans.', '/loans/' . $loan['id']);
         Response::ok(['loan' => $this->detail((int) $loan['id'])]);
@@ -1006,12 +1042,29 @@ final class LoanController
     /** Cancel or reject: guarantors who hadn't answered are no longer being asked */
     private function close(int $loanId, string $status, ?string $note): void
     {
-        Database::transaction(function (\PDO $db) use ($loanId, $status, $note) {
+        $refunded = Database::transaction(function (\PDO $db) use ($loanId, $status, $note) {
+            $l = $db->prepare('SELECT status, fee_transaction_id, processing_fee FROM loans WHERE id = ? FOR UPDATE');
+            $l->execute([$loanId]);
+            $l = $l->fetch();
+            $refunded = 0;
+            // A processing fee taken at approval goes back: the loan was never paid out
+            if ($l && $l['status'] === 'approved' && $l['fee_transaction_id']) {
+                Ledger::reverse($db, (int) $l['fee_transaction_id'], $status === 'rejected' ? 'Loan not paid out: processing fee returned' : 'Loan cancelled: processing fee returned');
+                $refunded = Money::fromDecimal((string) $l['processing_fee']);
+                $db->prepare('UPDATE loans SET processing_fee = 0, fee_from_savings = 0, fee_charged_on = NULL, fee_transaction_id = NULL WHERE id = ?')->execute([$loanId]);
+            }
             $db->prepare('UPDATE loans SET status = ?, decided_by = ?, decided_at = NOW(), decision_note = COALESCE(?, decision_note) WHERE id = ?')
                 ->execute([$status, Auth::id(), $note, $loanId]);
             $db->prepare("UPDATE loan_guarantors SET status = 'withdrawn' WHERE loan_id = ? AND status = 'pending'")->execute([$loanId]);
+            return $refunded;
         });
+        if ($refunded) {
+            $this->refunded = $refunded;
+        }
     }
+
+    /** The processing fee the last close() gave back, in cents */
+    private int $refunded = 0;
 
     private function date(string $value, string $field): string
     {

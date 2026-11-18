@@ -10,6 +10,7 @@ use Sacco\Http\Request;
 use Sacco\Http\Response;
 use Sacco\Loans\Loans;
 use Sacco\Support\Ledger;
+use Sacco\Support\Books;
 use Sacco\Support\Money;
 use Sacco\Support\AuditView;
 use Sacco\Support\Activity;
@@ -495,5 +496,206 @@ final class ReportController
             Response::error('Enter valid dates.', 422);
         }
         return $value;
+    }
+
+    /** The SACCO's own income, source by source: what each card on the Income page counts */
+    private const INCOME = [
+        'membership' => ['Membership fees', 'Paid once when someone joins'],
+        'subscription' => ['Annual subscriptions', 'Paid by every member each year'],
+        'processing' => ['Loan processing fees', 'Taken from savings when a loan is approved'],
+        'interest' => ['Loan interest', 'Earned on what members owe, month by month'],
+        'investment' => ['Investments', 'Income and gains on the SACCO\'s investments (e.g. unit trusts)'],
+    ];
+
+    /** From which date to which: a year, or everything (the year is null) */
+    private static function incomeRange(?int $year): array
+    {
+        return $year ? ["$year-01-01", "$year-12-31"] : ['2000-01-01', date('Y-12-31')];
+    }
+
+    /**
+     * Each amount of one income source in a period, as [date, cents, from the old records?]
+     *
+     * @return list<array{0: string, 1: int, 2: bool}>
+     */
+    private static function incomeItems(\PDO $db, string $key, string $from, string $to): array
+    {
+        $rows = [];
+        if ($key === 'membership' || $key === 'subscription') {
+            $s = $db->prepare("SELECT COALESCE(paid_on, DATE(created_at)) AS d, amount, method FROM membership_fees
+                               WHERE kind = ? AND status = 'paid' AND COALESCE(paid_on, DATE(created_at)) BETWEEN ? AND ?");
+            $s->execute([$key, $from, $to]);
+            foreach ($s->fetchAll() as $r) {
+                $rows[] = [$r['d'], Money::fromDecimal((string) $r['amount']), $r['method'] === 'old_system'];
+            }
+        } elseif ($key === 'processing') {
+            $s = $db->prepare('SELECT COALESCE(fee_charged_on, disbursed_on) AS d, processing_fee, source FROM loans
+                               WHERE processing_fee > 0 AND COALESCE(fee_charged_on, disbursed_on) BETWEEN ? AND ?');
+            $s->execute([$from, $to]);
+            foreach ($s->fetchAll() as $r) {
+                $rows[] = [$r['d'], Money::fromDecimal((string) $r['processing_fee']), $r['source'] === 'old_records'];
+            }
+        } elseif ($key === 'investment') {
+            $s = $db->prepare('SELECT received_on, amount FROM investment_returns r
+                               WHERE r.reversal_of IS NULL AND NOT EXISTS (SELECT 1 FROM investment_returns x WHERE x.reversal_of = r.id) AND received_on BETWEEN ? AND ?');
+            $s->execute([$from, $to]);
+            foreach ($s->fetchAll() as $r) {
+                $rows[] = [$r['received_on'], Money::fromDecimal((string) $r['amount']), false];
+            }
+        } elseif ($key === 'interest') {
+            // Interest as the books earn it (each month's interest on what is owed)
+            $acc = $db->query("SELECT * FROM gl_accounts WHERE system_key = 'interest_income'")->fetch();
+            $first = $db->query("SELECT MIN(disbursed_on) FROM loans WHERE disbursed_on IS NOT NULL")->fetchColumn();
+            if ($acc && $first) {
+                $m = max(substr($from, 0, 7), substr($first, 0, 7));
+                $last = min(substr($to, 0, 7), date('Y-m'));
+                while ($m <= $last) {
+                    $end = date('Y-m-t', strtotime("$m-01"));
+                    $v = Books::balance($acc, Books::totals($db, $end, "$m-01", false));
+                    if ($v) {
+                        $rows[] = [$end, $v, false];
+                    }
+                    $m = date('Y-m', strtotime("$m-01 +1 month"));
+                }
+            }
+        }
+        return $rows;
+    }
+
+    /**
+     * GET /api/reports/income?year=YYYY|all (office) - the SACCO's income source by source: the total,
+     * how much of it came in with the old records, and month by month
+     */
+    public function incomeSummary(Request $request): never
+    {
+        $year = $request->string('year') === 'all' ? null : (int) ($request->string('year') ?: date('Y'));
+        if ($year !== null && ($year < 2000 || $year > (int) date('Y'))) {
+            Response::error('Choose a year.', 422);
+        }
+        $db = Database::tenant();
+        Books::sync($db);
+        [$from, $to] = self::incomeRange($year);
+        $sources = [];
+        foreach (self::INCOME as $key => [$label, $about]) {
+            $items = self::incomeItems($db, $key, $from, $to);
+            $months = [];
+            foreach ($items as [$d, $c]) {
+                $months[substr($d, 0, 7)] = ($months[substr($d, 0, 7)] ?? 0) + $c;
+            }
+            ksort($months);
+            $total = array_sum(array_column($items, 1));
+            $old = array_sum(array_map(fn ($i) => $i[2] ? $i[1] : 0, $items));
+            $sources[] = [
+                'key' => $key, 'label' => $label, 'about' => $about,
+                'total' => Money::toDecimal($total),
+                'old_records' => Money::toDecimal($old),
+                'count' => $key === 'interest' ? null : count($items),
+                'months' => array_map(fn ($m, $v) => ['month' => $m, 'value' => Money::toDecimal($v)], array_keys($months), array_values($months)),
+            ];
+        }
+        $firstYear = (int) ($db->query("SELECT MIN(y) FROM (
+            SELECT YEAR(COALESCE(paid_on, created_at)) AS y FROM membership_fees WHERE status = 'paid'
+            UNION ALL SELECT YEAR(disbursed_on) FROM loans WHERE disbursed_on IS NOT NULL
+            UNION ALL SELECT YEAR(received_on) FROM investment_returns) t")->fetchColumn() ?: date('Y'));
+        Response::ok([
+            'year' => $year,
+            'years' => range((int) date('Y'), min($firstYear, (int) date('Y'))),
+            'total' => Money::toDecimal(array_sum(array_map(fn ($s) => Money::fromDecimal($s['total']), $sources))),
+            'sources' => $sources,
+        ]);
+    }
+
+    /**
+     * GET /api/reports/income/{source}?year=YYYY|all (office) - every amount behind one income card:
+     * who paid it, when, and on what (the loan, the investment)
+     */
+    public function incomeDetail(Request $request): never
+    {
+        $key = $request->param('source');
+        if (!isset(self::INCOME[$key])) {
+            Response::error('No such income.', 404);
+        }
+        $year = $request->string('year') === 'all' ? null : (int) ($request->string('year') ?: date('Y'));
+        $db = Database::tenant();
+        Books::sync($db);
+        [$from, $to] = self::incomeRange($year);
+        $when = $year ? (string) $year : 'all years';
+        $label = self::INCOME[$key][0];
+        $text = fn ($k, $l) => ['key' => $k, 'label' => $l, 'type' => 'text'];
+        $money = fn ($k, $l) => ['key' => $k, 'label' => $l, 'type' => 'money'];
+        $date = fn ($k, $l) => ['key' => $k, 'label' => $l, 'type' => 'date'];
+        $how = ['savings' => 'From savings', 'cash' => 'Cash', 'old_system' => 'Old records'];
+        $reports = [];
+
+        if ($key === 'membership' || $key === 'subscription') {
+            $s = $db->prepare("SELECT u.full_name, u.account_no, f.year, COALESCE(f.paid_on, DATE(f.created_at)) AS paid_on, f.method, f.amount, f.user_id
+                               FROM membership_fees f JOIN users u ON u.id = f.user_id
+                               WHERE f.kind = ? AND f.status = 'paid' AND COALESCE(f.paid_on, DATE(f.created_at)) BETWEEN ? AND ?
+                               ORDER BY paid_on DESC, u.full_name");
+            $s->execute([$key, $from, $to]);
+            $rows = array_map(fn ($r) => ['full_name' => $r['full_name'], 'account_no' => $r['account_no'], 'year' => (string) $r['year'], 'paid_on' => $r['paid_on'],
+                'how' => $how[$r['method']] ?? $r['method'], 'amount' => $r['amount'], '_member_id' => (int) $r['user_id']], $s->fetchAll());
+            $cols = [$text('full_name', 'Member'), $text('account_no', 'Account no.')];
+            if ($key === 'subscription') {
+                $cols[] = $text('year', 'For year');
+            }
+            array_push($cols, $date('paid_on', 'Paid on'), $text('how', 'How'), $money('amount', 'Amount'));
+            $reports[] = ['title' => "$label, $when", 'subtitle' => count($rows) . ' payments', 'columns' => $cols, 'rows' => $rows,
+                'totals' => ['amount' => Money::toDecimal(array_sum(array_map(fn ($r) => Money::fromDecimal($r['amount']), $rows)))]];
+        } elseif ($key === 'processing') {
+            $s = $db->prepare("SELECT u.full_name, u.account_no, l.id, l.loan_no, l.amount AS loan_amount, COALESCE(l.fee_charged_on, l.disbursed_on) AS charged_on,
+                                      l.fee_from_savings, l.status, l.processing_fee, l.user_id
+                               FROM loans l JOIN users u ON u.id = l.user_id
+                               WHERE l.processing_fee > 0 AND COALESCE(l.fee_charged_on, l.disbursed_on) BETWEEN ? AND ?
+                               ORDER BY charged_on DESC, l.id DESC");
+            $s->execute([$from, $to]);
+            $rows = array_map(fn ($r) => ['full_name' => $r['full_name'], 'account_no' => $r['account_no'], 'loan_no' => $r['loan_no'], 'loan_amount' => $r['loan_amount'],
+                'charged_on' => $r['charged_on'], 'from' => $r['fee_from_savings'] ? 'Savings' : 'Off the cheque', 'fee' => $r['processing_fee'], '_loan_id' => (int) $r['id']], $s->fetchAll());
+            $reports[] = ['title' => "$label, $when", 'subtitle' => count($rows) . ' loans', 'columns' => [
+                $text('full_name', 'Member'), $text('account_no', 'Account no.'), $text('loan_no', 'Loan'), $money('loan_amount', 'Loan amount'),
+                $date('charged_on', 'Taken on'), $text('from', 'Taken from'), $money('fee', 'Fee'),
+            ], 'rows' => $rows, 'totals' => ['fee' => Money::toDecimal(array_sum(array_map(fn ($r) => Money::fromDecimal($r['fee']), $rows)))]];
+        } elseif ($key === 'interest') {
+            $items = self::incomeItems($db, 'interest', $from, $to);
+            $rows = array_map(fn ($i) => ['month' => date('F Y', strtotime($i[0])), 'amount' => Money::toDecimal($i[1])], array_reverse($items));
+            $reports[] = ['title' => "$label, $when", 'subtitle' => 'Month by month, as the books earn it', 'columns' => [$text('month', 'Month'), $money('amount', 'Interest earned')],
+                'rows' => $rows, 'totals' => ['amount' => Money::toDecimal(array_sum(array_column($items, 1)))]];
+            // Loan by loan: the interest on each loan's instalments falling due in the period
+            $s = $db->prepare("SELECT l.id, l.loan_no, u.full_name, u.account_no, SUM(i.interest) AS charged, SUM(i.interest_paid) AS paid
+                               FROM loan_installments i JOIN loans l ON l.id = i.loan_id JOIN users u ON u.id = l.user_id
+                               WHERE i.due_date BETWEEN ? AND ? GROUP BY l.id, l.loan_no, u.full_name, u.account_no HAVING charged > 0 ORDER BY charged DESC");
+            $s->execute([$from, min($to, date('Y-m-d'))]);
+            $byLoan = array_map(fn ($r) => ['loan_no' => $r['loan_no'], 'full_name' => $r['full_name'], 'account_no' => $r['account_no'], 'charged' => $r['charged'], 'paid' => $r['paid'], '_loan_id' => (int) $r['id']], $s->fetchAll());
+            $reports[] = ['title' => "Interest loan by loan, $when", 'subtitle' => 'Interest on each loan\'s instalments due in the period, and how much of it is paid', 'columns' => [
+                $text('loan_no', 'Loan'), $text('full_name', 'Member'), $text('account_no', 'Account no.'), $money('charged', 'Interest due'), $money('paid', 'Paid so far'),
+            ], 'rows' => $byLoan, 'totals' => [
+                'charged' => Money::toDecimal(array_sum(array_map(fn ($r) => Money::fromDecimal($r['charged']), $byLoan))),
+                'paid' => Money::toDecimal(array_sum(array_map(fn ($r) => Money::fromDecimal($r['paid']), $byLoan))),
+            ]];
+        } else {
+            $s = $db->prepare("SELECT i.name, i.kind AS inv_kind, i.institution, r.received_on, r.kind, r.amount, r.note
+                               FROM investment_returns r JOIN investments i ON i.id = r.investment_id
+                               WHERE r.reversal_of IS NULL AND NOT EXISTS (SELECT 1 FROM investment_returns x WHERE x.reversal_of = r.id) AND r.received_on BETWEEN ? AND ?
+                               ORDER BY r.received_on DESC");
+            $s->execute([$from, $to]);
+            $all = $s->fetchAll();
+            $kinds = ['mutual_fund' => 'Unit trust / fund', 'fixed_deposit' => 'Fixed deposit', 'treasury' => 'Treasury bill / bond', 'shares' => 'Shares', 'property' => 'Property', 'business' => 'Business', 'other' => 'Other'];
+            $byYear = [];
+            foreach ($all as $r) {
+                $k = $r['name'] . '|' . substr($r['received_on'], 0, 4);
+                $byYear[$k] ??= ['name' => $r['name'], 'kind' => $kinds[$r['inv_kind']] ?? $r['inv_kind'], 'year' => substr($r['received_on'], 0, 4), 'amount' => 0];
+                $byYear[$k]['amount'] += Money::fromDecimal((string) $r['amount']);
+            }
+            krsort($byYear);
+            $sum = array_sum(array_map(fn ($r) => Money::fromDecimal((string) $r['amount']), $all));
+            $reports[] = ['title' => "Earned on each investment, $when", 'subtitle' => 'Year by year', 'columns' => [
+                $text('name', 'Investment'), $text('kind', 'Kind'), $text('year', 'Year'), $money('amount', 'Earned'),
+            ], 'rows' => array_values(array_map(fn ($r) => ['amount' => Money::toDecimal($r['amount'])] + $r, $byYear)), 'totals' => ['amount' => Money::toDecimal($sum)]];
+            $reports[] = ['title' => "Every return received, $when", 'subtitle' => count($all) . ' entries', 'columns' => [
+                $text('name', 'Investment'), $text('institution', 'With'), $date('received_on', 'Received'), $text('what', 'What'), $text('note', 'Note'), $money('amount', 'Amount'),
+            ], 'rows' => array_map(fn ($r) => ['name' => $r['name'], 'institution' => $r['institution'], 'received_on' => $r['received_on'], 'what' => $r['kind'] === 'gain' ? 'Gain on value' : 'Income', 'note' => $r['note'], 'amount' => $r['amount']], $all),
+                'totals' => ['amount' => Money::toDecimal($sum)]];
+        }
+        Response::ok(['source' => $key, 'label' => $label, 'reports' => $reports]);
     }
 }

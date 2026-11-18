@@ -84,6 +84,8 @@ $router->get('/api/me/transactions', [TransactionController::class, 'myTransacti
 $router->get('/api/members/{id}', [TransactionController::class, 'member'], $admins);
 $router->get('/api/audit', [ReportController::class, 'auditLog'], $admins);
 $router->get('/api/reports/portfolio-risk', [ReportController::class, 'portfolioRisk'], $admins);
+$router->get('/api/reports/income', [ReportController::class, 'incomeSummary'], $admins);
+$router->get('/api/reports/income/{source}', [ReportController::class, 'incomeDetail'], $admins);
 $router->get('/api/arrears', [\Sacco\Controllers\ArrearsController::class, 'index'], $admins);
 $router->post('/api/loans/{id}/followups', [\Sacco\Controllers\ArrearsController::class, 'note'], $edit('loans'));
 $router->post('/api/loans/{id}/remind', [\Sacco\Controllers\ArrearsController::class, 'remind'], $edit('loans'));
