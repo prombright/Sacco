@@ -75,7 +75,7 @@ const tasks = computed(() => {
     { n: w.withdrawals_to_approve, text: 'withdrawal request', verb: 'to approve', to: { name: 'admin-withdrawals' } },
     { n: w.withdrawals_to_pay, text: 'withdrawal cheque', verb: 'to issue', to: { name: 'admin-withdrawals' } },
     { n: w.payroll_missing, text: `${lastMonth} payroll`, verb: 'not posted yet', to: { name: 'payroll' }, single: true },
-    { n: w.loans_behind, text: 'borrower', verb: 'behind on repayments', to: { name: 'loan-portfolio' } },
+    { n: w.loans_behind, text: 'borrower', verb: 'behind on repayments', to: { name: 'arrears' } },
     { n: w.securities_to_return, text: 'loan security', verb: 'to hand back (loan repaid)', to: { name: 'admin-loans' } },
     { n: w.loans_waiting_guarantors, text: 'loan', verb: 'waiting for guarantors', to: { name: 'admin-loans' }, quiet: true },
     { n: w.subscriptions_unpaid, text: 'subscription', verb: 'unpaid this year', to: { name: 'membership-fees' }, quiet: true },

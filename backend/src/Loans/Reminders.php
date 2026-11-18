@@ -84,6 +84,8 @@ final class Reminders
             foreach ($borrowers as $id) {
                 Credit::refresh($db, (int) $id);
             }
+            // Guarantors of loans late by the set number of days (Setup; off until the committee sets it)
+            \Sacco\Controllers\ArrearsController::runIfDue($db);
             \Sacco\Support\Outbox::flush($db, 50);
             return ['due_soon' => count($soon), 'overdue' => count($late), 'borrowers' => count($borrowers)];
         } finally {

@@ -37,6 +37,7 @@ import {
   DocumentArrowUpIcon,
   EnvelopeIcon,
   ExclamationTriangleIcon,
+  PhoneIcon,
 } from '@heroicons/vue/24/outline'
 import type { Waiting } from '@/stores/office'
 import { formatMoney } from '@/money'
@@ -144,6 +145,7 @@ export const sections: Section[] = [
       { name: 'admin-loans', label: 'Loan applications', description: 'Check, approve or turn down', icon: ClipboardDocumentCheckIcon, also: ['loan'], badge: (w) => w.loans_to_approve, figure: (s) => `${s.waiting.loans_waiting_guarantors} waiting for guarantors` },
       { name: 'loan-disbursement', label: 'Loan disbursement', description: 'Approved loans to pay out', icon: CheckBadgeIcon, badge: (w) => w.loans_to_pay_out },
       { name: 'loan-interest', label: 'Monthly loan interest', description: 'Interest due, paid and owed each month', icon: CalculatorIcon, figure: (s) => `${formatMoney(s.interest_month)} due in ${month}` },
+      { name: 'arrears', label: 'Arrears follow-up', description: 'Late loans: remind, tell guarantors, note promises', icon: PhoneIcon, badge: (w) => w.loans_behind },
       { name: 'portfolio-risk', label: 'Portfolio at risk', description: 'How much of the loan book is late, and how late', icon: ExclamationTriangleIcon },
       { name: 'loan-portfolio', label: 'Loan portfolio', description: 'Every loan not yet repaid', icon: BriefcaseIcon, figure: (s) => `${s.active_loans} active · ${short(s.loans_outstanding)} owed` },
     ],

@@ -23,6 +23,7 @@ interface Setting {
  */
 const LOOK: Record<string, { group: string; name: string; unit?: string; help?: string }> = {
   approval_limit: { group: 'savings', name: 'Second approval from', unit: 'UGX', help: 'Deposits, adjustments, reversals, transfers, cash book and journal entries of this amount or more wait for a second office person; withdrawal cheques and loan payouts need two different people. 0 means off.' },
+  guarantor_warning_days: { group: 'reminders', name: 'Tell guarantors after', unit: 'days late', help: 'Guarantors of a loan this many days behind get a message, at most once a month, but never while the payroll is behind. 0 means off: the office can still tell them from Arrears follow-up.' },
   loan_max_months: { group: 'loans', name: 'Longest loan for members', unit: 'months', help: 'Members choose how many months to repay over, up to this (a loan type can be shorter). The super admin can still change one loan\'s duration.' },
   loan_min_member_months: { group: 'loans', name: 'Saving before a first loan', unit: 'months', help: 'How long someone must have saved before they can borrow.' },
   guarantor_min_member_months: { group: 'loans', name: 'Membership to guarantee', unit: 'months', help: 'How long someone must have been a member to stand as a guarantor.' },
