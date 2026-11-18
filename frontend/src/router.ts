@@ -52,6 +52,7 @@ const router = createRouter({
         { path: 'loans', name: 'loans', component: () => import('@/pages/loans/LoansPage.vue'), meta: { member: true, title: 'My loans' } },
         { path: 'loans/apply', name: 'loan-apply', component: () => import('@/pages/loans/ApplyLoanPage.vue'), meta: { member: true, title: 'Apply for a loan' } },
         { path: 'loans/:id(\\d+)', name: 'loan', component: () => import('@/pages/loans/LoanPage.vue'), meta: { title: 'Loan' } },
+        { path: 'reports/portfolio-risk', name: 'portfolio-risk', component: () => import('@/pages/admin/PortfolioRiskPage.vue'), meta: { admin: true, title: 'Portfolio at risk' } },
         { path: 'admin/loans', name: 'admin-loans', component: () => import('@/pages/admin/LoansAdminPage.vue'), meta: { admin: true, title: 'Loan applications' } },
         { path: 'withdrawals', name: 'withdrawals', component: () => import('@/pages/withdrawals/WithdrawalsPage.vue'), meta: { member: true, title: 'Withdraw savings' } },
         { path: 'admin/approvals', name: 'approvals', component: () => import('@/pages/admin/ApprovalsPage.vue'), meta: { admin: true, title: 'Waiting for approval' } },

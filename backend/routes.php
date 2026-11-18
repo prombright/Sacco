@@ -83,6 +83,7 @@ $router->get('/api/me/transactions', [TransactionController::class, 'myTransacti
 // Admins: members' accounts and recording entries
 $router->get('/api/members/{id}', [TransactionController::class, 'member'], $admins);
 $router->get('/api/audit', [ReportController::class, 'auditLog'], $admins);
+$router->get('/api/reports/portfolio-risk', [ReportController::class, 'portfolioRisk'], $admins);
 $router->get('/api/approvals', [\Sacco\Controllers\ApprovalController::class, 'index'], $admins);
 $router->post('/api/approvals/{id}/approve', [\Sacco\Controllers\ApprovalController::class, 'approve'], $admins);
 $router->post('/api/approvals/{id}/reject', [\Sacco\Controllers\ApprovalController::class, 'reject'], $admins);

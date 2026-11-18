@@ -353,6 +353,118 @@ final class ReportController
         ]);
     }
 
+    /**
+     * The loan book as it stood on a day: each running loan's principal still owed then, and how
+     * late it was then (from its oldest instalment not yet fully paid on that day).
+     *
+     * @return array<int, array{id: int, loan_no: string, borrower: string, product: string, principal: int, days: int}>
+     */
+    private static function bookOn(\PDO $db, string $day): array
+    {
+        $stmt = $db->prepare(
+            "SELECT l.id, l.loan_no, l.amount, u.full_name, COALESCE(p.name, 'Loan') AS product,
+                    COALESCE((SELECT SUM(a.amount) FROM loan_payment_allocations a JOIN loan_payments lp ON lp.id = a.payment_id
+                              WHERE a.loan_id = l.id AND a.part = 'principal' AND lp.paid_on <= ?), 0) AS principal_paid,
+                    (SELECT MIN(i.due_date) FROM loan_installments i
+                      WHERE i.loan_id = l.id AND i.due_date < ? AND (i.cleared_on IS NULL OR i.cleared_on > ?)) AS oldest_due
+             FROM loans l JOIN users u ON u.id = l.user_id LEFT JOIN loan_products p ON p.id = l.product_id
+             WHERE l.status IN ('active', 'closed') AND l.disbursed_on <= ? AND (l.closed_on IS NULL OR l.closed_on > ?)"
+        );
+        $stmt->execute([$day, $day, $day, $day, $day]);
+        $on = new \DateTimeImmutable($day);
+        $out = [];
+        foreach ($stmt->fetchAll() as $r) {
+            $principal = Money::fromDecimal($r['amount']) - Money::fromDecimal((string) $r['principal_paid']);
+            if ($principal <= 0) {
+                continue;
+            }
+            $out[] = [
+                'id' => (int) $r['id'],
+                'loan_no' => $r['loan_no'],
+                'borrower' => $r['full_name'],
+                'product' => $r['product'],
+                'principal' => $principal,
+                'days' => $r['oldest_due'] ? (int) (new \DateTimeImmutable($r['oldest_due']))->diff($on)->days : 0,
+            ];
+        }
+        return $out;
+    }
+
+    /** Share of the principal in loans more than $days late, as a percent with one decimal */
+    private static function parOf(array $book, int $days): float
+    {
+        $total = array_sum(array_column($book, 'principal'));
+        $late = array_sum(array_map(fn ($l) => $l['days'] > $days ? $l['principal'] : 0, $book));
+        return $total > 0 ? round($late * 100 / $total, 1) : 0.0;
+    }
+
+    /**
+     * GET /api/reports/portfolio-risk?as_of= (office) - portfolio at risk: how much of the loan book
+     * is late and how badly, by loan type, the most-late loans, and PAR30 at each of the last 12 month ends.
+     */
+    public function portfolioRisk(Request $request): never
+    {
+        $asOf = $request->string('as_of') ?: date('Y-m-d');
+        $d = \DateTime::createFromFormat('!Y-m-d', $asOf);
+        if (!$d || $d->format('Y-m-d') !== $asOf) {
+            Response::error('Choose a valid date.', 422);
+        }
+        $db = Database::tenant();
+        $book = self::bookOn($db, $asOf);
+        $total = array_sum(array_column($book, 'principal'));
+        $bands = [
+            ['current', 'Not late', 0, 0],
+            ['1-30', '1 to 30 days late', 1, 30],
+            ['31-60', '31 to 60 days', 31, 60],
+            ['61-90', '61 to 90 days', 61, 90],
+            ['91-180', '91 to 180 days', 91, 180],
+            ['180+', 'Over 180 days', 181, PHP_INT_MAX],
+        ];
+        $buckets = array_map(function ($b) use ($book, $total) {
+            $in = array_filter($book, fn ($l) => $l['days'] >= $b[2] && $l['days'] <= $b[3]);
+            $p = array_sum(array_column($in, 'principal'));
+            return ['key' => $b[0], 'label' => $b[1], 'loans' => count($in), 'principal' => Money::toDecimal($p), 'share' => $total ? round($p * 100 / $total, 1) : 0];
+        }, $bands);
+        $products = [];
+        foreach ($book as $l) {
+            $products[$l['product']][] = $l;
+        }
+        ksort($products);
+        $byProduct = array_map(fn ($name, $loans) => [
+            'name' => $name,
+            'loans' => count($loans),
+            'principal' => Money::toDecimal(array_sum(array_column($loans, 'principal'))),
+            'par30' => self::parOf($loans, 30),
+        ], array_keys($products), $products);
+        $late = array_values(array_filter($book, fn ($l) => $l['days'] > 0));
+        usort($late, fn ($a, $b) => [$b['days'], $b['principal']] <=> [$a['days'], $a['principal']]);
+        // PAR30 at each of the last 12 month ends (this month: the chosen day)
+        $trend = [];
+        for ($m = 11; $m >= 0; $m--) {
+            $end = $m === 0 ? $asOf : date('Y-m-t', strtotime(date('Y-m-01', strtotime($asOf)) . " -$m month"));
+            $b = self::bookOn($db, $end);
+            // From the month the loan book starts: no empty months before it
+            if ($b || $trend) {
+                $trend[] = ['month' => substr($end, 0, 7), 'value' => self::parOf($b, 30), 'principal' => Money::toDecimal(array_sum(array_column($b, 'principal')))];
+            }
+        }
+        // Repayments come off salaries: without the payroll, every loan looks late
+        $lastPayroll = $db->query("SELECT MAX(period) FROM payroll_batches WHERE kind = 'payroll' AND status = 'posted'")->fetchColumn() ?: null;
+        Response::ok([
+            'as_of' => $asOf,
+            'last_payroll' => $lastPayroll,
+            'payroll_behind' => !$lastPayroll || $lastPayroll < date('Y-m', strtotime(date('Y-m-01', strtotime($asOf)) . ' -1 month')),
+            'loans' => count($book),
+            'principal' => Money::toDecimal($total),
+            'late_loans' => count($late),
+            'par' => ['30' => self::parOf($book, 30), '60' => self::parOf($book, 60), '90' => self::parOf($book, 90)],
+            'buckets' => $buckets,
+            'by_product' => $byProduct,
+            'worst' => array_map(fn ($l) => ['id' => $l['id'], 'loan_no' => $l['loan_no'], 'borrower' => $l['borrower'], 'product' => $l['product'], 'days' => $l['days'], 'principal' => Money::toDecimal($l['principal'])], array_slice($late, 0, 25)),
+            'trend' => $trend,
+        ]);
+    }
+
     /** Money columns go out as decimals, with a total row for them */
     private function finish(array $columns, array $rows, bool $totals = true): array
     {
