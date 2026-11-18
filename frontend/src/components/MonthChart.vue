@@ -30,22 +30,24 @@ onBeforeUnmount(() => observer?.disconnect())
 
 const values = computed(() => props.points.map((p) => Number(p.value)))
 
-/** A round top for the axis, and 3 gridlines under it */
+/** A round top (and bottom, when a month went below zero) for the axis, about 3 gridlines between */
 const scale = computed(() => {
   const max = Math.max(...values.value, 0)
-  if (max === 0) return { top: 1, ticks: [0] }
-  const rough = max / 3
+  const min = Math.min(...values.value, 0)
+  if (max === 0 && min === 0) return { top: 1, bottom: 0, ticks: [0] }
+  const rough = (max - min) / 3
   const magnitude = 10 ** Math.floor(Math.log10(rough))
   const step = [1, 2, 2.5, 5, 10].map((m) => m * magnitude).find((s) => s >= rough)!
   const top = step * Math.ceil(max / step)
-  return { top, ticks: Array.from({ length: Math.round(top / step) + 1 }, (_, i) => i * step) }
+  const bottom = step * Math.floor(min / step)
+  return { top: top || step, bottom, ticks: Array.from({ length: Math.round(((top || step) - bottom) / step) + 1 }, (_, i) => bottom + i * step) }
 })
 
 const plotW = computed(() => width.value - pad.left - pad.right)
 const plotH = height - pad.top - pad.bottom
 const slot = computed(() => plotW.value / Math.max(1, props.points.length))
 const x = (i: number) => pad.left + slot.value * i + slot.value / 2
-const y = (v: number) => pad.top + plotH - (v / scale.value.top) * plotH
+const y = (v: number) => pad.top + plotH - ((v - scale.value.bottom) / (scale.value.top - scale.value.bottom)) * plotH
 
 const line = computed(() => values.value.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' '))
 const area = computed(() =>
@@ -55,14 +57,16 @@ const area = computed(() =>
 /** Bars: thin, with a 2px gap, rounded (4px) only at the data end */
 const barW = computed(() => Math.min(28, Math.max(6, slot.value * 0.55)))
 function barPath(i: number, v: number) {
-  const h = Math.max(0, y(0) - y(v))
+  const h = Math.abs(y(0) - y(v))
   if (h === 0) return ''
   const r = Math.min(4, h, barW.value / 2)
   const left = x(i) - barW.value / 2
-  const top = y(v)
   const right = left + barW.value
-  const bottom = y(0)
-  return `M${left},${bottom} L${left},${top + r} Q${left},${top} ${left + r},${top} L${right - r},${top} Q${right},${top} ${right},${top + r} L${right},${bottom} Z`
+  const base = y(0)
+  const end = y(v)
+  // Below zero (a deficit): the bar hangs from the zero line, rounded at its lower end
+  if (v < 0) return `M${left},${base} L${left},${end - r} Q${left},${end} ${left + r},${end} L${right - r},${end} Q${right},${end} ${right},${end - r} L${right},${base} Z`
+  return `M${left},${base} L${left},${end + r} Q${left},${end} ${left + r},${end} L${right - r},${end} Q${right},${end} ${right},${end + r} L${right},${base} Z`
 }
 
 const monthLabel = (m: string, long = false) =>
@@ -71,8 +75,11 @@ const monthLabel = (m: string, long = false) =>
 /** Fewer month labels when the chart is narrow */
 const labelEvery = computed(() => (slot.value < 34 ? 2 : 1))
 
-const compact = (v: number) =>
-  v >= 1e9 ? `${+(v / 1e9).toFixed(1)}B` : v >= 1e6 ? `${+(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `${+(v / 1e3).toFixed(0)}K` : String(v)
+const compact = (n: number): string => {
+  if (n < 0) return `-${compact(-n)}`
+  const v = n
+  return v >= 1e9 ? `${+(v / 1e9).toFixed(1)}B` : v >= 1e6 ? `${+(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `${+(v / 1e3).toFixed(0)}K` : String(+v.toFixed(1))
+}
 
 // An id the gradient can be found by (no spaces), unique per chart
 const fillId = `fill-${props.label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Math.random().toString(36).slice(2, 7)}`

@@ -359,7 +359,7 @@ final class ReportController
      *
      * @return array<int, array{id: int, loan_no: string, borrower: string, product: string, principal: int, days: int}>
      */
-    private static function bookOn(\PDO $db, string $day): array
+    public static function bookOn(\PDO $db, string $day): array
     {
         $stmt = $db->prepare(
             "SELECT l.id, l.loan_no, l.amount, u.full_name, COALESCE(p.name, 'Loan') AS product,
@@ -391,7 +391,7 @@ final class ReportController
     }
 
     /** Share of the principal in loans more than $days late, as a percent with one decimal */
-    private static function parOf(array $book, int $days): float
+    public static function parOf(array $book, int $days): float
     {
         $total = array_sum(array_column($book, 'principal'));
         $late = array_sum(array_map(fn ($l) => $l['days'] > $days ? $l['principal'] : 0, $book));

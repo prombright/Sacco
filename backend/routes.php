@@ -245,6 +245,8 @@ $router->get('/api/dev/saccos/{id}/activity', [DevController::class, 'activity']
 $router->post('/api/dev/saccos/{id}/office-accounts', [DevController::class, 'addOfficeAccount'], $dev);
 $router->post('/api/dev/saccos/{id}/users/{user}/reset-password', [DevController::class, 'resetPassword'], $dev);
 $router->post('/api/dev/saccos/{id}/users/{user}/status', [DevController::class, 'setUserStatus'], $dev);
+$router->post('/api/dev/saccos/{id}/users/{user}/role', [DevController::class, 'setRole'], $dev);
+$router->post('/api/dev/saccos/{id}/users/{user}/link', [DevController::class, 'linkMember'], $dev);
 $router->post('/api/dev/saccos/{id}/update-system', [DevController::class, 'updateSystem'], $dev);
 
 // The books: chart of accounts, journal entries, statements
@@ -258,6 +260,7 @@ $router->post('/api/accounting/journal/{id}/reverse', [AccountingController::cla
 $router->post('/api/accounting/rebuild', [AccountingController::class, 'rebuild'], $super);
 $router->get('/api/accounting/reports/{name}', [AccountingController::class, 'report'], $admins);
 $router->get('/api/accounting/annual', [AccountingController::class, 'annual'], $admins);
+$router->get('/api/accounting/board-pack', [AccountingController::class, 'boardPack'], $admins);
 
 // Internal transfers, every transaction, and backups
 $router->get('/api/transfers', [TransferController::class, 'index'], $admins);

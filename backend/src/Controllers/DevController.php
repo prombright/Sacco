@@ -6,6 +6,7 @@ namespace Sacco\Controllers;
 
 use Sacco\Auth\Auth;
 use Sacco\Auth\DevAuth;
+use Sacco\Auth\OfficeAccess;
 use Sacco\Auth\Passwords;
 use Sacco\Auth\Roles;
 use Sacco\Auth\Throttle;
@@ -161,8 +162,10 @@ final class DevController
         $s = $this->sacco((int) $request->param('id'));
         $data = Tenant::actAs($s, function (\PDO $db) {
             $office = $db->query(
-                "SELECT id, full_name, email, employee_no, role, status, must_change_password, last_login_at, created_at
-                 FROM users WHERE role IN ('super_admin', 'admin') ORDER BY FIELD(role, 'super_admin', 'admin'), full_name"
+                "SELECT u.id, u.full_name, u.email, u.employee_no, u.role, u.status, u.must_change_password, u.last_login_at, u.created_at,
+                        u.office_via_member, u.linked_member_id, m.full_name AS linked_member, m.account_no AS linked_account_no
+                 FROM users u LEFT JOIN users m ON m.id = u.linked_member_id
+                 WHERE u.role IN ('super_admin', 'admin') ORDER BY FIELD(u.role, 'super_admin', 'admin'), u.full_name"
             )->fetchAll();
             $rules = [];
             foreach ($db->query('SELECT `key`, `value`, updated_at FROM settings ORDER BY `key`')->fetchAll() as $r) {
@@ -182,6 +185,9 @@ final class DevController
                     'status' => $u['status'],
                     'must_change_password' => (bool) $u['must_change_password'],
                     'last_login_at' => $u['last_login_at'],
+                    // A member's office access (no login of its own), or an office login linked to a member
+                    'via_member' => (bool) $u['office_via_member'],
+                    'linked_member' => $u['linked_member_id'] ? ['id' => (int) $u['linked_member_id'], 'full_name' => $u['linked_member'], 'account_no' => $u['linked_account_no']] : null,
                 ], $office),
                 'rules' => $rules,
                 'loans_by_status' => array_map(fn ($r) => ['count' => (int) $r['n'], 'amount' => $r['amount']], $byStatus),
@@ -203,10 +209,10 @@ final class DevController
         $page = max(1, (int) $request->query('page', 1));
         $per = 25;
         $data = Tenant::actAs($s, function (\PDO $db) use ($q, $page, $per) {
-            $where = '1 = 1';
+            $where = 'u.office_via_member = 0';
             $args = [];
             if ($q !== '') {
-                $where = '(u.full_name LIKE ? OR u.email LIKE ? OR u.employee_no LIKE ? OR u.account_no LIKE ?)';
+                $where .= ' AND (u.full_name LIKE ? OR u.email LIKE ? OR u.employee_no LIKE ? OR u.account_no LIKE ?)';
                 $args = array_fill(0, 4, "%$q%");
             }
             $count = $db->prepare("SELECT COUNT(*) FROM users u WHERE $where");
@@ -215,7 +221,8 @@ final class DevController
                 "SELECT u.id, u.full_name, u.email, u.employee_no, u.account_no, u.role, u.status, u.last_login_at, u.joined_on,
                     (SELECT balance_after FROM transactions t WHERE t.user_id = u.id AND t.account = 'savings' ORDER BY t.id DESC LIMIT 1) AS savings,
                     (SELECT balance_after FROM transactions t WHERE t.user_id = u.id AND t.account = 'shares' ORDER BY t.id DESC LIMIT 1) AS shares,
-                    (SELECT COUNT(*) FROM loans l WHERE l.user_id = u.id AND l.status = 'active') AS active_loans
+                    (SELECT COUNT(*) FROM loans l WHERE l.user_id = u.id AND l.status = 'active') AS active_loans,
+                    (SELECT o.role FROM users o WHERE o.linked_member_id = u.id AND o.role <> 'member' AND o.status = 'active' LIMIT 1) AS office_role
                  FROM users u WHERE $where ORDER BY u.full_name LIMIT $per OFFSET " . (($page - 1) * $per)
             );
             $stmt->execute($args);
@@ -378,6 +385,94 @@ final class DevController
         });
         $this->record($s, 'platform.user_status', 'user', $userId, ['name' => $user['full_name'], 'changes' => ['status' => ['from' => $user['status'], 'to' => $status]]],
             "The system provider " . ($status === 'active' ? 'reactivated' : 'suspended') . " {$user['full_name']}'s account", $userId);
+        $this->show($request);
+    }
+
+    /**
+     * POST /api/dev/saccos/{id}/users/{user}/role { role: member|admin|super_admin } - office rights
+     * are given here only. A member keeps their savings and own login: the role goes on a linked
+     * office account they reach with the round switch ("member" takes it away). An office login
+     * of its own changes between Admin and Super admin. There is always one active super admin.
+     */
+    public function setRole(Request $request): never
+    {
+        $s = $this->sacco((int) $request->param('id'));
+        $userId = (int) $request->param('user');
+        $role = $request->string('role');
+        if (!in_array($role, Roles::ALL, true)) {
+            Response::error('Choose member, admin or super admin.', 422);
+        }
+        [$user, $from] = Tenant::actAs($s, function (\PDO $db) use ($userId, $role) {
+            $u = $this->user($db, $userId);
+            $superAdmins = fn () => (int) $db->query("SELECT COUNT(*) FROM users WHERE role = 'super_admin' AND status = 'active'")->fetchColumn();
+            if ($u['role'] === Roles::MEMBER) {
+                $from = OfficeAccess::roleOf($db, $userId) ?? Roles::MEMBER;
+                if ($from === $role) {
+                    Response::error("{$u['full_name']} already has that.", 422);
+                }
+                if ($from === Roles::SUPER_ADMIN && $superAdmins() <= 1) {
+                    Response::error('There must always be one active super admin. Give someone else Super admin first.', 422);
+                }
+                $role === Roles::MEMBER ? OfficeAccess::revoke($db, $u) : OfficeAccess::grant($db, $u, $role, null);
+                return [$u, $from];
+            }
+            if (!empty($u['office_via_member'])) {
+                Response::error('This is a member\'s office access: change it on their member account.', 422);
+            }
+            if ($role === Roles::MEMBER) {
+                Response::error('An office login has no savings: suspend it instead.', 422);
+            }
+            if ($u['role'] === $role) {
+                Response::error("{$u['full_name']} already has that.", 422);
+            }
+            if ($u['role'] === Roles::SUPER_ADMIN && $superAdmins() <= 1) {
+                Response::error('There must always be one active super admin. Give someone else Super admin first.', 422);
+            }
+            $db->prepare('UPDATE users SET role = ? WHERE id = ?')->execute([$role, $userId]);
+            return [$u, $u['role']];
+        });
+        $title = $role === Roles::MEMBER
+            ? "The system provider took away {$user['full_name']}'s office access"
+            : "The system provider made {$user['full_name']} " . (Roles::label($role));
+        $this->record($s, 'platform.user_role', 'user', $userId, ['name' => $user['full_name'], 'changes' => ['role' => ['from' => $from, 'to' => $role]]], $title, $userId);
+        if ($user['role'] === Roles::MEMBER && $role !== Roles::MEMBER) {
+            Tenant::actAs($s, fn () => Notify::member($userId, 'account_update', 'You now have office access',
+                'You can now work in the SACCO office as ' . Roles::label($role) . '. Log in as usual and tap the round switch at the top to go to the office, and again to come back to your own account.', '/'));
+        }
+        $this->show($request);
+    }
+
+    /**
+     * POST /api/dev/saccos/{id}/users/{user}/link { member_id|null } - an office login with its own
+     * password, linked to its owner's member account (the round switch then takes them there)
+     */
+    public function linkMember(Request $request): never
+    {
+        $s = $this->sacco((int) $request->param('id'));
+        $userId = (int) $request->param('user');
+        $memberId = (int) $request->input('member_id', 0) ?: null;
+        [$office, $member] = Tenant::actAs($s, function (\PDO $db) use ($userId, $memberId) {
+            $o = $this->user($db, $userId);
+            if ($o['role'] === Roles::MEMBER || !empty($o['office_via_member'])) {
+                Response::error('Only an office login with its own password is linked to a member account.', 422);
+            }
+            $m = null;
+            if ($memberId) {
+                $m = $this->user($db, $memberId);
+                if ($m['role'] !== Roles::MEMBER) {
+                    Response::error('Choose a member account.', 422);
+                }
+                $taken = $db->prepare('SELECT full_name FROM users WHERE linked_member_id = ? AND id <> ?');
+                $taken->execute([$memberId, $userId]);
+                if ($other = $taken->fetchColumn()) {
+                    Response::error("{$m['full_name']} is already linked to $other.", 422);
+                }
+            }
+            $db->prepare('UPDATE users SET linked_member_id = ? WHERE id = ?')->execute([$memberId, $userId]);
+            return [$o, $m];
+        });
+        $this->record($s, $member ? 'users.linked' : 'users.unlinked', 'user', $userId, ['name' => $office['full_name'], 'member' => $memberId],
+            $member ? "The system provider linked the office login {$office['full_name']} to {$member['full_name']}'s member account" : "The system provider unlinked the office login {$office['full_name']} from its member account");
         $this->show($request);
     }
 

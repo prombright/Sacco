@@ -31,6 +31,9 @@ interface OfficeAccount {
   status: string
   must_change_password: boolean
   last_login_at: string | null
+  /** A member's office access (they log in as themselves), not a login of its own */
+  via_member: boolean
+  linked_member: { id: number; full_name: string; account_no: string | null } | null
 }
 interface Detail {
   sacco: DevSacco & { db_name: string }
@@ -54,6 +57,7 @@ interface MemberRow {
   savings: string | null
   shares: string | null
   active_loans: number
+  office_role: 'admin' | 'super_admin' | null
 }
 interface ActivityRow {
   id: number
@@ -149,6 +153,56 @@ async function resetPassword(u: { id: number; full_name: string }) {
   const res = await api.post<{ temporary_password: string; login: string }>(`/dev/saccos/${id.value}/users/${u.id}/reset-password`)
   secret.value = { who: u.full_name, login: res.login, password: res.temporary_password }
   await load()
+}
+// Office rights are given here only: the SACCO's own super admin can't hand them out
+const roleWords: Record<string, string> = { member: 'a member only (no office access)', admin: 'an Admin', super_admin: 'a Super admin' }
+const roleProblem = ref('')
+async function setRole(personId: number, name: string, role: string, reset?: () => void) {
+  roleProblem.value = ''
+  if (!await ask(`Make ${name} ${roleWords[role]}? The SACCO's office is told, and it is logged.`)) {
+    reset?.()
+    return
+  }
+  try {
+    data.value = await api.post<Detail>(`/dev/saccos/${id.value}/users/${personId}/role`, { role })
+    if (members.value) await loadMembers()
+  } catch (e) {
+    roleProblem.value = e instanceof ApiError ? e.message : 'Couldn\'t change the role.'
+    reset?.()
+  }
+}
+function pickRole(m: MemberRow, e: Event) {
+  const el = e.target as HTMLSelectElement
+  setRole(m.id, m.full_name, el.value, () => (el.value = m.office_role ?? 'member'))
+}
+// Linking an office login (own password) to its owner's member account
+const linking = ref<number | null>(null)
+const linkQ = ref('')
+const linkFound = ref<MemberRow[]>([])
+let linkTimer: ReturnType<typeof setTimeout> | undefined
+watch(linkQ, (v) => {
+  clearTimeout(linkTimer)
+  linkTimer = setTimeout(async () => {
+    linkFound.value = v.trim().length < 2 ? [] : (await api.get<{ members: MemberRow[] }>(`/dev/saccos/${id.value}/members`, { q: v })).members.filter((m) => m.role === 'member').slice(0, 6)
+  }, 250)
+})
+function openLink(u: OfficeAccount) {
+  linking.value = linking.value === u.id ? null : u.id
+  linkQ.value = ''
+}
+async function link(u: OfficeAccount, m: MemberRow | null) {
+  roleProblem.value = ''
+  const question = m
+    ? `Link the office login ${u.full_name} to ${m.full_name}'s member account (${m.account_no ?? ''})? Whoever logs in as ${u.full_name} can then open that member's account with the round switch.`
+    : `Unlink ${u.full_name} from ${u.linked_member?.full_name}'s member account?`
+  if (!await ask(question)) return
+  try {
+    data.value = await api.post<Detail>(`/dev/saccos/${id.value}/users/${u.id}/link`, { member_id: m?.id ?? null })
+    linking.value = null
+    linkQ.value = ''
+  } catch (e) {
+    roleProblem.value = e instanceof ApiError ? e.message : 'Couldn\'t save the link.'
+  }
 }
 async function setStatus(u: OfficeAccount, status: 'active' | 'suspended') {
   if (status === 'suspended' && !await ask(`Suspend ${u.full_name}? They are logged out and can't log in until reactivated.`)) return
@@ -324,10 +378,12 @@ const waitingList = computed(() => {
           <MagnifyingGlassIcon class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
           <input v-model="q" type="search" class="input pl-9" placeholder="Name, email, employee or account number" aria-label="Find a person" />
         </div>
+        <p class="mt-3 max-w-2xl text-sm text-gray-600">Office rights are given here only, never by the SACCO's own super admin. A member given Admin or Super admin keeps their savings and their own login, and uses the round switch to reach the office.</p>
+        <p v-if="roleProblem" class="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ roleProblem }}</p>
         <div class="card mt-4 overflow-x-auto">
-          <table v-stack class="w-full min-w-[720px] text-sm">
+          <table v-stack class="w-full min-w-[840px] text-sm">
             <thead class="border-b border-line text-left text-xs uppercase tracking-wider text-gray-500">
-              <tr><th class="px-4 py-3 font-semibold">Name</th><th class="px-4 py-3 font-semibold">Account</th><th class="px-4 py-3 text-right font-semibold">Savings</th><th class="px-4 py-3 text-right font-semibold">Shares</th><th class="px-4 py-3 text-right font-semibold">Loans</th><th class="px-4 py-3 font-semibold">Last logged in</th></tr>
+              <tr><th class="px-4 py-3 font-semibold">Name</th><th class="px-4 py-3 font-semibold">Account</th><th class="px-4 py-3 text-right font-semibold">Savings</th><th class="px-4 py-3 text-right font-semibold">Shares</th><th class="px-4 py-3 text-right font-semibold">Loans</th><th class="px-4 py-3 font-semibold">Last logged in</th><th class="px-4 py-3 font-semibold">Office rights</th></tr>
             </thead>
             <tbody class="divide-y divide-line">
               <tr v-for="m in members?.members ?? []" :key="m.id">
@@ -340,8 +396,16 @@ const waitingList = computed(() => {
                 <td class="px-4 py-3 text-right tabular-nums">{{ m.shares ? formatMoney(m.shares) : '—' }}</td>
                 <td class="px-4 py-3 text-right tabular-nums">{{ m.active_loans || '—' }}</td>
                 <td class="px-4 py-3 text-gray-600">{{ ago(m.last_login_at) }}</td>
+                <td class="px-4 py-3">
+                  <select v-if="m.role === 'member'" class="input py-1.5 text-sm" :value="m.office_role ?? 'member'" :aria-label="`Office rights for ${m.full_name}`" @change="pickRole(m, $event)">
+                    <option value="member">None (member)</option>
+                    <option value="admin">Admin</option>
+                    <option value="super_admin">Super admin</option>
+                  </select>
+                  <span v-else class="text-xs text-gray-500">Office login: see Office accounts</span>
+                </td>
               </tr>
-              <tr v-if="members && !members.members.length"><td colspan="6" class="px-4 py-8 text-center text-gray-500">Nobody matches.</td></tr>
+              <tr v-if="members && !members.members.length"><td colspan="7" class="px-4 py-8 text-center text-gray-500">Nobody matches.</td></tr>
             </tbody>
           </table>
         </div>
@@ -360,18 +424,43 @@ const waitingList = computed(() => {
           <p class="max-w-2xl text-sm text-gray-600">Super admins set the rules and can do everything in the SACCO; admins run it day to day. Every change you make here is logged and sent to the SACCO's office accounts.</p>
           <button type="button" class="btn-primary" @click="adding = true"><PlusIcon class="h-4 w-4" />Add an office account</button>
         </div>
+        <p v-if="roleProblem" class="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ roleProblem }}</p>
         <div class="card mt-4 divide-y divide-line">
           <div v-for="u in data.office" :key="u.id" class="flex flex-wrap items-center gap-3 p-4">
             <span class="inline-flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold" :class="u.role === 'super_admin' ? 'bg-saffron-100 text-saffron-700' : 'bg-navy-50 text-navy-800'">{{ u.full_name.split(' ').map((w) => w[0]).slice(0, 2).join('') }}</span>
             <div class="min-w-0 flex-1">
               <p class="font-semibold">{{ u.full_name }} <span class="ml-1 rounded px-1.5 py-0.5 text-xs font-semibold" :class="u.role === 'super_admin' ? 'bg-saffron-100 text-saffron-700' : 'bg-navy-50 text-navy-800'">{{ u.role_label }}</span></p>
-              <p class="text-sm text-gray-500">
+              <p v-if="u.via_member" class="text-sm text-gray-500">
+                A member's office access: logs in with their member login{{ u.linked_member ? ` (${u.linked_member.account_no})` : '' }} · {{ u.status === 'active' ? 'active' : 'taken away' }}
+              </p>
+              <p v-else class="text-sm text-gray-500">
                 {{ u.email || u.employee_no }} · {{ u.status === 'active' ? (u.must_change_password ? 'yet to log in' : 'last logged in ' + ago(u.last_login_at)) : 'suspended' }}
               </p>
+              <p v-if="!u.via_member && u.linked_member" class="mt-1 text-sm">
+                Linked to member <span class="font-medium">{{ u.linked_member.full_name }}</span> <span class="font-mono text-xs text-gray-500">{{ u.linked_member.account_no }}</span>
+                <button type="button" class="ml-2 text-xs font-semibold text-red-700 hover:underline" @click="link(u, null)">Unlink</button>
+              </p>
+              <div v-if="linking === u.id" class="mt-2 max-w-sm">
+                <input v-model="linkQ" type="search" class="input py-1.5 text-sm" placeholder="Type the member's name or account number" aria-label="Find the member account" />
+                <div v-if="linkFound.length" class="mt-1 divide-y divide-line rounded-lg border border-line">
+                  <button v-for="m in linkFound" :key="m.id" type="button" class="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50" @click="link(u, m)">{{ m.full_name }} <span class="font-mono text-xs text-gray-500">{{ m.account_no }}</span></button>
+                </div>
+              </div>
             </div>
-            <button type="button" class="btn-ghost" @click="resetPassword(u)"><KeyIcon class="h-4 w-4" />Reset password</button>
-            <button v-if="u.status === 'active'" type="button" class="btn-ghost !text-red-700" @click="setStatus(u, 'suspended')"><NoSymbolIcon class="h-4 w-4" />Suspend</button>
-            <button v-else type="button" class="btn-ghost" @click="setStatus(u, 'active')"><CheckCircleIcon class="h-4 w-4" />Reactivate</button>
+            <template v-if="u.via_member">
+              <template v-if="u.linked_member && u.status === 'active'">
+                <button type="button" class="btn-ghost" @click="setRole(u.linked_member.id, u.full_name, u.role === 'admin' ? 'super_admin' : 'admin')">Make {{ u.role === 'admin' ? 'super admin' : 'admin' }}</button>
+                <button type="button" class="btn-ghost !text-red-700" @click="setRole(u.linked_member.id, u.full_name, 'member')"><NoSymbolIcon class="h-4 w-4" />Take away</button>
+              </template>
+              <button v-else-if="u.linked_member" type="button" class="btn-ghost" @click="setRole(u.linked_member.id, u.full_name, u.role)"><CheckCircleIcon class="h-4 w-4" />Give back</button>
+            </template>
+            <template v-else>
+              <button type="button" class="btn-ghost" @click="setRole(u.id, u.full_name, u.role === 'admin' ? 'super_admin' : 'admin')">Make {{ u.role === 'admin' ? 'super admin' : 'admin' }}</button>
+              <button v-if="!u.linked_member" type="button" class="btn-ghost" @click="openLink(u)">Link to a member</button>
+              <button type="button" class="btn-ghost" @click="resetPassword(u)"><KeyIcon class="h-4 w-4" />Reset password</button>
+              <button v-if="u.status === 'active'" type="button" class="btn-ghost !text-red-700" @click="setStatus(u, 'suspended')"><NoSymbolIcon class="h-4 w-4" />Suspend</button>
+              <button v-else type="button" class="btn-ghost" @click="setStatus(u, 'active')"><CheckCircleIcon class="h-4 w-4" />Reactivate</button>
+            </template>
           </div>
           <p v-if="!data.office.length" class="p-6 text-center text-sm text-gray-500">No office accounts.</p>
         </div>

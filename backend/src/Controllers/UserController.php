@@ -20,6 +20,8 @@ use Sacco\Support\Audit;
  */
 final class UserController
 {
+    private const DEV_ONLY = "Admin and Super admin rights are given and taken away by the system's developer, not in the office. Contact the developer.";
+
     private const STATUSES = ['active', 'suspended', 'left'];
 
     /** GET /api/users?q=&role=&status=&page= */
@@ -70,8 +72,8 @@ final class UserController
     public function store(Request $request): never
     {
         $data = $this->validated($request, null);
-        if (!Roles::canManage(Auth::user()['role'], $data['role'])) {
-            Response::error('Only a super admin can add admins.', 403);
+        if ($data['role'] !== Roles::MEMBER) {
+            Response::error(self::DEV_ONLY, 403);
         }
         $temporary = Passwords::temporary();
 
@@ -91,11 +93,6 @@ final class UserController
             return $id;
         });
         Audit::log('user.created', 'user', $id, ['role' => $data['role']]);
-        // A new office account for someone who already saves: linked to their member account when it's clearly them
-        if ($data['role'] !== Roles::MEMBER) {
-            OfficeAccess::autoLink(Database::tenant(), $this->find($id));
-        }
-
         Response::ok(['user' => AuthController::present($this->find($id)), 'temporary_password' => $temporary], 201);
     }
 
@@ -108,6 +105,12 @@ final class UserController
 
         if (!Roles::canManage($actor['role'], $user['role']) || !Roles::canManage($actor['role'], $data['role'])) {
             Response::error('Only a super admin can change admins.', 403);
+        }
+        // Office rights (Admin, Super admin) are the developer's to give, change and take away, and
+        // office logins are switched on and off there too: a super admin can't hand them out
+        $office = $user['role'] === Roles::MEMBER ? OfficeAccess::roleOf(Database::tenant(), (int) $user['id']) : null;
+        if ($user['role'] === Roles::MEMBER ? $data['role'] !== ($office ?? Roles::MEMBER) : ($data['role'] !== $user['role'] || $data['status'] !== $user['status'])) {
+            Response::error(self::DEV_ONLY, 403);
         }
         if ((int) $user['id'] === (int) $actor['id'] && ($data['role'] !== $user['role'] || $data['status'] !== 'active')) {
             Response::error('You can\'t change your own role or deactivate yourself. Ask another super admin.', 422);
@@ -309,24 +312,6 @@ final class UserController
     /** POST /api/users/{id}/link-member { member_id|null } (super admin) - the office account's owner's member account */
     public function linkMember(Request $request): never
     {
-        $office = $this->find((int) $request->param('id'));
-        if (!in_array($office['role'], [Roles::ADMIN, Roles::SUPER_ADMIN], true)) {
-            Response::error('Only office accounts are linked to a member account.', 422);
-        }
-        $memberId = (int) $request->input('member_id', 0) ?: null;
-        $db = Database::tenant();
-        if ($memberId) {
-            $m = $db->prepare("SELECT id, full_name FROM users WHERE id = ? AND role = 'member'");
-            $m->execute([$memberId]);
-            $member = $m->fetch() ?: Response::error('Choose a member account.', 422);
-            $taken = $db->prepare('SELECT full_name FROM users WHERE linked_member_id = ? AND id <> ?');
-            $taken->execute([$memberId, $office['id']]);
-            if ($other = $taken->fetchColumn()) {
-                Response::error("{$member['full_name']} is already linked to $other's office account.", 422);
-            }
-        }
-        $db->prepare('UPDATE users SET linked_member_id = ? WHERE id = ?')->execute([$memberId, $office['id']]);
-        Audit::log($memberId ? 'users.linked' : 'users.unlinked', 'user', (int) $office['id'], ['member' => $memberId]);
-        Response::ok(['user' => AuthController::present($this->find((int) $office['id']))]);
+        Response::error(self::DEV_ONLY, 403);
     }
 }

@@ -411,6 +411,212 @@ final class AccountingController
         ]);
     }
 
+    /**
+     * GET /api/accounting/board-pack?month=YYYY-MM (office) - the month in one document for the
+     * board: headline figures against the month before, twelve months of trend (savings, the loan
+     * book, income and expenses, members), the month's income statement, the balance sheet at its
+     * end, how late the loan book is, the loans issued, the most-late loans and what is waiting.
+     */
+    public function boardPack(Request $request): never
+    {
+        $month = $request->string('month') ?: date('Y-m', strtotime('first day of last month'));
+        if (!preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $month) || $month > date('Y-m')) {
+            Response::error('Choose a month that has started.', 422);
+        }
+        $db = Database::tenant();
+        Books::sync($db);
+        $from = "$month-01";
+        $to = min(date('Y-m-t', strtotime($from)), date('Y-m-d'));
+        $prevTo = date('Y-m-d', strtotime("$from -1 day"));
+        $prevFrom = date('Y-m-01', strtotime($prevTo));
+        $one = function (string $sql, array $args) use ($db) {
+            $s = $db->prepare($sql);
+            $s->execute($args);
+            return $s->fetchColumn();
+        };
+        $cents = fn ($v) => Money::fromDecimal((string) $v);
+        $keyAccount = function (string $key) use ($db) {
+            $a = $db->prepare('SELECT * FROM gl_accounts WHERE system_key = ?');
+            $a->execute([$key]);
+            return $a->fetch();
+        };
+        $accounts = ['savings' => $keyAccount('member_savings'), 'shares' => $keyAccount('share_capital')];
+        $notReversed = 'AND NOT EXISTS (SELECT 1 FROM transactions r WHERE r.reversal_of = t.id)';
+
+        // Everything the headline needs, for any stretch: balances at its end, flows during it
+        $figures = function (string $from, string $to) use ($db, $one, $cents, $accounts, $notReversed) {
+            $end = Books::totals($db, $to);
+            $flow = Books::totals($db, $to, $from, false);
+            $income = $expense = 0;
+            foreach (Books::chart($db) as $a) {
+                if ($a['type'] === 'income') {
+                    $income += Books::balance($a, $flow);
+                } elseif ($a['type'] === 'expense') {
+                    $expense += Books::balance($a, $flow);
+                }
+            }
+            $book = ReportController::bookOn($db, $to);
+            return [
+                'members' => (int) $one("SELECT COUNT(*) FROM users u WHERE u.role = 'member' AND COALESCE(u.joined_on, DATE(u.created_at)) <= ?
+                    AND NOT EXISTS (SELECT 1 FROM member_exits x WHERE x.user_id = u.id AND x.exit_date <= ?)", [$to, $to]),
+                'joined' => (int) $one("SELECT COUNT(*) FROM users WHERE role = 'member' AND COALESCE(joined_on, DATE(created_at)) BETWEEN ? AND ?", [$from, $to]),
+                'left' => (int) $one('SELECT COUNT(*) FROM member_exits WHERE exit_date BETWEEN ? AND ?', [$from, $to]),
+                'savings' => $accounts['savings'] ? Books::balance($accounts['savings'], $end) : 0,
+                'shares' => $accounts['shares'] ? Books::balance($accounts['shares'], $end) : 0,
+                'deposits' => $cents($one("SELECT COALESCE(SUM(t.amount), 0) FROM transactions t WHERE t.type = 'deposit' AND t.value_date BETWEEN ? AND ? $notReversed", [$from, $to])),
+                'withdrawn' => -$cents($one("SELECT COALESCE(SUM(t.amount), 0) FROM transactions t WHERE t.type = 'withdrawal' AND t.value_date BETWEEN ? AND ? $notReversed", [$from, $to])),
+                'loans_count' => (int) $one("SELECT COUNT(*) FROM loans WHERE source = 'applied' AND disbursed_on BETWEEN ? AND ?", [$from, $to]),
+                'loans_amount' => $cents($one("SELECT COALESCE(SUM(amount), 0) FROM loans WHERE source = 'applied' AND disbursed_on BETWEEN ? AND ?", [$from, $to])),
+                'repaid' => $cents($one("SELECT COALESCE(SUM(p.amount), 0) FROM loan_payments p JOIN loans l ON l.id = p.loan_id
+                    WHERE p.paid_on BETWEEN ? AND ? AND p.reversal_of IS NULL AND NOT EXISTS (SELECT 1 FROM loan_payments r WHERE r.reversal_of = p.id)
+                    AND NOT (l.source = 'old_records' AND p.reference = 'Old records')", [$from, $to])),
+                'loan_book' => array_sum(array_column($book, 'principal')),
+                'par30' => ReportController::parOf($book, 30),
+                'par90' => ReportController::parOf($book, 90),
+                'income' => $income,
+                'expense' => $expense,
+                'surplus' => $income - $expense,
+                '_book' => $book,
+            ];
+        };
+        $now = $figures($from, $to);
+        $before = $figures($prevFrom, $prevTo);
+        $year = $figures(substr($month, 0, 4) . '-01-01', $to);
+
+        // Twelve month ends, from the first month the SACCO had anything on its books
+        $trend = [];
+        for ($m = 11; $m >= 0; $m--) {
+            $mFrom = date('Y-m-01', strtotime("$from -$m month"));
+            $mTo = $m === 0 ? $to : date('Y-m-t', strtotime($mFrom));
+            $f = $m === 0 ? $now : ($m === 1 ? $before : $figures($mFrom, $mTo));
+            if (!$trend && !$f['savings'] && !$f['loan_book'] && !$f['income']) {
+                continue;
+            }
+            $trend[] = [
+                'month' => substr($mFrom, 0, 7),
+                'members' => $f['members'],
+                'savings' => Money::toDecimal($f['savings']),
+                'loan_book' => Money::toDecimal($f['loan_book']),
+                'income' => Money::toDecimal($f['income']),
+                'expense' => Money::toDecimal($f['expense']),
+                'surplus' => Money::toDecimal($f['surplus']),
+                'par30' => $f['par30'],
+            ];
+        }
+
+        $label = date('F Y', strtotime($from));
+        $prevLabel = date('F Y', strtotime($prevFrom));
+        $text = fn ($k, $l) => ['key' => $k, 'label' => $l, 'type' => 'text'];
+        $money = fn ($k, $l) => ['key' => $k, 'label' => $l, 'type' => 'money'];
+        $num = fn ($k, $l) => ['key' => $k, 'label' => $l, 'type' => 'number'];
+        $heading = fn ($t) => ['item' => $t, '_kind' => 'heading'];
+        // A line of the key figures: this month, the month before, the change
+        $line = function (string $item, string $key, string $kind = 'money') use ($now, $before) {
+            $a = $now[$key];
+            $b = $before[$key];
+            if ($kind === 'percent') {
+                $d = round($a - $b, 1);
+                return ['item' => $item, 'now' => "$a%", 'before' => "$b%", 'change' => ($d > 0 ? '+' : '') . $d . ' points'];
+            }
+            $fmt = fn ($v) => $kind === 'money' ? number_format($v / 100) : number_format($v);
+            $d = $a - $b;
+            return ['item' => $item, 'now' => $fmt($a), 'before' => $fmt($b), 'change' => ($d > 0 ? '+' : ($d < 0 ? '-' : '')) . $fmt(abs($d))];
+        };
+        $key = [
+            $heading('Members'),
+            $line('Members at the end of the month', 'members', 'count'),
+            $line('Joined', 'joined', 'count'),
+            $line('Left', 'left', 'count'),
+            $heading("Members' money"),
+            $line('Savings held', 'savings'),
+            $line('Share capital', 'shares'),
+            $line('Deposits (payroll and cash)', 'deposits'),
+            $line('Withdrawals paid', 'withdrawn'),
+            $heading('Loans'),
+            $line('Loans issued (number)', 'loans_count', 'count'),
+            $line('Loans issued (amount)', 'loans_amount'),
+            $line('Repaid by members', 'repaid'),
+            $line('Owed to the SACCO at the end of the month (principal)', 'loan_book'),
+            $line('Share of that more than 30 days late (PAR 30)', 'par30', 'percent'),
+            $line('Share of that more than 90 days late (PAR 90)', 'par90', 'percent'),
+            $heading('Results'),
+            $line('Income', 'income'),
+            $line('Expenses', 'expense'),
+            $line('Surplus (income less expenses)', 'surplus'),
+            ['item' => 'Surplus so far this year', 'now' => number_format($year['surplus'] / 100), 'before' => '', 'change' => '', '_kind' => 'subtotal'],
+        ];
+
+        // How late the loan book is, by how many days
+        $book = $now['_book'];
+        $total = $now['loan_book'];
+        $bands = [['Not late', 0, 0], ['1 to 30 days late', 1, 30], ['31 to 60 days', 31, 60], ['61 to 90 days', 61, 90], ['91 to 180 days', 91, 180], ['Over 180 days', 181, PHP_INT_MAX]];
+        $ageRows = array_map(function ($b) use ($book, $total) {
+            $in = array_filter($book, fn ($l) => $l['days'] >= $b[1] && $l['days'] <= $b[2]);
+            $p = array_sum(array_column($in, 'principal'));
+            return ['band' => $b[0], 'loans' => count($in), 'principal' => Money::toDecimal($p), 'share' => ($total ? round($p * 100 / $total, 1) : 0) . '%'];
+        }, $bands);
+        $late = array_values(array_filter($book, fn ($l) => $l['days'] > 30));
+        usort($late, fn ($a, $b) => [$b['principal'], $b['days']] <=> [$a['principal'], $a['days']]);
+        $late = array_slice($late, 0, 10);
+
+        $issued = $db->prepare(
+            "SELECT l.loan_no, u.full_name, l.disbursed_on, COALESCE(p.name, 'Loan') AS product, l.months, l.amount
+             FROM loans l JOIN users u ON u.id = l.user_id LEFT JOIN loan_products p ON p.id = l.product_id
+             WHERE l.source = 'applied' AND l.disbursed_on BETWEEN ? AND ? ORDER BY l.disbursed_on, l.id"
+        );
+        $issued->execute([$from, $to]);
+        $issued = $issued->fetchAll();
+
+        $w = OfficeController::waiting();
+        $waiting = array_values(array_filter([
+            ['item' => 'Loan applications waiting for approval', 'number' => $w['loans_to_approve']],
+            ['item' => 'Approved loans not yet paid out', 'number' => $w['loans_to_pay_out']],
+            ['item' => 'Withdrawals waiting for approval', 'number' => $w['withdrawals_to_approve']],
+            ['item' => 'Approved withdrawals not yet paid', 'number' => $w['withdrawals_to_pay']],
+            ['item' => 'Entries waiting for a second person to approve', 'number' => $w['approvals_waiting']],
+            ['item' => 'Loans behind on repayments', 'number' => $w['loans_behind']],
+            ['item' => 'Securities to hand back on closed loans', 'number' => $w['securities_to_return']],
+        ], fn ($r) => $r['number'] > 0));
+
+        $lastPayroll = $db->query("SELECT MAX(period) FROM payroll_batches WHERE kind = 'payroll' AND status = 'posted'")->fetchColumn() ?: null;
+        $period = date('j F Y', strtotime($from)) . ' to ' . date('j F Y', strtotime($to));
+        $bs = $this->balance_sheet($db, $to);
+        $is = $this->income_statement($db, $from, $to);
+        Response::ok([
+            'month' => $month,
+            'label' => $label,
+            'period' => $period,
+            'last_payroll' => $lastPayroll,
+            'payroll_behind' => !$lastPayroll || $lastPayroll < $month,
+            'balanced' => $bs['balanced'],
+            'highlights' => [
+                'members' => $now['members'],
+                'savings' => Money::toDecimal($now['savings']),
+                'shares' => Money::toDecimal($now['shares']),
+                'loan_book' => Money::toDecimal($now['loan_book']),
+                'par30' => $now['par30'],
+                'surplus' => Money::toDecimal($now['surplus']),
+                'surplus_year' => Money::toDecimal($year['surplus']),
+            ],
+            'trend' => $trend,
+            'reports' => [
+                ['title' => "Key figures, $label", 'subtitle' => "$period, against $prevLabel", 'columns' => [$text('item', 'Item'), $text('now', $label), $text('before', $prevLabel), $text('change', 'Change')], 'rows' => $key, 'totals' => null,
+                    'signoff' => ['Prepared by (manager / treasurer)', 'Checked by', 'Chairperson']],
+                $is + ['title' => "Income statement, $label"],
+                $bs + ['title' => 'Balance sheet at ' . date('j F Y', strtotime($to))],
+                ['title' => 'How late the loan book is', 'subtitle' => count($book) . ' running loans, ' . number_format($total / 100) . ' principal owed at ' . date('j F Y', strtotime($to)),
+                    'columns' => [$text('band', 'How late'), $num('loans', 'Loans'), $money('principal', 'Principal owed'), $text('share', 'Share')], 'rows' => $ageRows, 'totals' => ['principal' => Money::toDecimal($total)]],
+                ['title' => 'Largest loans more than 30 days late', 'subtitle' => 'The ten biggest, for the committee to follow up',
+                    'columns' => [$text('loan_no', 'Loan'), $text('borrower', 'Member'), $text('product', 'Type'), $num('days', 'Days late'), $money('principal', 'Principal owed')],
+                    'rows' => array_map(fn ($l) => ['loan_no' => $l['loan_no'], 'borrower' => $l['borrower'], 'product' => $l['product'], 'days' => $l['days'], 'principal' => Money::toDecimal($l['principal'])], $late), 'totals' => null],
+                ['title' => "Loans issued in $label", 'subtitle' => count($issued) . (count($issued) === 1 ? ' loan' : ' loans'),
+                    'columns' => [$text('loan_no', 'Loan'), $text('full_name', 'Member'), ['key' => 'disbursed_on', 'label' => 'Paid out', 'type' => 'date'], $text('product', 'Type'), $num('months', 'Months'), $money('amount', 'Amount')],
+                    'rows' => $issued, 'totals' => ['amount' => Money::toDecimal($now['loans_amount'])]],
+                ['title' => 'Waiting for action', 'subtitle' => 'As things stood when this pack was made', 'columns' => [$text('item', 'Item'), $num('number', 'Number')], 'rows' => $waiting, 'totals' => null],
+            ],
+        ]);
+    }
+
     // --- Statements ----------------------------------------------------------------------------
 
     /** GET /api/accounting/reports/{name}?as_of= | from=&to= | month= | account_id= */

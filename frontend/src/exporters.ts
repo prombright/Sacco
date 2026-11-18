@@ -23,6 +23,18 @@ export interface Cover {
   highlights?: [string, string][]
   /** A line under the title, e.g. "Prepared for the Annual General Meeting" */
   note?: string
+  /** Month-by-month charts on a page after the cover (one series each, bars) */
+  charts?: PdfChart[]
+}
+
+/** One series over months for a PDF: a level (savings at each month end) or an amount per month */
+export interface PdfChart {
+  title: string
+  /** A line under the title, e.g. "UGX, at each month end" */
+  note?: string
+  points: { month: string; value: number }[]
+  /** How the value is written on the axis and over the last bar */
+  format: (v: number) => string
 }
 
 const numeric = (c: ReportColumn) => c.type === 'money' || c.type === 'number'
@@ -330,6 +342,89 @@ export async function downloadPdfBook(reports: Report[], who: Who, title: string
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(87, 83, 78)
     reports.forEach((rp, i) => doc.text(`${i + 1}.  ${rp.title}`, M, cy + 2 + i * 5))
+  }
+
+  // The trends page: up to four charts, two by two, one series each, on one axis from zero
+  if (cover?.charts?.length) {
+    doc.addPage('a4', 'portrait')
+    doc.setFillColor(...brand)
+    doc.rect(0, 0, W(), 2.5, 'F')
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(8)
+    doc.setTextColor(120, 113, 108)
+    doc.text(name, M, 10)
+    doc.setFontSize(16)
+    doc.setTextColor(21, 24, 33)
+    doc.text('Month by month', M, 22)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9.5)
+    doc.setTextColor(87, 83, 78)
+    doc.text('The last twelve months, or since the books began', M, 28)
+    const gap = 10
+    const cw = (W() - 2 * M - gap) / 2
+    const ch = 92
+    cover.charts.slice(0, 4).forEach((c, i) => {
+      const x0 = M + (i % 2) * (cw + gap)
+      const y0 = 38 + Math.floor(i / 2) * (ch + 14)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(10.5)
+      doc.setTextColor(21, 24, 33)
+      doc.text(c.title, x0, y0 + 4)
+      if (c.note) {
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(8)
+        doc.setTextColor(120, 113, 108)
+        doc.text(c.note, x0, y0 + 9)
+      }
+      const vals = c.points.map((p) => p.value)
+      const hi = Math.max(0, ...vals)
+      const lo = Math.min(0, ...vals)
+      // Round gridlines: a step near a third of the range
+      const span = hi - lo || 1
+      const mag = 10 ** Math.floor(Math.log10(span / 3))
+      const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= span / 3)!
+      const top = Math.ceil(hi / step) * step || step
+      const bottom = Math.floor(lo / step) * step
+      const axisW = 16
+      const px = x0 + axisW
+      const pw = cw - axisW
+      const py = y0 + 18
+      const ph = ch - 30
+      const yOf = (v: number) => py + ph - ((v - bottom) / (top - bottom)) * ph
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(7)
+      for (let t = bottom; t <= top + step / 2; t += step) {
+        const y = yOf(t)
+        doc.setDrawColor(...((t === 0 ? [168, 162, 158] : [231, 227, 218]) as RGB))
+        doc.setLineWidth(t === 0 ? 0.3 : 0.15)
+        doc.line(px, y, px + pw, y)
+        doc.setTextColor(120, 113, 108)
+        doc.text(c.format(t), px - 2, y + 1, { align: 'right' })
+      }
+      const n = c.points.length || 1
+      const slot = pw / n
+      const bw = Math.min(9, slot * 0.6)
+      c.points.forEach((p, k) => {
+        const cx = px + slot * k + slot / 2
+        const y1 = yOf(Math.max(0, p.value))
+        const y2 = yOf(Math.min(0, p.value))
+        doc.setFillColor(...((p.value < 0 ? [185, 28, 28] : brand) as RGB))
+        if (y2 - y1 > 0.2) doc.rect(cx - bw / 2, y1, bw, y2 - y1, 'F')
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(6.5)
+        doc.setTextColor(120, 113, 108)
+        const d = new Date(p.month + '-01T00:00:00')
+        doc.text(d.toLocaleDateString('en-GB', { month: 'short' }) + (d.getMonth() === 0 || k === 0 ? ` ${String(d.getFullYear()).slice(2)}` : ''), cx, py + ph + 5, { align: 'center' })
+      })
+      // The latest figure, written over its bar
+      const last = c.points[c.points.length - 1]
+      if (last) {
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(8)
+        doc.setTextColor(21, 24, 33)
+        doc.text(c.format(last.value), px + pw, yOf(Math.max(0, last.value)) - 2, { align: 'right' })
+      }
+    })
   }
 
   reports.forEach((report, index) => {

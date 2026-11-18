@@ -267,14 +267,7 @@ final class AuthController
             return null;
         }
         $db = Database::tenant();
-        // An office account not yet linked: link it to its owner's member account when the same
-        // person is clear (once a session), so nobody has to do it by hand
-        if ($user['role'] !== Roles::MEMBER && empty($user['linked_member_id']) && empty($_SESSION['autolink_tried'])) {
-            $_SESSION['autolink_tried'] = true;
-            if ($memberId = OfficeAccess::autoLink($db, $user)) {
-                $user['linked_member_id'] = $memberId;
-            }
-        }
+        // An office login reaches a member account only when the developer has linked the two
         if (Roles::allows($user['role'], [Roles::ADMIN]) && !empty($user['linked_member_id'])) {
             $s = $db->prepare("SELECT id, full_name FROM users WHERE id = ? AND role = 'member' AND status = 'active'");
             $s->execute([$user['linked_member_id']]);

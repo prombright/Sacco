@@ -100,6 +100,10 @@ final class Activity
             'platform.office_account_added' => "added $role",
             'platform.password_reset' => 'reset a password',
             'platform.user_status' => 'changed an account\'s status',
+            'platform.user_role' => ($d['changes']['role']['to'] ?? '') === 'member'
+                ? 'took away ' . ($d['name'] ?? 'someone') . "'s office access"
+                : 'made ' . ($d['name'] ?? 'someone') . ' ' . (($d['changes']['role']['to'] ?? '') === 'super_admin' ? 'a super admin' : 'an admin'),
+            'users.unlinked' => 'unlinked an office login from its member account',
             'platform.migrated' => 'updated the system',
             'sacco.created' => 'set up the SACCO',
             'membership_fee.charged' => 'charged the ' . ($d['year'] ?? '') . ' fee to ' . ($d['count'] ?? '') . ' members',

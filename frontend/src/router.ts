@@ -97,6 +97,7 @@ const router = createRouter({
         { path: 'reports/year-end', name: 'year-end', component: () => import('@/pages/accounts/YearEndPage.vue'), meta: { admin: true, title: 'Year-end closing' } },
         { path: 'reports/budget', name: 'budget', component: () => import('@/pages/accounts/BudgetPage.vue'), meta: { admin: true, title: 'Budget and actual' } },
         { path: 'reports/annual', name: 'annual-report', component: () => import('@/pages/accounts/AnnualReportPage.vue'), meta: { admin: true, title: 'Annual report' } },
+        { path: 'reports/board-pack', name: 'board-pack', component: () => import('@/pages/accounts/BoardPackPage.vue'), meta: { admin: true, title: 'Board pack' } },
         { path: 'reports/audit', name: 'audit-report', component: () => import('@/pages/admin/AuditPage.vue'), meta: { admin: true, title: 'Audit report' } },
         { path: 'accounts/chart', name: 'chart', component: () => import('@/pages/accounts/ChartOfAccountsPage.vue'), meta: { admin: true, title: 'Chart of accounts' } },
         { path: 'accounts/bank-reconciliation', name: 'bank-rec', component: () => import('@/pages/accounts/BankRecPage.vue'), meta: { admin: true, title: 'Bank reconciliation' } },

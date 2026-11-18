@@ -26,7 +26,7 @@ final class AuditView
     /** Changes an auditor looks at first */
     private const SENSITIVE = [
         'settings.changed', 'settings.logo', 'settings.logo_removed', 'loan_product.created', 'loan_product.updated',
-        'users.office_access', 'users.linked', 'user.unlocked', 'user.password_reset', 'password.reset',
+        'users.office_access', 'users.linked', 'users.unlinked', 'platform.user_role', 'platform.user_status', 'user.unlocked', 'user.password_reset', 'password.reset',
         'member.slow_payer_marked', 'member.slow_payer_lifted', 'member.exited',
         'loan.months_changed', 'loan.charge_waived', 'loan.security_removed', 'loan.payment_reversed', 'loan.guarantee_on_paper', 'loan.brought_in',
         'membership_fee.waived', 'membership_fee.undone',

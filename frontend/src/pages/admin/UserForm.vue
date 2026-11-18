@@ -4,8 +4,6 @@ import { api, ApiError } from '@/api'
 import { useAuth } from '@/stores/auth'
 import type { Role, User, UserStatus } from '@/types'
 import Modal from '@/components/Modal.vue'
-import MemberPicker from '@/components/MemberPicker.vue'
-import type { PickedMember } from '@/types'
 
 /** Add a user (user is null) or edit one */
 const props = defineProps<{ user: User | null }>()
@@ -14,24 +12,10 @@ const emit = defineEmits<{ close: []; saved: [user: User, temporaryPassword: str
 const auth = useAuth()
 const isSelf = props.user?.id === auth.user?.id
 
-// Office staff who also save: link this office account to their own member account (super admin)
-const isOffice = props.user && props.user.role !== 'member' && !props.user.office_via_member
-/** A member's role on this form is their office access: they stay a member either way */
-const isMember = !props.user || props.user.role === 'member'
-const linked = ref<{ id: number; full_name: string; account_no: string | null } | null>(null)
-const linkError = ref('')
-if (isOffice && props.user?.linked_member_id) {
-  api.get<{ user: User }>(`/members/${props.user.linked_member_id}`).then((r) => (linked.value = { id: r.user.id, full_name: r.user.full_name, account_no: r.user.account_no })).catch(() => {})
-}
-async function link(m: PickedMember | null) {
-  linkError.value = ''
-  try {
-    await api.post(`/users/${props.user!.id}/link-member`, { member_id: m?.id ?? null })
-    linked.value = m ? { id: m.id, full_name: m.full_name, account_no: m.account_no } : null
-  } catch (e) {
-    linkError.value = e instanceof ApiError ? e.message : "Couldn't save the link."
-  }
-}
+/** An office login of its own (not a member's office access) */
+const isOffice = !!props.user && props.user.role !== 'member' && !props.user.office_via_member
+/** Office rights are given by the system's developer, so the role here is only shown */
+const roleLabel: Record<string, string> = { member: 'Member', admin: 'Admin', super_admin: 'Super Admin' }
 
 const form = reactive({
   full_name: props.user?.full_name ?? '',
@@ -142,22 +126,15 @@ async function save() {
 
       <div class="grid gap-4 sm:grid-cols-2">
         <div>
-          <label for="role" class="label">Role</label>
-          <select id="role" v-model="form.role" class="input" :disabled="isSelf || !auth.isSuperAdmin">
-            <option value="member">Member</option>
-            <option v-if="auth.isSuperAdmin" value="admin">Admin</option>
-            <option v-if="auth.isSuperAdmin" value="super_admin">Super Admin</option>
-          </select>
-          <p v-if="!auth.isSuperAdmin" class="mt-1 text-xs text-gray-500">Only a super admin can add admins.</p>
-          <p v-if="form.role !== 'member' && user && isMember" class="mt-1 rounded-lg bg-navy-50 px-2.5 py-1.5 text-xs text-navy-800">
-            {{ user.full_name.split(' ')[0] }} keeps their savings and their own login. They log in as usual and tap the round switch at the top to work in the office, and again to come back.
+          <p class="label">Role</p>
+          <p class="input flex items-center bg-gray-50 text-gray-700">
+            {{ roleLabel[form.role] }}<span v-if="form.role !== 'member' && user?.role === 'member'" class="ml-1 text-gray-500">(and a member)</span>
           </p>
-          <p v-else-if="form.role !== 'member'" class="mt-1 text-xs text-gray-500">An office account: it runs the SACCO and has no savings or loans. If this person already saves with the SACCO, give the role on their member account instead, so they keep one login.</p>
-          <p v-if="errors.role" class="field-error">{{ errors.role }}</p>
+          <p class="mt-1 text-xs text-gray-500">Admin and Super admin rights are given and taken away by the system's developer, not here. Ask the developer when someone needs them, or no longer should.</p>
         </div>
         <div v-if="user">
           <label for="status" class="label">Status</label>
-          <select id="status" v-model="form.status" class="input" :disabled="isSelf">
+          <select id="status" v-model="form.status" class="input" :disabled="isSelf || isOffice">
             <option value="active">Active</option>
             <option value="suspended">Suspended</option>
             <option value="left">Left the school</option>
@@ -171,15 +148,5 @@ async function save() {
       </div>
     </form>
 
-    <section v-if="isOffice && auth.isSuperAdmin" class="mt-6 border-t border-line pt-5">
-      <h3 class="font-semibold">Their own member account</h3>
-      <p class="mt-1 text-sm text-gray-600">If {{ user?.full_name.split(' ')[0] }} also saves with the SACCO, link their member account: once logged into the office, they can switch to it and back without logging out.</p>
-      <div v-if="linked" class="mt-3 flex items-center justify-between gap-3 rounded-xl border border-line p-3">
-        <p class="text-sm"><span class="font-medium">{{ linked.full_name }}</span> <span class="font-mono text-xs text-gray-500">{{ linked.account_no }}</span></p>
-        <button type="button" class="btn-ghost px-2 py-1 text-xs" @click="link(null)">Unlink</button>
-      </div>
-      <div v-else class="mt-3"><MemberPicker placeholder="Find their member account" @pick="link" /></div>
-      <p v-if="linkError" class="mt-2 text-sm text-red-700" role="alert">{{ linkError }}</p>
-    </section>
   </Modal>
 </template>
