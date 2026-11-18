@@ -267,19 +267,20 @@ final class ReportController
 
     private function audit(string $from, string $to): array
     {
-        $stmt = Database::tenant()->prepare(
-            'SELECT a.created_at, u.full_name AS actor, a.action, a.subject_type, a.subject_id, a.details, a.ip
+        $db = Database::tenant();
+        $stmt = $db->prepare(
+            'SELECT a.created_at, u.full_name AS actor, u.role AS actor_role, a.action, a.subject_type, a.subject_id, a.details, a.ip
              FROM audit_log a LEFT JOIN users u ON u.id = a.actor_id
              WHERE a.created_at >= ? AND a.created_at < DATE_ADD(?, INTERVAL 1 DAY) ORDER BY a.id'
         );
         $stmt->execute([$from, $to]);
         $rows = array_map(fn ($r) => [
             'when' => $r['created_at'],
-            'actor' => $r['actor'] ?? 'System',
-            'action' => str_replace(['.', '_'], [': ', ' '], $r['action']),
-            'subject' => $r['subject_type'] ? $r['subject_type'] . ' #' . $r['subject_id'] : '',
-            'details' => $r['details'],
-            'ip' => $r['ip'],
+            'actor' => $r['actor'] ? $r['actor'] . ($r['actor_role'] === 'super_admin' ? ' (super admin)' : ($r['actor_role'] === 'admin' ? ' (admin)' : '')) : 'The system',
+            'action' => ucfirst(\Sacco\Support\Activity::describe($r)),
+            'subject' => $this->auditSubject($db, $r['subject_type'], $r['subject_id'] !== null ? (int) $r['subject_id'] : null),
+            'details' => $this->auditDetails($db, $r['details']),
+            'ip' => in_array($r['ip'], ['::1', '127.0.0.1'], true) ? 'On the server itself' : ($r['ip'] ?? ''),
         ], $stmt->fetchAll());
 
         return $this->finish([
@@ -288,8 +289,94 @@ final class ReportController
             ['action', 'What', 'text'],
             ['subject', 'On', 'text'],
             ['details', 'Details', 'text'],
-            ['ip', 'IP address', 'text'],
+            ['ip', 'From (internet address)', 'text'],
         ], $rows, totals: false);
+    }
+
+    /** Who or what an audit row is about, by name: "Arinaitwe Bright (284)", "Loan L00064" */
+    private function auditSubject(\PDO $db, ?string $type, ?int $id): string
+    {
+        static $names = [];
+        if (!$type || !$id) {
+            return '';
+        }
+        $key = "$type:$id";
+        if (isset($names[$key])) {
+            return $names[$key];
+        }
+        $one = function (string $sql) use ($db, $id) {
+            $s = $db->prepare($sql);
+            $s->execute([$id]);
+            return $s->fetchColumn();
+        };
+        $label = match ($type) {
+            'user' => ($n = $one("SELECT CONCAT(full_name, IF(account_no IS NULL, '', CONCAT(' (', account_no, ')'))) FROM users WHERE id = ?")) ? $n : null,
+            'loan' => ($n = $one('SELECT loan_no FROM loans WHERE id = ?')) ? "Loan $n" : null,
+            'withdrawal' => ($n = $one('SELECT request_no FROM withdrawal_requests WHERE id = ?')) ? "Withdrawal $n" : null,
+            'transaction' => ($n = $one("SELECT CONCAT(u.full_name, ': ', t.type, ' ', FORMAT(ABS(t.amount), 0)) FROM transactions t JOIN users u ON u.id = t.user_id WHERE t.id = ?")) ? str_replace('_', ' ', $n) : null,
+            'transfer' => ($n = $one('SELECT transfer_no FROM transfers WHERE id = ?')) ? "Transfer $n" : null,
+            'payroll_batch' => "Upload U" . str_pad((string) $id, 5, '0', STR_PAD_LEFT),
+            'dividend_run' => ($n = $one('SELECT label FROM dividend_runs WHERE id = ?')) ? "Dividend $n" : null,
+            'loan_product' => ($n = $one('SELECT name FROM loan_products WHERE id = ?')) ? (string) $n : null,
+            'notice' => ($n = $one('SELECT title FROM notices WHERE id = ?')) ? "Notice \"$n\"" : null,
+            default => null,
+        };
+        return $names[$key] = $label ?? ucfirst(str_replace('_', ' ', $type)) . ' ' . $id;
+    }
+
+    /** An audit row's details in words: "Email: none → name@mail.com", "Total: UGX 562,684,582" */
+    private function auditDetails(\PDO $db, ?string $json): string
+    {
+        $d = $json ? json_decode($json, true) : null;
+        if (!is_array($d) || !$d) {
+            return '';
+        }
+        $money = ['amount', 'total', 'fee', 'cheque', 'savings', 'shares', 'limit', 'value'];
+        // A person's number in the details: their name instead ("Member: 29" -> "Member: Ddamulira Daniel")
+        $people = ['member', 'guarantor', 'from', 'to', 'office', 'user', 'borrower'];
+        $person = function ($id) use ($db): ?string {
+            $s = $db->prepare('SELECT full_name FROM users WHERE id = ?');
+            $s->execute([(int) $id]);
+            return $s->fetchColumn() ?: null;
+        };
+        $show = function ($v, string $k = '') use ($money, $people, $person): string {
+            if (is_int($v) || (is_string($v) && ctype_digit($v) && in_array($k, $people, true))) {
+                if (in_array($k, $people, true) && ($n = $person($v))) {
+                    return $n;
+                }
+            }
+            if ($v === null || $v === '') {
+                return 'none';
+            }
+            if (is_bool($v)) {
+                return $v ? 'yes' : 'no';
+            }
+            if (is_numeric($v) && in_array($k, $money, true)) {
+                return 'UGX ' . number_format((float) $v);
+            }
+            if (is_array($v)) {
+                return implode(', ', array_map(fn ($x) => is_scalar($x) ? (string) $x : json_encode($x), $v));
+            }
+            return str_replace('_', ' ', (string) $v);
+        };
+        $lines = [];
+        foreach ($d as $k => $v) {
+            $label = ucfirst(str_replace(['_no', '_id', '_'], [' number', '', ' '], (string) $k));
+            if (is_array($v) && array_key_exists('from', $v) && array_key_exists('to', $v)) {
+                $lines[] = "$label: " . $show($v['from'], (string) $k) . ' → ' . $show($v['to'], (string) $k);
+            } elseif (is_array($v) && $v && array_keys($v) !== range(0, count($v) - 1)) {
+                // A group of changes: each on its own line
+                foreach ($v as $k2 => $c) {
+                    $l2 = ucfirst(str_replace('_', ' ', (string) $k2));
+                    $lines[] = is_array($c) && array_key_exists('from', $c)
+                        ? "$l2: " . $show($c['from'], (string) $k2) . ' → ' . $show($c['to'] ?? null, (string) $k2)
+                        : "$l2: " . $show($c, (string) $k2);
+                }
+            } else {
+                $lines[] = "$label: " . $show($v, (string) $k);
+            }
+        }
+        return implode(' · ', $lines);
     }
 
     /** Money columns go out as decimals, with a total row for them */

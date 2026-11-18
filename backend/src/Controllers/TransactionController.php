@@ -319,7 +319,7 @@ final class TransactionController
         if ($user['role'] !== 'member') {
             Response::error('This is an office account; it has no savings or shares. Record it on the person\'s member account.', 422);
         }
-        if ((int) $user['id'] === Auth::id()) {
+        if (Auth::isMe((int) $user['id'])) {
             Response::error('You can\'t record entries on your own account. Ask another admin.', 403);
         }
 
@@ -458,7 +458,7 @@ final class TransactionController
         }
         $original = Ledger::find(Database::tenant(), (int) $request->param('id'))
             ?? Response::error('That transaction doesn\'t exist.', 404);
-        if ((int) $original['user_id'] === Auth::id()) {
+        if (Auth::isMe((int) $original['user_id'])) {
             Response::error('You can\'t reverse entries on your own account. Ask another admin.', 403);
         }
         if ($original['type'] === 'transfer') {
@@ -523,6 +523,9 @@ final class TransactionController
         $user = $this->findUser((int) $request->param('id'));
         if ($user['role'] !== 'member') {
             Response::error('Only members can be marked.', 422);
+        }
+        if (Auth::isMe((int) $user['id'])) {
+            Response::error('This is your own account. Another admin has to decide.', 403);
         }
         $db = Database::tenant();
         $slow = (bool) $request->input('slow');

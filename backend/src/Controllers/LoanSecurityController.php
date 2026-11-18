@@ -98,7 +98,7 @@ final class LoanSecurityController
         $stmt = Database::tenant()->prepare('SELECT id, user_id, status FROM loans WHERE id = ?');
         $stmt->execute([$id]);
         $loan = $stmt->fetch() ?: Response::error('Loan not found.', 404);
-        if ((int) $loan['user_id'] === Auth::id()) {
+        if (Auth::isMe((int) $loan['user_id'])) {
             Response::error('This is your own loan. Another admin has to handle it.', 403);
         }
         return $loan;

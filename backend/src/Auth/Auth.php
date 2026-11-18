@@ -79,6 +79,20 @@ final class Auth
         return self::user() ? (int) self::user()['id'] : null;
     }
 
+    /**
+     * Whether this account is the logged-in person's own: the account they are using, or, from an
+     * office account, the member account it belongs to. Office staff never handle their own money
+     * (loans, withdrawals, entries, fees), whichever of their accounts they are in.
+     */
+    public static function isMe(int $userId): bool
+    {
+        $u = self::user();
+        if (!$u) {
+            return false;
+        }
+        return $userId === (int) $u['id'] || (!empty($u['linked_member_id']) && $userId === (int) $u['linked_member_id']);
+    }
+
     public static function login(array $user, string $saccoCode): void
     {
         session_regenerate_id(true);

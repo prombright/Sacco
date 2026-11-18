@@ -99,7 +99,7 @@ final class MembershipFeeController
             if ($only && !in_array((int) $f['id'], $only, true)) {
                 continue;
             }
-            if ((int) $f['user_id'] === Auth::id()) {
+            if (Auth::isMe((int) $f['user_id'])) {
                 continue;
             }
             $cents = Money::fromDecimal($f['amount']);
@@ -107,6 +107,12 @@ final class MembershipFeeController
             try {
                 Database::transaction(function (\PDO $db) use ($f, $cents, $kind, $name) {
                     $db->prepare('SELECT id FROM users WHERE id = ? FOR UPDATE')->execute([$f['user_id']]);
+                    // Still unpaid now that the member is locked: a second collection at the same moment skips it
+                    $now = $db->prepare('SELECT status FROM membership_fees WHERE id = ? FOR UPDATE');
+                    $now->execute([$f['id']]);
+                    if ($now->fetchColumn() !== 'unpaid') {
+                        throw new LedgerException('Already paid');
+                    }
                     if (Savings::withdrawable($db, (int) $f['user_id']) < $cents) {
                         throw new LedgerException('Not enough free savings');
                     }
@@ -119,8 +125,10 @@ final class MembershipFeeController
                         ->execute([$tx['id'], Auth::id(), $f['id']]);
                 });
                 $collected[] = $f;
-            } catch (LedgerException) {
-                $short[] = $f['full_name'];
+            } catch (LedgerException $e) {
+                if ($e->getMessage() !== 'Already paid') {
+                    $short[] = $f['full_name'];
+                }
             }
         }
         if ($collected) {
@@ -137,6 +145,9 @@ final class MembershipFeeController
     public function pay(Request $request): never
     {
         $f = $this->find((int) $request->param('id'));
+        if (Auth::isMe((int) $f['user_id'])) {
+            Response::error('This is your own fee. Another admin has to record it.', 403);
+        }
         if ($f['status'] !== 'unpaid') {
             Response::error('This fee is already ' . $f['status'] . '.', 422);
         }
@@ -158,6 +169,9 @@ final class MembershipFeeController
     public function waive(Request $request): never
     {
         $f = $this->find((int) $request->param('id'));
+        if (Auth::isMe((int) $f['user_id'])) {
+            Response::error('This is your own fee. Another admin has to handle it.', 403);
+        }
         if ($f['status'] !== 'unpaid') {
             Response::error('Only an unpaid fee can be waived.', 422);
         }
@@ -174,6 +188,9 @@ final class MembershipFeeController
     public function undo(Request $request): never
     {
         $f = $this->find((int) $request->param('id'));
+        if (Auth::isMe((int) $f['user_id'])) {
+            Response::error('This is your own fee. Another admin has to handle it.', 403);
+        }
         $reason = mb_substr($request->string('reason'), 0, 255);
         if ($reason === '') {
             Response::error('Say why.', 422, ['reason' => 'Required']);

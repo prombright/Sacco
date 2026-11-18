@@ -75,7 +75,7 @@ final class TransferController
             Response::error('Shares can move to another member\'s shares, or into the same member\'s own savings.', 422, ['to_account' => 'Not allowed']);
         }
         foreach ([$from, $to] as $u) {
-            if ((int) $u['id'] === Auth::id()) {
+            if (Auth::isMe((int) $u['id'])) {
                 Response::error('You can\'t move money on your own account. Ask another admin.', 403);
             }
         }

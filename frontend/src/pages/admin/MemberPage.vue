@@ -172,7 +172,8 @@ loadKin().catch(() => {})
 const reversing = ref<Transaction | null>(null)
 
 // An admin's own account is handled by another admin
-const isSelf = id === auth.user?.id
+// Your own member account, also from your office account: another admin handles its money
+const isSelf = id === auth.user?.id || id === auth.user?.linked_member_id
 
 async function loadMember() {
   try {

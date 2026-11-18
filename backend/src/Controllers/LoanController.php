@@ -355,6 +355,12 @@ final class LoanController
         Periods::check($date);
         $moneyAccount = Periods::moneyAccount($request);
         $cleared = Database::transaction(function (\PDO $db) use ($loan, $date, $reference, $fee, $moneyAccount, $fromSavings) {
+            // Checked again under a lock: two clicks (or two staff) at the same moment pay it out once
+            $now = $db->prepare('SELECT status FROM loans WHERE id = ? FOR UPDATE');
+            $now->execute([$loan['id']]);
+            if ($now->fetchColumn() !== 'approved') {
+                throw new LedgerException('This loan has already been paid out.');
+            }
             $cleared = 0;
             if ($loan['replaces_loan_id']) {
                 $old = $db->prepare("SELECT * FROM loans WHERE id = ? AND status = 'active' FOR UPDATE");
@@ -405,7 +411,7 @@ final class LoanController
     public function recordExisting(Request $request): never
     {
         $userId = (int) $request->input('user_id');
-        if ($userId === Auth::id()) {
+        if (Auth::isMe($userId)) {
             Response::error('You can\'t record a loan on your own account. Ask another admin.', 403);
         }
         $db = Database::tenant();
@@ -975,7 +981,7 @@ final class LoanController
     private function findForAdmin(int $id): array
     {
         $loan = $this->find($id);
-        if ((int) $loan['user_id'] === Auth::id()) {
+        if (Auth::isMe((int) $loan['user_id'])) {
             Response::error('This is your own loan. Another admin has to handle it.', 403);
         }
         return $loan;
@@ -1252,7 +1258,10 @@ final class LoanController
      */
     public function paperGuarantee(Request $request): never
     {
-        $loan = $this->find((int) $request->param('id'));
+        $loan = $this->findForAdmin((int) $request->param('id'));
+        if (Auth::isMe((int) $request->input('user_id', 0))) {
+            Response::error('You can\'t record your own guarantee. Another admin has to.', 403);
+        }
         if ($loan['status'] !== 'pending_guarantors') {
             Response::error('This loan isn\'t waiting for guarantors.', 422);
         }
@@ -1314,7 +1323,7 @@ final class LoanController
      */
     public function changeMonths(Request $request): never
     {
-        $loan = $this->find((int) $request->param('id'));
+        $loan = $this->findForAdmin((int) $request->param('id'));
         $open = ['pending_guarantors', 'pending_approval', 'approved', 'active'];
         if (!in_array($loan['status'], $open, true)) {
             Response::error('Only a loan that is still open can have its duration changed.', 422);

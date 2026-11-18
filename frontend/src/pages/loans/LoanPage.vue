@@ -31,7 +31,8 @@ const error = ref('')
 
 const isOwner = computed(() => loan.value?.user_id === auth.user?.id)
 // Admins handle other people's loans, never their own
-const canAdmin = computed(() => auth.isAdmin && !isOwner.value)
+// Office staff never act on their own loan, from either of their accounts
+const canAdmin = computed(() => auth.isAdmin && !isOwner.value && loan.value?.user_id !== auth.user?.linked_member_id)
 const today = new Date().toLocaleDateString('en-CA')
 
 async function load() {

@@ -32,7 +32,7 @@ final class MemberExitController
     public function close(Request $request): never
     {
         $user = $this->member($request);
-        if ((int) $user['id'] === Auth::id()) {
+        if (Auth::isMe((int) $user['id'])) {
             Response::error('You can\'t close your own membership. Ask another admin.', 403);
         }
         $reason = mb_substr($request->string('reason'), 0, 255);

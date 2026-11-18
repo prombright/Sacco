@@ -178,6 +178,12 @@ final class WithdrawalController
 
         $moneyAccount = Periods::moneyAccount($request);
         Database::transaction(function (\PDO $db) use ($w, $cheque, $paidOn, $moneyAccount) {
+            // Checked again under a lock: two clicks (or two staff) at the same moment pay it once
+            $now = $db->prepare('SELECT status FROM withdrawal_requests WHERE id = ? FOR UPDATE');
+            $now->execute([$w['id']]);
+            if ($now->fetchColumn() !== 'approved') {
+                throw new LedgerException('This cheque has already been recorded.');
+            }
             $db->prepare('SELECT id FROM users WHERE id = ? FOR UPDATE')->execute([$w['user_id']]);
             $cents = Money::fromDecimal($w['amount']);
             $fee = Money::fromDecimal($w['fee']);
@@ -264,7 +270,7 @@ final class WithdrawalController
     private function findForAdmin(int $id): array
     {
         $w = $this->find($id);
-        if ($w['user_id'] === Auth::id()) {
+        if (Auth::isMe((int) $w['user_id'])) {
             Response::error('This is your own request. Another admin has to handle it.', 403);
         }
         return $w;
