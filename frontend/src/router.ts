@@ -106,7 +106,7 @@ const router = createRouter({
         // Administration
         { path: 'admin/loan-interest', name: 'loan-interest', component: () => import('@/pages/accounts/FinancialReportPage.vue'), meta: { admin: true, title: 'Monthly loan interest', report: 'loan_interest' } },
         { path: 'admin/transactions', name: 'transactions', component: () => import('@/pages/admin/TransactionsPage.vue'), meta: { admin: true, title: 'Transactions & reversals' } },
-        { path: 'admin/backup', name: 'backup', component: () => import('@/pages/admin/BackupPage.vue'), meta: { admin: true, title: 'Download backup' } },
+        { path: 'admin/backup', name: 'backup', component: () => import('@/pages/admin/BackupPage.vue'), meta: { admin: true, title: 'Backups' } },
       ],
     },
     // The developer portal

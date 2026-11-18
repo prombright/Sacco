@@ -259,6 +259,9 @@ $router->post('/api/transfers', [TransferController::class, 'store'], $edit('mon
 $router->post('/api/transfers/{id}/reverse', [TransferController::class, 'reverse'], $edit('money'));
 $router->get('/api/transactions', [TransactionController::class, 'all'], $admins);
 $router->get('/api/backup', [BackupController::class, 'download'], $super);
+$router->get('/api/backup/offsite', [BackupController::class, 'offsite'], $super);
+$router->patch('/api/backup/offsite', [BackupController::class, 'saveOffsite'], $super);
+$router->post('/api/backup/offsite/send', [BackupController::class, 'sendOffsite'], $super);
 
 // The yearly membership fee
 $router->get('/api/membership-fees', [MembershipFeeController::class, 'index'], $admins);

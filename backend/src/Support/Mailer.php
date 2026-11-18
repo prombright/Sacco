@@ -32,7 +32,8 @@ final class Mailer
     }
 
     /** @throws \RuntimeException when the email can't be sent */
-    public static function send(string $to, string $name, string $subject, string $html, string $text): void
+    /** @param array<int, array{name: string, type: string, data: string}> $attachments files to attach */
+    public static function send(string $to, string $name, string $subject, string $html, string $text, array $attachments = []): void
     {
         if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
             throw new \RuntimeException("Not an email address: $to");
@@ -50,6 +51,17 @@ final class Mailer
         $body = "--$boundary\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n" . chunk_split(base64_encode($text))
             . "--$boundary\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n" . chunk_split(base64_encode($html))
             . "--$boundary--\r\n";
+        // With files: the message above becomes the first part of a mixed one, the files after it
+        if ($attachments) {
+            $outer = 'm' . bin2hex(random_bytes(12));
+            $headers[array_key_last($headers)] = "Content-Type: multipart/mixed; boundary=\"$outer\"";
+            $mixed = "--$outer\r\nContent-Type: multipart/alternative; boundary=\"$boundary\"\r\n\r\n" . $body;
+            foreach ($attachments as $a) {
+                $file = str_replace(['"', "\r", "\n"], '', $a['name']);
+                $mixed .= "--$outer\r\nContent-Type: {$a['type']}; name=\"$file\"\r\nContent-Transfer-Encoding: base64\r\nContent-Disposition: attachment; filename=\"$file\"\r\n\r\n" . chunk_split(base64_encode($a['data']));
+            }
+            $body = $mixed . "--$outer--\r\n";
+        }
         $encodedSubject = self::encode($subject);
 
         switch (self::driver()) {

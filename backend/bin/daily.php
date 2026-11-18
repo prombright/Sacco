@@ -28,6 +28,8 @@ foreach (Database::platform()->query("SELECT * FROM saccos ORDER BY id") as $sac
         $db->prepare("INSERT INTO settings (`key`, value) VALUES ('daily_run_on', ?) ON DUPLICATE KEY UPDATE value = VALUES(value)")->execute([date('Y-m-d')]);
         $done = Reminders::run($db);
         $done['statements'] = \Sacco\Loans\Statements::runIfDue($db);
+        // The password-locked copy of the data, emailed off the server (when set up on the backup page)
+        \Sacco\Support\OffsiteBackup::runIfDue();
         return $done;
     });
     echo "SACCO {$sacco['code']}: {$done['due_soon']} due soon, {$done['overdue']} late, {$done['borrowers']} borrowers checked, {$done['statements']} monthly statements sent\n";

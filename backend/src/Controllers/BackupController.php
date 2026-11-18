@@ -8,6 +8,8 @@ use Sacco\Config;
 use Sacco\Http\Request;
 use Sacco\Http\Response;
 use Sacco\Support\Audit;
+use Sacco\Support\OffsiteBackup;
+use Sacco\Support\Backup;
 use Sacco\Support\Migrator;
 use Sacco\Tenant;
 
@@ -18,35 +20,11 @@ final class BackupController
     public function download(Request $request): never
     {
         $sacco = Tenant::current();
-        $db = $sacco['db_name'];
-        $dump = (string) Config::get('MYSQLDUMP_PATH', PHP_OS_FAMILY === 'Windows' ? 'C:\\xampp\\mysql\\bin\\mysqldump.exe' : 'mysqldump');
-        // With one database for everything, the platform's tables (other SACCOs, developer
-        // accounts) are left out: this download is the SACCO's own data
-        $skip = Migrator::sharesPlatform($db)
-            ? implode(' ', array_map(fn ($t) => '--ignore-table=' . escapeshellarg("$db.$t"), Migrator::PLATFORM_TABLES))
-            : '';
-        $cmd = sprintf(
-            '%s --single-transaction --routines --no-tablespaces -h %s -P %d -u %s %s %s',
-            escapeshellarg($dump),
-            escapeshellarg((string) Config::get('DB_HOST', '127.0.0.1')),
-            (int) Config::get('DB_PORT', 3306),
-            escapeshellarg((string) Config::get('DB_USER', 'root')),
-            $skip,
-            escapeshellarg($db)
-        );
-        // The password goes in the environment, never on the command line
-        $env = array_merge(getenv(), ['MYSQL_PWD' => (string) Config::get('DB_PASS', '')]);
-        $proc = proc_open($cmd, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, null, $env);
-        if (!is_resource($proc)) {
-            Response::error('The backup couldn\'t be made on this server. Use the nightly backups instead.', 500);
-        }
-        $sql = stream_get_contents($pipes[1]);
-        $err = stream_get_contents($pipes[2]);
-        fclose($pipes[1]);
-        fclose($pipes[2]);
-        if (proc_close($proc) !== 0 || $sql === '' || $sql === false) {
-            error_log('[sacco] backup download failed: ' . $err);
-            Response::error('The backup couldn\'t be made on this server. Use the nightly backups instead.', 500);
+        try {
+            $sql = Backup::sql();
+        } catch (\RuntimeException $e) {
+            error_log('[sacco] backup download failed: ' . $e->getMessage());
+            Response::error('The backup couldn\'t be made on this server. Ask the developer to check it.', 500);
         }
         Audit::log('backup.downloaded', null, null, ['size' => strlen($sql)]);
 
@@ -58,5 +36,50 @@ final class BackupController
         header('Cache-Control: no-store');
         echo $gz;
         exit;
+    }
+
+    /** GET /api/backup/offsite (super admin) - where the nightly emailed copy stands */
+    public function offsite(Request $request): never
+    {
+        Response::ok(OffsiteBackup::status());
+    }
+
+    /** PATCH /api/backup/offsite { emails, password? } (super admin) */
+    public function saveOffsite(Request $request): never
+    {
+        $emails = array_values(array_filter(array_map('trim', explode(',', $request->string('emails')))));
+        foreach ($emails as $e) {
+            if (!filter_var($e, FILTER_VALIDATE_EMAIL)) {
+                Response::error("\"$e\" isn't an email address.", 422, ['emails' => 'Invalid']);
+            }
+        }
+        if (count($emails) > 5) {
+            Response::error('Up to 5 addresses.', 422, ['emails' => 'Too many']);
+        }
+        $password = (string) $request->input('password', '');
+        if ($password !== '' && strlen($password) < 12) {
+            Response::error('Use a password of at least 12 characters: it is all that protects the copy.', 422, ['password' => 'Too short']);
+        }
+        OffsiteBackup::save('backup_emails', implode(', ', $emails));
+        if ($password !== '') {
+            OffsiteBackup::save('backup_password', $password);
+        }
+        Audit::log('backup.offsite_set', null, null, ['emails' => implode(', ', $emails), 'password_changed' => $password !== '']);
+        Response::ok(OffsiteBackup::status());
+    }
+
+    /** POST /api/backup/offsite/send (super admin) - send a copy now, to check it works */
+    public function sendOffsite(Request $request): never
+    {
+        if (!OffsiteBackup::ready()) {
+            Response::error('Set the email address(es) and a backup password first.', 422);
+        }
+        try {
+            $status = OffsiteBackup::send();
+        } catch (\Throwable $e) {
+            Response::error('The copy couldn\'t be sent: ' . $e->getMessage(), 500);
+        }
+        Audit::log('backup.offsite_sent', null, null, ['to' => $status['emails']]);
+        Response::ok($status);
     }
 }

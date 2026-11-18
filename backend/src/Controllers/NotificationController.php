@@ -28,6 +28,8 @@ final class NotificationController
             // On the first look of a new month: last month's statement to every member (when turned on)
             \Sacco\Loans\Statements::runIfDue(Database::tenant());
             Outbox::flush(Database::tenant(), 10);
+            // A password-locked copy of the data emailed off the server, once a day (when set up)
+            \Sacco\Support\OffsiteBackup::runIfDue();
         } catch (\Throwable $e) {
             error_log('Daily reminders or emails failed: ' . $e->getMessage());
         }

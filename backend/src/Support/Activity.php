@@ -131,6 +131,8 @@ final class Activity
             'journal.reversed' => 'reversed a journal entry',
             'account.created' => 'added the account "' . ($d['name'] ?? '') . '" to the chart of accounts',
             'account.updated' => 'changed an account in the chart of accounts',
+            'backup.offsite_set' => 'changed where the nightly backup is emailed' . (!empty($d['password_changed']) ? ', and its password' : ''),
+            'backup.offsite_sent' => 'sent a backup copy by email now',
             'backup.downloaded' => 'downloaded a backup of the database',
             default => str_replace(['.', '_'], [' ', ' '], $r['action']),
         };
