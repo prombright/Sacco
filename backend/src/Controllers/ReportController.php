@@ -25,7 +25,7 @@ use Sacco\Support\Savings;
 final class ReportController
 {
     public const REPORTS = [
-        'members' => ['Members summary', 'Savings, shares, pledges and loans for every member, as of now.', false],
+        'members' => ['Members summary', 'Savings, the interest they earn, shares and loans for every member, as of now.', false],
         'loans' => ['Loan portfolio', 'Every loan not yet repaid: what was lent, what is still owed, and what is late.', false],
         'arrears' => ['Loans in arrears', 'Active loans with instalments past their due date.', false],
         'journal' => ['Transactions journal', 'Every savings, shares and loan entry in a date range.', true],
@@ -90,8 +90,9 @@ final class ReportController
                 'status' => ucfirst($u['status']),
                 'member_since' => $u['joined_on'] ?? Loans::membership($db, $id)['since'],
                 'savings' => $savings,
-                'pledged' => Loans::pledged($db, $id),
-                'free' => Savings::free($db, $id),
+                // What the savings earn a month at the SACCO's rate, and the interest held for them
+                'savings_interest' => \Sacco\Support\SavingsInterest::forMonth($savings),
+                'interest_held' => \Sacco\Support\SavingsInterest::held($db, $id),
                 'shares' => $shares,
                 'share_count' => ($price = (int) Money::parse(\Sacco\Support\Settings::get('share_price', '0'))) > 0 ? intdiv($shares, $price) : null,
                 'loan' => $loan,
@@ -104,8 +105,8 @@ final class ReportController
             ['status', 'Status', 'text'],
             ['member_since', 'Member since', 'date'],
             ['savings', 'Savings', 'money'],
-            ['pledged', 'Pledged', 'money'],
-            ['free', 'Free savings', 'money'],
+            ['savings_interest', 'Savings interest a month', 'money'],
+            ['interest_held', 'Interest held for them', 'money'],
             ['shares', 'Share capital', 'money'],
             ['share_count', 'Shares', 'number'],
             ['loan', 'Loan balance', 'money'],
@@ -130,7 +131,7 @@ final class ReportController
              WHERE l.status IN ('pending_guarantors', 'pending_approval', 'approved', 'active') ORDER BY u.full_name, l.id"
         )->fetchAll();
         $oldest = $db->prepare(
-            'SELECT MIN(due_date) FROM loan_installments WHERE loan_id = ? AND due_date < CURDATE() AND principal + interest > principal_paid + interest_paid'
+            'SELECT MIN(i.due_date) FROM loan_installments i WHERE i.loan_id = ? AND i.due_date < CURDATE() AND ' . Loans::LATE
         );
         $labels = ['pending_guarantors' => 'Waiting for guarantors', 'pending_approval' => 'Waiting for approval', 'approved' => 'Approved', 'active' => 'Active'];
 
@@ -367,16 +368,18 @@ final class ReportController
             "SELECT l.id, l.loan_no, l.amount, u.full_name, COALESCE(p.name, 'Loan') AS product,
                     COALESCE((SELECT SUM(a.amount) FROM loan_payment_allocations a JOIN loan_payments lp ON lp.id = a.payment_id
                               WHERE a.loan_id = l.id AND a.part = 'principal' AND lp.paid_on <= ?), 0) AS principal_paid,
+                    COALESCE((SELECT SUM(c.capitalised) FROM loan_installments c WHERE c.loan_id = l.id AND LAST_DAY(c.due_date) < ?), 0) AS capitalised,
                     (SELECT MIN(i.due_date) FROM loan_installments i
-                      WHERE i.loan_id = l.id AND i.due_date < ? AND (i.cleared_on IS NULL OR i.cleared_on > ?)) AS oldest_due
+                      WHERE i.loan_id = l.id AND i.due_date < ? AND (i.cleared_on > ? OR " . Loans::LATE . ")) AS oldest_due
              FROM loans l JOIN users u ON u.id = l.user_id LEFT JOIN loan_products p ON p.id = l.product_id
              WHERE l.status IN ('active', 'closed') AND l.disbursed_on <= ? AND (l.closed_on IS NULL OR l.closed_on > ?)"
         );
-        $stmt->execute([$day, $day, $day, $day, $day]);
+        $stmt->execute([$day, $day, $day, $day, $day, $day]);
         $on = new \DateTimeImmutable($day);
         $out = [];
         foreach ($stmt->fetchAll() as $r) {
-            $principal = Money::fromDecimal($r['amount']) - Money::fromDecimal((string) $r['principal_paid']);
+            // Interest added to the principal (months paid short) is owed as principal too
+            $principal = Money::fromDecimal($r['amount']) + Money::fromDecimal((string) $r['capitalised']) - Money::fromDecimal((string) $r['principal_paid']);
             if ($principal <= 0) {
                 continue;
             }

@@ -81,6 +81,8 @@ export interface LoanPosition {
   charges_left: string
   overdue_instalments: string
   total_left: string
+  /** Unpaid interest added to the principal so far */
+  interest_added?: string
   paid: string
   total_interest: string
   next_due_date: string | null
@@ -124,6 +126,15 @@ export interface Installment {
   principal_paid?: string
   interest_paid?: string
   total?: string
+  /** Month by month (from November 2026): what the month asked, what was paid in it, unpaid interest added to the principal, how short it fell, what was owed after */
+  demanded?: string | null
+  paid_in_month?: string | null
+  capitalised?: string
+  short?: string
+  balance_after?: string | null
+  cleared_on?: string | null
+  /** The calendar month is over */
+  month_over?: number | boolean
 }
 
 /** What a repayment did (or would do): its split, what is owed after, what falls due next */

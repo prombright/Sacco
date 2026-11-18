@@ -22,6 +22,11 @@ final class Reminders
     public static function runIfDue(): void
     {
         $db = Database::tenant();
+        // Once, right after the month-by-month loan rule arrives: every running loan worked out the new way
+        if (Settings::get('loans_engine', '') !== 'monthly') {
+            Settings::set('loans_engine', 'monthly');
+            Loans::recalculateAll($db);
+        }
         $today = date('Y-m-d');
         // Claims today's run: only one request gets a changed row, so it runs once
         $claim = $db->prepare("INSERT INTO settings (`key`, value) VALUES ('daily_run_on', ?) ON DUPLICATE KEY UPDATE value = VALUES(value)");
@@ -39,6 +44,10 @@ final class Reminders
         if (Settings::get('loan_reminders', 'on') === 'off') {
             return ['due_soon' => 0, 'overdue' => 0, 'borrowers' => 0];
         }
+        // Months end with the calendar: every running loan is worked out again before anyone is reminded
+        Loans::recalculateAll($db);
+        // Savings earn their interest for every month that has ended
+        \Sacco\Support\SavingsInterest::runIfDue($db);
         Notify::$system = true;
         try {
             $days = max(1, min(14, (int) Settings::get('loan_reminder_days', '3')));
@@ -97,10 +106,10 @@ final class Reminders
     private static function installments(PDO $db, string $where, array $args, string $kind): array
     {
         $stmt = $db->prepare(
-            "SELECT i.id, i.due_date, (i.principal + i.interest - i.principal_paid - i.interest_paid) AS `left`,
+            "SELECT i.id, i.due_date, (CASE WHEN i.short > 0 AND i.cleared_on IS NULL THEN i.short ELSE i.principal + i.interest - i.principal_paid - i.interest_paid END) AS `left`,
                     l.id AS loan_id, l.loan_no, l.user_id, u.full_name
              FROM loan_installments i JOIN loans l ON l.id = i.loan_id JOIN users u ON u.id = l.user_id
-             WHERE l.status = 'active' AND (i.principal + i.interest) > (i.principal_paid + i.interest_paid) AND $where
+             WHERE l.status = 'active' AND " . Loans::LATE . " AND $where
                AND NOT EXISTS (SELECT 1 FROM loan_reminders r WHERE r.installment_id = i.id AND r.kind = ?)
              ORDER BY i.due_date, u.full_name"
         );

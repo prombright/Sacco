@@ -524,7 +524,7 @@ final class PayrollController
         $end = date('Y-m-t', strtotime($start));
         $stmt = $db->prepare(
             "SELECT l.user_id, l.loan_no,
-                    COALESCE(SUM(CASE WHEN i.due_date BETWEEN ? AND ? THEN i.principal + i.interest END), 0) AS due,
+                    COALESCE(SUM(CASE WHEN i.due_date BETWEEN ? AND ? THEN COALESCE(i.demanded, i.principal + i.interest) END), 0) AS due,
                     COALESCE(SUM(CASE WHEN i.due_date < ? THEN i.principal + i.interest - i.principal_paid - i.interest_paid END), 0) AS arrears
              FROM loans l JOIN loan_installments i ON i.loan_id = l.id
              WHERE l.status = 'active' OR (l.status = 'closed' AND l.closed_on >= ?)

@@ -29,8 +29,7 @@ final class ArrearsController
         $today = date('Y-m-d');
         $rows = $db->query(
             "SELECT l.id, l.loan_no, l.user_id, l.amount, u.full_name, u.phone, u.account_no, COALESCE(p.name, 'Loan') AS product,
-                    (SELECT MIN(i.due_date) FROM loan_installments i WHERE i.loan_id = l.id AND i.due_date < CURDATE()
-                       AND i.principal + i.interest > i.principal_paid + i.interest_paid) AS oldest_due
+                    (SELECT MIN(i.due_date) FROM loan_installments i WHERE i.loan_id = l.id AND i.due_date < CURDATE() AND " . Loans::LATE . ") AS oldest_due
              FROM loans l JOIN users u ON u.id = l.user_id LEFT JOIN loan_products p ON p.id = l.product_id
              WHERE l.status = 'active'
              HAVING oldest_due IS NOT NULL ORDER BY oldest_due, l.id"
@@ -147,7 +146,7 @@ final class ArrearsController
         $loans = $db->prepare(
             "SELECT l.* FROM loans l WHERE l.status = 'active'
                AND EXISTS (SELECT 1 FROM loan_installments i WHERE i.loan_id = l.id AND i.due_date <= DATE_SUB(CURDATE(), INTERVAL ? DAY)
-                           AND i.principal + i.interest > i.principal_paid + i.interest_paid)
+                           AND " . Loans::LATE . ")
                AND NOT EXISTS (SELECT 1 FROM loan_followups f WHERE f.loan_id = l.id AND f.kind = 'guarantors' AND f.created_at > DATE_SUB(NOW(), INTERVAL 30 DAY))"
         );
         $loans->execute([$days]);

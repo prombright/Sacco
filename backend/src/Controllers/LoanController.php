@@ -1176,9 +1176,9 @@ final class LoanController
         $loan['guarantors'] = $g->fetchAll();
         $loan['securities'] = LoanSecurityController::forLoan($id);
 
-        $i = $db->prepare('SELECT number, due_date, principal, interest, principal_paid, interest_paid FROM loan_installments WHERE loan_id = ? ORDER BY number');
+        $i = $db->prepare('SELECT number, due_date, principal, interest, principal_paid, interest_paid, demanded, paid_in_month, capitalised, short, balance_after, cleared_on, (LAST_DAY(due_date) < CURDATE()) AS month_over FROM loan_installments WHERE loan_id = ? ORDER BY number');
         $i->execute([$id]);
-        $loan['installments'] = $i->fetchAll();
+        $loan['installments'] = array_map(fn ($r) => ['month_over' => (bool) $r['month_over']] + $r, $i->fetchAll());
 
         // Before disbursement, the schedule it would have if paid out today
         if (!$loan['installments'] && in_array($loan['status'], ['pending_guarantors', 'pending_approval', 'approved'], true)) {

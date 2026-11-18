@@ -173,8 +173,19 @@ final class Earnings
         );
         $last->execute([$userId, $year - 1]);
 
+        $savings = Ledger::balance($db, $userId, 'savings');
+        $earned = $db->prepare('SELECT COALESCE(SUM(amount), 0) FROM savings_interest WHERE user_id = ? AND month LIKE ?');
+        $earned->execute([$userId, "$year-%"]);
         return [
             'year' => $year,
+            // Interest on savings: earned every month, held apart from savings (not for loans or withdrawals)
+            'savings_interest' => [
+                'rate_year' => round(SavingsInterest::yearlyPercent(), 3),
+                'savings' => Money::toDecimal($savings),
+                'a_month' => Money::toDecimal(SavingsInterest::forMonth($savings)),
+                'this_year' => Money::toDecimal(Money::fromDecimal((string) $earned->fetchColumn())),
+                'held' => Money::toDecimal(SavingsInterest::held($db, $userId)),
+            ],
             'dividend' => [
                 'rate_percent' => $rate,
                 'shares' => Money::toDecimal($shares),

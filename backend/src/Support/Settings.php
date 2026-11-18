@@ -19,6 +19,15 @@ final class Settings
         return self::$all[$key] ?? $default;
     }
 
+    /** Saves one setting (for the system's own bookkeeping, e.g. the last month interest was earned) */
+    public static function set(string $key, string $value): void
+    {
+        Database::tenant()->prepare('INSERT INTO settings (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)')->execute([$key, $value]);
+        if (self::$all !== null) {
+            self::$all[$key] = $value;
+        }
+    }
+
     public static function forget(): void
     {
         self::$all = null;

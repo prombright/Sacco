@@ -194,32 +194,54 @@ watch(() => [dialog.value, form.amount, form.date], () => {
 // --- Schedule ------------------------------------------------------------------------
 
 const schedule = computed<Installment[]>(() => loan.value?.installments?.length ? loan.value.installments : (loan.value?.projected ?? []))
-const isPaid = (i: Installment) => !!i.principal_paid && Number(i.principal_paid) + Number(i.interest_paid) >= Number(i.principal) + Number(i.interest)
+/** What a month asked for: worked out afresh each month on what is owed then */
+const demandedOf = (i: Installment) => Number(i.demanded ?? Number(i.principal) + Number(i.interest))
+/** What was paid in that month */
+const paidIn = (i: Installment) => Number(i.paid_in_month ?? Number(i.principal_paid ?? 0) + Number(i.interest_paid ?? 0) - Number(i.capitalised ?? 0))
+const isPaid = (i: Installment) => {
+  if (!i.principal_paid && i.paid_in_month === undefined) return false
+  if (i.month_over && Number(i.short ?? 0) === 0 && i.demanded !== undefined && i.demanded !== null) return true
+  return demandedOf(i) > 0 && paidIn(i) >= demandedOf(i)
+}
 /** The first instalment not fully paid: the one to pay next */
-const nextNumber = computed(() => (loan.value?.installments?.length ? schedule.value.find((i) => !isPaid(i))?.number ?? null : null))
+/** Months already over are done with (paid, or settled into what is owed): the next one is still to come */
+const isDone = (i: Installment) => !!i.month_over || isPaid(i)
+const nextNumber = computed(() => (loan.value?.installments?.length ? schedule.value.find((i) => !isDone(i))?.number ?? null : null))
 /** Long schedules show what's late and the next six; the rest on request */
 const showAll = ref(false)
 const shown = computed(() => {
   if (showAll.value || schedule.value.length <= 12 || !loan.value?.installments?.length) return schedule.value
-  const from = Math.max(0, schedule.value.findIndex((i) => !isPaid(i)))
+  // Months still behind, then what comes next
+  const behind = schedule.value.findIndex((i) => i.month_over && Number(i.short ?? 0) > 0 && !i.cleared_on)
+  const from = Math.max(0, behind >= 0 ? behind : schedule.value.findIndex((i) => !isDone(i)))
   return schedule.value.slice(from, from + 6)
 })
-const paidCount = computed(() => schedule.value.filter(isPaid).length)
 /** What was paid against each instalment, and the loan's balance once it is paid (principal left) */
-const paidOn = (i: Installment) => Number(i.principal_paid ?? 0) + Number(i.interest_paid ?? 0)
+const paidOn = (i: Installment) => paidIn(i)
 const balanceAfter = computed(() => {
   let left = Number(loan.value?.amount ?? 0)
   const out: Record<number, number> = {}
   for (const i of schedule.value) {
-    left -= Number(i.principal)
-    out[i.number] = Math.max(0, left)
+    left -= Number(i.principal) - Number(i.capitalised ?? 0)
+    out[i.number] = i.balance_after !== undefined && i.balance_after !== null ? Number(i.balance_after) : Math.max(0, left)
   }
   return out
 })
+/** This month: the first month not over yet */
+const current = computed(() => (loan.value?.installments ?? []).find((i) => !i.month_over) ?? null)
+/** Months whose unpaid interest was added to what is owed, newest first */
+const added = computed(() => (loan.value?.installments ?? []).filter((i) => Number(i.capitalised ?? 0) > 0).reverse())
+const monthName = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+const nextAfter = (i: Installment) => (loan.value?.installments ?? []).find((x) => x.number === i.number + 1) ?? null
 function installmentState(i: Installment) {
-  if (!i.principal_paid) return null
-  const due = Number(i.principal) + Number(i.interest)
-  const paid = Number(i.principal_paid) + Number(i.interest_paid)
+  if (!i.principal_paid && i.paid_in_month === undefined) return null
+  const due = demandedOf(i)
+  const paid = paidIn(i)
+  if (i.month_over && Number(i.short ?? 0) > 0) {
+    return i.cleared_on
+      ? { label: `Short by ${formatMoney(String(i.short))} · caught up`, style: 'text-gray-600' }
+      : { label: `Short by ${formatMoney(String(i.short))} · behind`, style: 'text-red-700' }
+  }
   if (paid >= due) return { label: 'Paid', style: 'text-green-700' }
   if (i.due_date < today) return { label: paid > 0 ? 'Part paid · overdue' : 'Overdue', style: 'text-red-700' }
   return paid > 0 ? { label: 'Part paid', style: 'text-gray-700' } : { label: '', style: '' }
@@ -518,9 +540,35 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
         </ul>
       </section>
 
+      <!-- This month: what is asked, what is paid, and why the amount is what it is -->
+      <section v-if="current && loan.status === 'active'" class="card mt-8 p-5">
+        <h2 class="font-semibold">This month's payment</h2>
+        <p class="mt-1 text-sm text-gray-600">Due {{ formatDate(current.due_date) }}. Worked out on what you owe now: interest on the balance, and the rest spread over the months left.</p>
+        <dl class="mt-4 grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
+          <div><dt class="text-gray-600">Interest this month</dt><dd class="text-lg font-semibold tabular-nums">{{ formatMoney(current.interest) }}</dd></div>
+          <div><dt class="text-gray-600">Principal this month</dt><dd class="text-lg font-semibold tabular-nums">{{ formatMoney(String(Math.max(0, demandedOf(current) - Number(current.interest)))) }}</dd></div>
+          <div><dt class="text-gray-600">Total to pay</dt><dd class="text-lg font-semibold tabular-nums">{{ formatMoney(String(demandedOf(current))) }}</dd></div>
+          <div><dt class="text-gray-600">Paid so far this month</dt><dd class="text-lg font-semibold tabular-nums" :class="paidIn(current) >= demandedOf(current) ? 'text-emerald-700' : ''">{{ formatMoney(String(paidIn(current))) }}</dd></div>
+        </dl>
+        <p v-if="paidIn(current) < demandedOf(current)" class="mt-3 text-sm">Still to pay this month: <span class="font-semibold tabular-nums">{{ formatMoney(String(demandedOf(current) - paidIn(current))) }}</span></p>
+        <p class="mt-3 text-xs text-gray-500">
+          Pay less than this and any interest left unpaid is added to what you owe when the month ends, so the following payments go up. Pay more and the extra cuts what you owe, so they go down.
+        </p>
+        <ul v-if="added.length" class="mt-4 space-y-2 border-t border-line pt-4 text-sm">
+          <li v-for="i in added" :key="i.number" class="flex gap-2">
+            <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" aria-hidden="true" />
+            <span>
+              <strong>{{ monthName(i.due_date) }}:</strong> {{ formatMoney(i.demanded ?? '0') }} was asked, including {{ formatMoney(i.interest) }} interest, and {{ formatMoney(String(paidIn(i))) }} was paid.
+              The {{ formatMoney(i.capitalised ?? '0') }} of interest left unpaid was added to the principal<template v-if="i.balance_after">, making what is owed {{ formatMoney(i.balance_after) }}</template><template v-if="nextAfter(i)">, and the next month's payment {{ formatMoney(nextAfter(i)!.demanded ?? '0') }}</template>.
+            </span>
+          </li>
+        </ul>
+      </section>
+
       <!-- Schedule -->
       <section v-if="schedule.length" class="mt-8">
-        <h2 class="font-semibold">{{ loan.installments?.length ? 'Repayment schedule' : 'Expected schedule' }}</h2>
+        <h2 class="font-semibold">{{ loan.installments?.length ? 'Month by month' : 'Expected schedule' }}</h2>
+        <p v-if="loan.installments?.length" class="mt-1 text-sm text-gray-600">Months still to come are worked out as if each is paid as asked; they change when a month is paid more or less.</p>
         <p v-if="!loan.installments?.length" class="mt-1 text-sm text-gray-600">If paid out today. The dates are fixed when the loan is paid out.</p>
         <div class="card mt-3 overflow-x-auto">
           <table class="w-full text-sm tabular-nums max-sm:hidden">
@@ -530,15 +578,16 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
                 <th class="px-4 py-3">Due</th>
                 <th class="px-4 py-3 text-right">Principal</th>
                 <th class="px-4 py-3 text-right">Interest</th>
-                <th class="px-4 py-3 text-right">Payment</th>
+                <th class="px-4 py-3 text-right">Asked</th>
                 <th v-if="loan.installments?.length" class="px-4 py-3 text-right">Paid</th>
+                <th v-if="added.length" class="px-4 py-3 text-right">Interest added</th>
                 <th class="px-4 py-3 text-right">Balance</th>
                 <th v-if="loan.installments?.length" class="px-4 py-3">Status</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
               <tr v-if="shown[0] && shown[0].number > 1 && !showAll" class="bg-gray-50/60">
-                <td colspan="8" class="px-4 py-2 text-xs text-gray-600">{{ paidCount }} instalment{{ paidCount === 1 ? '' : 's' }} before this already paid</td>
+                <td colspan="9" class="px-4 py-2 text-xs text-gray-600">{{ shown[0] ? shown[0].number - 1 : 0 }} month{{ shown[0] && shown[0].number === 2 ? '' : 's' }} before this already over</td>
               </tr>
               <tr
                 v-for="i in shown"
@@ -550,11 +599,12 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
                   {{ formatDate(i.due_date) }}
                   <span v-if="i.number === nextNumber" class="ml-2 rounded-full bg-saffron-100 px-2 py-0.5 text-[11px] font-semibold text-saffron-700">Next</span>
                 </td>
-                <td class="px-4 py-2 text-right">{{ formatMoney(i.principal) }}</td>
-                <td class="px-4 py-2 text-right">{{ formatMoney(i.interest) }}</td>
-                <td class="px-4 py-2 text-right font-medium">{{ formatMoney(String(Number(i.principal) + Number(i.interest))) }}</td>
-                <td v-if="loan.installments?.length" class="px-4 py-2 text-right" :class="paidOn(i) > 0 ? 'text-green-700' : 'text-gray-400'">{{ paidOn(i) > 0 ? formatMoney(String(paidOn(i))) : '—' }}</td>
-                <td class="px-4 py-2 text-right text-gray-700">{{ formatMoney(String(balanceAfter[i.number])) }}</td>
+                <td class="whitespace-nowrap px-4 py-2 text-right">{{ formatMoney(String(i.month_over ? Number(i.principal_paid ?? 0) : Math.max(0, demandedOf(i) - Number(i.interest)))) }}</td>
+                <td class="whitespace-nowrap px-4 py-2 text-right">{{ formatMoney(i.interest) }}</td>
+                <td class="whitespace-nowrap px-4 py-2 text-right font-medium">{{ formatMoney(String(demandedOf(i))) }}</td>
+                <td v-if="loan.installments?.length" class="whitespace-nowrap px-4 py-2 text-right" :class="paidOn(i) > 0 ? 'text-green-700' : 'text-gray-400'">{{ paidOn(i) > 0 ? formatMoney(String(paidOn(i))) : '—' }}</td>
+                <td v-if="added.length" class="whitespace-nowrap px-4 py-2 text-right" :class="Number(i.capitalised ?? 0) > 0 ? 'text-amber-800' : 'text-gray-300'">{{ Number(i.capitalised ?? 0) > 0 ? formatMoney(i.capitalised!) : '—' }}</td>
+                <td class="whitespace-nowrap px-4 py-2 text-right text-gray-700">{{ formatMoney(String(balanceAfter[i.number])) }}</td>
                 <td v-if="loan.installments?.length" class="whitespace-nowrap px-4 py-2 text-sm" :class="isPaid(i) ? 'text-emerald-700' : installmentState(i)?.style">{{ isPaid(i) ? '✓ Paid' : installmentState(i)?.label }}</td>
               </tr>
             </tbody>
@@ -563,7 +613,7 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
           <!-- Phones: one line per instalment, the payment large, what's paid and left under it -->
           <ul class="divide-y divide-gray-100 text-sm tabular-nums sm:hidden">
             <li v-if="shown[0] && shown[0].number > 1 && !showAll" class="bg-gray-50/60 px-4 py-2 text-xs text-gray-600">
-              {{ paidCount }} instalment{{ paidCount === 1 ? '' : 's' }} before this already paid
+              {{ shown[0] ? shown[0].number - 1 : 0 }} month{{ shown[0] && shown[0].number === 2 ? '' : 's' }} before this already over
             </li>
             <li
               v-for="i in shown"
@@ -576,13 +626,14 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
                   <span class="text-gray-400">{{ i.number }}.</span> {{ formatDate(i.due_date) }}
                   <span v-if="i.number === nextNumber" class="ml-1 rounded-full bg-saffron-100 px-2 py-0.5 text-[11px] font-semibold text-saffron-700">Next</span>
                 </p>
-                <p class="font-semibold" :class="isPaid(i) ? '' : 'text-ink'">{{ formatMoney(String(Number(i.principal) + Number(i.interest))) }}</p>
+                <p class="font-semibold" :class="isPaid(i) ? '' : 'text-ink'">{{ formatMoney(String(demandedOf(i))) }}</p>
               </div>
               <div class="mt-0.5 flex items-baseline justify-between gap-3 text-xs text-gray-500">
                 <span>
                   <template v-if="loan.installments?.length">
                     <span :class="isPaid(i) ? 'text-emerald-700' : installmentState(i)?.style">{{ isPaid(i) ? '✓ Paid' : installmentState(i)?.label }}</span>
                     <template v-if="paidOn(i) > 0 && !isPaid(i)"> · {{ formatMoney(String(paidOn(i))) }} paid</template>
+                    <template v-if="Number(i.capitalised ?? 0) > 0"> · <span class="text-amber-800">{{ formatMoney(i.capitalised!) }} interest added to principal</span></template>
                   </template>
                   <template v-else>Interest {{ formatMoney(i.interest) }}</template>
                 </span>
@@ -701,7 +752,7 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
       <form class="space-y-4" @submit.prevent="act(`/loans/${loan.id}/payments`, { money_account_id: form.money_account_id, amount: form.amount, paid_on: form.date, reference: form.reference })">
         <div v-if="formError" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ formError }}</div>
         <p v-if="loan.position" class="text-sm text-gray-700">
-          {{ formatMoney(loan.position.total_left) }} still owed. A repayment clears any penalty first, then the oldest instalment: its interest, then principal.
+          {{ formatMoney(loan.position.total_left) }} still owed. A repayment clears any penalty first, then this month's interest, then principal.
         </p>
         <div class="grid gap-4 sm:grid-cols-2">
           <div><label for="amt" class="label">Amount</label><input id="amt" v-model="form.amount" class="input tabular-nums" inputmode="decimal" /><AmountWords :value="form.amount" /></div>

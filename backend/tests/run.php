@@ -115,6 +115,8 @@ try {
         check('Savings can never go below zero', $threw && Ledger::balance($db, $amina, 'savings') === 100_000_000);
         check('The minimum balance (20,000) stays: 980,000 can be withdrawn', Savings::withdrawable($db, $amina) === 98_000_000, ugx(Savings::withdrawable($db, $amina)));
 
+        // The schedule as made (the rule before November 2026): these checks keep it for every month
+        \Sacco\Support\Settings::set('loan_rolling_from', '2099-01-01');
         echo "\nLoan schedule (1,200,000 over 12 months at 1% a month, reducing balance)\n";
         $brian = $member('Brian Test', '902');
         $post($brian, 'savings', 'deposit', 800_000);
@@ -259,6 +261,46 @@ try {
         check('The January statements add up to all savings at the end of January', $sum === $janLedger, ugx($sum) . ' vs ' . ugx($janLedger));
         $a = array_values(array_filter($all, fn ($m) => $m['user_id'] === $amina))[0] ?? null;
         check('A member\'s statement shows what they saved that month', $a && $a['savings_in'] === 100_000_000 && $a['savings_out'] === 0);
+
+        echo "\nMonth by month (1,000,000 over 10 months at 1%, the new way from its first month)\n";
+        \Sacco\Support\Settings::set('loan_rolling_from', '2026-01-01');
+        $cate = $member('Cate Test', '913');
+        $loan = $loanOf($cate, 1_000_000, 10, '1.00', '2026-01-15');
+        $id = (int) $loan['id'];
+        Loans::applyPayments($db, $id);
+        $m1 = $inst($id, 1);
+        check('The first month (February) asks the equal payment: 105,583', Money::fromDecimal($m1['demanded']) === 10_558_300, $m1['demanded']);
+        $asked1 = Money::fromDecimal($m1['demanded']);
+        // February: pays 4,000 of the 10,000 interest
+        $pay($id, 4_000, '2026-02-20');
+        $m1 = $inst($id, 1);
+        $m2 = $inst($id, 2);
+        check('Interest unpaid in a month that is over is added to the principal (6,000)', Money::fromDecimal($m1['capitalised']) === 600_000, $m1['capitalised']);
+        check('What is owed after February: 1,006,000', Money::fromDecimal($m1['balance_after']) === 100_600_000, $m1['balance_after']);
+        check('March asks more than February did', Money::fromDecimal($m2['demanded']) > $asked1, $m2['demanded']);
+        check('A month paid short is "behind" until caught up', $m1['cleared_on'] === null && Money::fromDecimal($m1['short']) > 0);
+        // March: pays what March asks -> caught up
+        $pay($id, (int) round(Money::fromDecimal($m2['demanded']) / 100), '2026-03-25');
+        check('Paying a month in full catches up the months before it', $inst($id, 1)['cleared_on'] === '2026-03-25' && $inst($id, 2)['cleared_on'] === '2026-03-25');
+        // April: pays double -> the principal falls more, May asks less
+        $m3 = $inst($id, 3);
+        $before4 = Money::fromDecimal($inst($id, 4)['demanded']);
+        $pay($id, 2 * (int) round(Money::fromDecimal($m3['demanded']) / 100), '2026-04-25');
+        check('Paying more cuts the principal, so the next month asks less', Money::fromDecimal($inst($id, 4)['demanded']) < $before4, $inst($id, 4)['demanded']);
+        $p = Loans::position($db, $id);
+        $sumP = (int) $db->query("SELECT ROUND(SUM(principal) * 100) FROM loan_installments WHERE loan_id = $id")->fetchColumn();
+        $cap = (int) $db->query("SELECT ROUND(SUM(capitalised) * 100) FROM loan_installments WHERE loan_id = $id")->fetchColumn();
+        check('The principal adds up to the loan plus the interest added to it', $sumP === 100_000_000 + $cap, ugx($sumP) . ' vs ' . ugx(100_000_000 + $cap));
+        $paidIn = (int) $db->query("SELECT ROUND(SUM(amount) * 100) FROM loan_payments WHERE loan_id = $id")->fetchColumn();
+        check('"Paid" is the money actually paid, not the interest added', $p['paid'] === $paidIn, ugx($p['paid']) . ' vs ' . ugx($paidIn));
+        Books::sync($db);
+        $t = Books::totals($db, date('Y-m-d'));
+        $acc = fn ($k) => Books::balance($db->query("SELECT * FROM gl_accounts WHERE system_key = '$k'")->fetch(), $t);
+        check('The books: loans to members include the interest added to the principal', $acc('loans') > 0);
+        $reversed = $pay($id, -4_000, '2026-02-21', (int) $db->query("SELECT id FROM loan_payments WHERE loan_id = $id AND amount = 4000.00")->fetchColumn());
+        $f = $inst($id, 1);
+        check('Reversing the short payment adds all of the February interest instead', Money::fromDecimal($f['capitalised']) === Money::fromDecimal($f['interest']), $f['capitalised'] . ' of ' . $f['interest'] . ', reversal ' . $reversed . ', payments ' . $db->query("SELECT GROUP_CONCAT(CONCAT(id, ':', amount, ':', paid_on, ':', COALESCE(reversal_of, '-'))) FROM loan_payments WHERE loan_id = $id")->fetchColumn());
+        \Sacco\Support\Settings::set('loan_rolling_from', '2026-11-01');
     });
 } catch (\Throwable $e) {
     $failed[] = 'Unexpected error';

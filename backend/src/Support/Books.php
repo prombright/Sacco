@@ -47,7 +47,7 @@ final class Books
                 (SELECT COALESCE(MAX(id), 0) FROM loan_payments),
                 (SELECT COUNT(*) FROM loans WHERE disbursed_on IS NOT NULL),
                 (SELECT COALESCE(MAX(updated_at), '') FROM loans),
-                (SELECT COALESCE(SUM(interest), 0) FROM loan_installments),
+                (SELECT CONCAT(COALESCE(SUM(interest), 0), '-', COALESCE(SUM(capitalised), 0)) FROM loan_installments),
                 (SELECT COUNT(*) FROM loan_installments),
                 (SELECT COALESCE(MAX(id), 0) FROM loan_charges),
                 (SELECT COUNT(*) FROM loan_charges WHERE waived_at IS NOT NULL),
@@ -56,6 +56,7 @@ final class Books
                 (SELECT COUNT(*) FROM investments),
                 (SELECT COALESCE(MAX(id), 0) FROM investment_returns),
                 (SELECT COALESCE(MAX(id), 0) FROM transfers),
+                (SELECT CONCAT(COUNT(*), '-', COALESCE(SUM(amount), 0)) FROM savings_interest),
                 (SELECT COUNT(*) FROM transfers WHERE status = 'reversed'),
                 (SELECT CONCAT(COUNT(*), '-', COALESCE(SUM(status = 'paid' AND method = 'cash'), 0), '-', COALESCE(MAX(updated_at), '')) FROM membership_fees),
                 CURDATE())"
@@ -85,6 +86,7 @@ final class Books
         self::investments($db);
         self::cashbook($db);
         self::membershipFees($db);
+        self::savingsInterest($db);
 
         $inTransaction = $db->inTransaction();
         $inTransaction || $db->beginTransaction();
@@ -240,6 +242,19 @@ final class Books
         }
     }
 
+    /** Interest members' savings earned: a cost to the SACCO, held for them until it is paid out (one entry a month) */
+    private static function savingsInterest(PDO $db): void
+    {
+        $months = $db->query('SELECT month, SUM(amount) AS amount FROM savings_interest GROUP BY month ORDER BY month')->fetchAll();
+        foreach ($months as $m) {
+            $cents = Money::fromDecimal((string) $m['amount']);
+            self::add($db, date('Y-m-t', strtotime($m['month'] . '-01')), 'Interest on savings for ' . date('F Y', strtotime($m['month'] . '-01')), 'savings_interest', (int) str_replace('-', '', $m['month']), [
+                [self::account($db, 'savings_interest_expense'), $cents, null, null],
+                [self::account($db, 'savings_interest_payable'), -$cents, null, null],
+            ]);
+        }
+    }
+
     private static function loans(PDO $db): void
     {
         $loans = $db->query(
@@ -291,6 +306,27 @@ final class Books
             $lines[] = [self::account($db, 'interest_income'), -$total, null, null];
             $date = min(date('Y-m-t', strtotime("$month-01")), date('Y-m-d'));
             self::add($db, $date, 'Loan interest for ' . date('F Y', strtotime("$month-01")), 'loan_interest', (int) str_replace('-', '', $month), $lines);
+        }
+
+        // Interest not paid in a month that is over is added to the principal: it stops being
+        // interest owed and becomes part of the loan (one entry a month for all loans)
+        $added = $db->query(
+            "SELECT loan_id, due_date, capitalised FROM loan_installments
+             WHERE loan_id IN ($in) AND capitalised > 0 AND LAST_DAY(due_date) < CURDATE() ORDER BY due_date"
+        )->fetchAll();
+        $byMonth = [];
+        foreach ($added as $i) {
+            $byMonth[substr($i['due_date'], 0, 7)][] = $i;
+        }
+        foreach ($byMonth as $month => $rows) {
+            $lines = [];
+            foreach ($rows as $i) {
+                $cents = Money::fromDecimal($i['capitalised']);
+                $l = $loans[$i['loan_id']];
+                $lines[] = [self::account($db, 'loans'), $cents, (int) $l['user_id'], $l['loan_no']];
+                $lines[] = [self::account($db, 'interest_receivable'), -$cents, (int) $l['user_id'], $l['loan_no']];
+            }
+            self::add($db, date('Y-m-t', strtotime("$month-01")), 'Unpaid loan interest for ' . date('F Y', strtotime("$month-01")) . ' added to the principal', 'loan_interest_added', (int) str_replace('-', '', $month), $lines);
         }
 
         // Penalties charged (and taken off again when waived)

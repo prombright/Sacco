@@ -33,7 +33,7 @@ final class Credit
     {
         $today = new \DateTimeImmutable('today');
         $stmt = $db->prepare(
-            "SELECT i.due_date, i.cleared_on, (i.principal + i.interest) > (i.principal_paid + i.interest_paid) AS unpaid
+            "SELECT i.due_date, i.cleared_on, " . Loans::LATE . " AS unpaid
              FROM loan_installments i JOIN loans l ON l.id = i.loan_id
              WHERE l.user_id = ? AND l.status IN ('active', 'closed') AND i.due_date <= ?
              ORDER BY i.due_date DESC, i.id DESC LIMIT " . self::WINDOW

@@ -40,6 +40,8 @@ const LOOK: Record<string, { group: string; name: string; unit?: string; help?: 
   membership_fee_once: { group: 'shares', name: 'Membership fee (once)', unit: 'UGX', help: '0 means none.' },
   subscription_fee_annual: { group: 'shares', name: 'Subscription (every year)', unit: 'UGX', help: '0 means none.' },
   dividend_rate_percent: { group: 'earnings', name: 'Dividend a year', unit: '%', help: 'Of each member\'s share capital.' },
+  savings_interest_rate: { group: 'earnings', name: 'Interest on savings', unit: '%', help: 'What savings earn. Earned at the end of every month on their savings that day, held for them apart from their savings (not for loans or withdrawals). 0 means none.' },
+  savings_interest_per: { group: 'earnings', name: 'Savings interest rate is' },
   profit_basis: { group: 'earnings', name: 'Investment profit is shared by' },
   profit_credit_account: { group: 'earnings', name: 'Profit share is added to' },
   admins_can_members: { group: 'admins', name: 'Add and change members' },

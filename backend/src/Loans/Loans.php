@@ -402,19 +402,14 @@ final class Loans
     /** Writes the schedule when the loan is disbursed */
     public static function createSchedule(PDO $db, array $loan, string $disbursedOn): void
     {
-        $insert = $db->prepare('INSERT INTO loan_installments (loan_id, number, due_date, principal, interest) VALUES (?, ?, ?, ?, ?)');
+        $insert = $db->prepare('INSERT INTO loan_installments (loan_id, number, due_date, principal, interest, original_principal, original_interest) VALUES (?, ?, ?, ?, ?, ?, ?)');
         foreach (LoanMath::schedule(Money::fromDecimal($loan['amount']), $loan['interest_rate_monthly'], (int) $loan['months'], $disbursedOn) as $row) {
-            $insert->execute([$loan['id'], $row['number'], $row['due_date'], Money::toDecimal($row['principal']), Money::toDecimal($row['interest'])]);
+            $p = Money::toDecimal($row['principal']);
+            $i = Money::toDecimal($row['interest']);
+            $insert->execute([$loan['id'], $row['number'], $row['due_date'], $p, $i, $p, $i]);
         }
     }
 
-    /**
-     * Works out, from scratch, what every charge and instalment has had paid, from all repayments
-     * that stand (not reversed), and records how each repayment was split. Each repayment clears
-     * unpaid charges (penalties) first, oldest first, then the oldest unpaid instalment: its
-     * interest, then its principal. Closes the loan when everything is paid; reopens it if a
-     * reversal undoes that.
-     */
     /**
      * A running loan over a new number of months: a fresh schedule from its payout date, at its own
      * rate, with every repayment already made applied again. Call inside a transaction.
@@ -428,18 +423,52 @@ final class Loans
         self::applyPayments($db, (int) $loan['id']);
     }
 
+    /**
+     * Works out, from scratch, every month of a loan from all repayments that stand (not reversed),
+     * and records how each repayment was split. Repayments clear unpaid charges (penalties) first.
+     *
+     * Months before the new way starts (setting loan_rolling_from, 1 November 2026) keep the
+     * schedule they were made with: each repayment clears the oldest unpaid instalment, interest
+     * then principal. From that month on a loan is worked out month by month:
+     *  - interest is charged on what is owed at the start of the month;
+     *  - what the member pays in that calendar month goes to the interest, then the principal;
+     *  - when the month is over, interest not paid is added to the principal, and what is owed is
+     *    spread again over the months left, so the next month's payment is worked out afresh
+     *    (more after paying less, less after paying more);
+     *  - a month paid short stays "behind" until a later month is paid in full, so the office
+     *    still sees who isn't paying.
+     * Months not yet over are a projection: as if each is paid as demanded. The last month asks
+     * for everything left; after it, what is unpaid is late as before. Closes the loan when all is
+     * paid; reopens it if a reversal undoes that.
+     */
     public static function applyPayments(PDO $db, int $loanId): void
     {
-        $installments = $db->prepare('SELECT id, principal, interest FROM loan_installments WHERE loan_id = ? ORDER BY number');
+        $loan = $db->prepare('SELECT id, amount, interest_rate_monthly, user_id FROM loans WHERE id = ?');
+        $loan->execute([$loanId]);
+        $loan = $loan->fetch();
+        $installments = $db->prepare('SELECT id, number, due_date, principal, interest, original_principal, original_interest FROM loan_installments WHERE loan_id = ? ORDER BY number');
         $installments->execute([$loanId]);
+        $today = date('Y-m-d');
+        $switch = \Sacco\Support\Settings::get('loan_rolling_from', '2026-11-01');
+        $rolling = $today >= $switch;
         $rows = array_map(fn ($r) => [
             'id' => (int) $r['id'],
-            'principal' => Money::fromDecimal($r['principal']),
-            'interest' => Money::fromDecimal($r['interest']),
+            'due_date' => $r['due_date'],
+            'month' => substr($r['due_date'], 0, 7),
+            // Before the new way: the schedule as it was made
+            'principal' => Money::fromDecimal($r['original_principal'] ?? $r['principal']),
+            'interest' => Money::fromDecimal($r['original_interest'] ?? $r['interest']),
             'principal_paid' => 0,
             'interest_paid' => 0,
             'cleared_on' => null,
+            'demanded' => null,
+            'paid' => 0,
+            'capitalised' => 0,
+            'short' => 0,
+            'balance_after' => null,
+            'legacy' => !$rolling || substr($r['due_date'], 0, 7) < substr($switch, 0, 7),
         ], $installments->fetchAll());
+        $hasRoll = $loan && $rows && in_array(false, array_column($rows, 'legacy'), true);
 
         $charges = $db->prepare('SELECT id, type, amount, charged_on FROM loan_charges WHERE loan_id = ? AND waived_at IS NULL ORDER BY charged_on, id');
         $charges->execute([$loanId]);
@@ -453,13 +482,15 @@ final class Loans
         );
         $payments->execute([$loanId]);
         $db->prepare('DELETE FROM loan_payment_allocations WHERE loan_id = ?')->execute([$loanId]);
-        $allocate = $db->prepare('INSERT INTO loan_payment_allocations (payment_id, loan_id, part, amount) VALUES (?, ?, ?, ?)');
 
+        $split = [];
+        $toRoll = [];
         $lastPaidOn = null;
         foreach ($payments->fetchAll() as $payment) {
+            $pid = (int) $payment['id'];
             $left = Money::fromDecimal($payment['amount']);
             $lastPaidOn = $payment['paid_on'];
-            $split = ['penalty' => 0, 'fee' => 0, 'interest' => 0, 'principal' => 0];
+            $split[$pid] = ['penalty' => 0, 'fee' => 0, 'interest' => 0, 'principal' => 0];
             foreach ($charges as &$charge) {
                 // A repayment only clears charges that already existed when it was made
                 if ($charge['charged_on'] > $payment['paid_on']) {
@@ -467,15 +498,23 @@ final class Loans
                 }
                 $take = min($left, $charge['amount'] - $charge['paid']);
                 $charge['paid'] += $take;
-                $split[$charge['type']] += $take;
+                $split[$pid][$charge['type']] += $take;
                 $left -= $take;
             }
             unset($charge);
+            if ($hasRoll && $payment['paid_on'] >= $switch) {
+                $toRoll[] = [$pid, $left, $payment['paid_on']];
+                continue;
+            }
+            // The schedule as made: the oldest unpaid instalment, its interest then its principal
             foreach ($rows as &$row) {
+                if ($hasRoll && !$row['legacy']) {
+                    continue;
+                }
                 foreach (['interest', 'principal'] as $part) {
                     $take = min($left, $row[$part] - $row[$part . '_paid']);
                     $row[$part . '_paid'] += $take;
-                    $split[$part] += $take;
+                    $split[$pid][$part] += $take;
                     $left -= $take;
                 }
                 if ($row['cleared_on'] === null && $row['principal_paid'] === $row['principal'] && $row['interest_paid'] === $row['interest']) {
@@ -483,18 +522,131 @@ final class Loans
                 }
             }
             unset($row);
-            foreach ($split as $part => $cents) {
+            // More than the old months needed: it counts in the first month of the new way
+            if ($hasRoll && $left > 0) {
+                $toRoll[] = [$pid, $left, $switch];
+            }
+        }
+        foreach ($rows as &$row) {
+            $row['demanded'] = $row['principal'] + $row['interest'];
+            $row['paid'] = $row['principal_paid'] + $row['interest_paid'];
+        }
+        unset($row);
+
+        if ($hasRoll) {
+            $bp = (int) Money::parse((string) $loan['interest_rate_monthly']);
+            // What is owed when the new way starts: the loan less principal repaid, with interest
+            // left unpaid on the old months added to it
+            $owed = Money::fromDecimal($loan['amount']);
+            foreach ($rows as &$row) {
+                if (!$row['legacy']) {
+                    continue;
+                }
+                $owed -= $row['principal_paid'];
+                if ($row['paid'] < $row['demanded']) {
+                    $row['capitalised'] = $row['interest'] - $row['interest_paid'];
+                    $row['short'] = $row['demanded'] - $row['paid'];
+                    $owed += $row['capitalised'];
+                    // Settled into what is owed: still "behind" (not cleared) until a month is paid in full
+                    $row['interest_paid'] = $row['interest'];
+                    $row['principal'] = $row['principal_paid'];
+                }
+                $row['balance_after'] = null;
+            }
+            unset($row);
+
+            $roll = array_keys(array_filter($rows, fn ($r) => !$r['legacy']));
+            $n = count($roll);
+            $months = array_map(fn ($k) => $rows[$k]['month'], $roll);
+            $bucket = array_fill(0, $n, []);
+            foreach ($toRoll as $p) {
+                $m = substr($p[2], 0, 7);
+                $j = array_search($m, $months, true);
+                $bucket[$j === false ? ($m < $months[0] ? 0 : $n - 1) : $j][] = $p;
+            }
+            $catchUp = function (int $upTo, string $on) use (&$rows) {
+                foreach ($rows as $k => &$r) {
+                    if ($k < $upTo && $r['cleared_on'] === null && $r['short'] > 0) {
+                        $r['cleared_on'] = $on;
+                    }
+                }
+            };
+            foreach ($roll as $j => $k) {
+                $row = &$rows[$k];
+                $last = $j === $n - 1;
+                $monthEnd = date('Y-m-t', strtotime($row['due_date']));
+                $over = $monthEnd < $today;
+                $interest = $owed > 0 ? (int) (round(intdiv($owed * $bp + 5000, 10000) / LoanMath::UNIT) * LoanMath::UNIT) : 0;
+                $demanded = $last ? $owed + $interest : min($owed + $interest, LoanMath::installment($owed, $bp, $n - $j));
+                $ip = $pp = 0;
+                $completed = $lastDate = null;
+                foreach ($bucket[$j] as [$pid, $cents, $on]) {
+                    $a = min($cents, $interest - $ip);
+                    $ip += $a;
+                    $split[$pid]['interest'] += $a;
+                    $cents -= $a;
+                    $b = min($cents, $owed - $pp);
+                    $pp += $b;
+                    $split[$pid]['principal'] += $b;
+                    $lastDate = $on;
+                    if ($completed === null && $ip + $pp >= $demanded) {
+                        $completed = $on;
+                    }
+                }
+                $row['interest'] = $interest;
+                $row['interest_paid'] = $ip;
+                $row['principal_paid'] = $pp;
+                $row['demanded'] = $demanded;
+                $row['paid'] = $ip + $pp;
+                $row['cleared_on'] = null;
+                if ($over && !$last) {
+                    // The month is over: unpaid interest joins the principal; the rest is spread again
+                    $row['capitalised'] = $interest - $ip;
+                    $row['interest_paid'] = $interest;
+                    $row['principal'] = $pp;
+                    $row['short'] = max(0, $demanded - $ip - $pp);
+                    $owed = $owed - $pp + $row['capitalised'];
+                    if ($row['short'] === 0) {
+                        $row['cleared_on'] = $completed ?? $lastDate ?? $monthEnd;
+                        $catchUp($k, $row['cleared_on']);
+                    }
+                } else {
+                    // Not over yet (or the last month): what is asked; later months as if paid as asked
+                    $row['principal'] = $last ? $owed : max($pp, $demanded - $interest);
+                    $row['capitalised'] = 0;
+                    $row['short'] = 0;
+                    $owed -= $row['principal'];
+                    if ($ip >= $interest && $pp >= $row['principal'] && ($ip + $pp) > 0) {
+                        $row['cleared_on'] = $completed ?? $lastDate;
+                        $catchUp($k, $row['cleared_on']);
+                    }
+                }
+                $row['balance_after'] = $owed;
+                unset($row);
+            }
+        }
+
+        $allocate = $db->prepare('INSERT INTO loan_payment_allocations (payment_id, loan_id, part, amount) VALUES (?, ?, ?, ?)');
+        foreach ($split as $pid => $parts) {
+            foreach ($parts as $part => $cents) {
                 if ($cents > 0) {
-                    $allocate->execute([$payment['id'], $loanId, $part, Money::toDecimal($cents)]);
+                    $allocate->execute([$pid, $loanId, $part, Money::toDecimal($cents)]);
                 }
             }
         }
 
-        $update = $db->prepare('UPDATE loan_installments SET principal_paid = ?, interest_paid = ?, cleared_on = ? WHERE id = ?');
+        $update = $db->prepare(
+            'UPDATE loan_installments SET principal = ?, interest = ?, principal_paid = ?, interest_paid = ?, cleared_on = ?,
+                    demanded = ?, paid_in_month = ?, capitalised = ?, short = ?, balance_after = ? WHERE id = ?'
+        );
         $allPaid = true;
         foreach ($rows as $row) {
-            $update->execute([Money::toDecimal($row['principal_paid']), Money::toDecimal($row['interest_paid']), $row['cleared_on'], $row['id']]);
-            $allPaid = $allPaid && $row['principal_paid'] === $row['principal'] && $row['interest_paid'] === $row['interest'];
+            $update->execute([
+                Money::toDecimal($row['principal']), Money::toDecimal($row['interest']), Money::toDecimal($row['principal_paid']), Money::toDecimal($row['interest_paid']), $row['cleared_on'],
+                Money::toDecimal($row['demanded']), Money::toDecimal($row['paid']), Money::toDecimal($row['capitalised']), Money::toDecimal($row['short']),
+                $row['balance_after'] === null ? null : Money::toDecimal($row['balance_after']), $row['id'],
+            ]);
+            $allPaid = $allPaid && $row['principal_paid'] >= $row['principal'] && $row['interest_paid'] >= $row['interest'];
         }
         $updateCharge = $db->prepare('UPDATE loan_charges SET paid = ? WHERE id = ?');
         foreach ($charges as $charge) {
@@ -518,6 +670,25 @@ final class Loans
         Credit::refresh($db, (int) $borrower->fetchColumn());
     }
 
+    /**
+     * Every running loan worked out again: months end with the calendar, not only when someone
+     * pays, so this runs once a day (with the reminders) before anything counts who is behind
+     */
+    public static function recalculateAll(PDO $db): int
+    {
+        $ids = $db->query("SELECT id FROM loans WHERE status = 'active' AND disbursed_on IS NOT NULL")->fetchAll(PDO::FETCH_COLUMN);
+        foreach ($ids as $id) {
+            Database::transaction(fn () => self::applyPayments($db, (int) $id));
+        }
+        return count($ids);
+    }
+
+    /** A loan instalment that is late: past its due date and unpaid, or a month paid short not yet caught up */
+    public const LATE = '(i.cleared_on IS NULL AND (i.short > 0 OR i.principal + i.interest > i.principal_paid + i.interest_paid))';
+
+    /** How much of a late instalment is late */
+    public const LATE_AMOUNT = '(CASE WHEN i.short > 0 THEN i.short ELSE i.principal + i.interest - i.principal_paid - i.interest_paid END)';
+
     /** Totals for a disbursed loan, in cents. Unpaid charges (penalties) count as owed and overdue. */
     /** Whether a loan's processing fee comes from the borrower's savings (the SACCO's rule) */
     public static function feeFromSavings(): bool
@@ -529,7 +700,8 @@ final class Loans
     {
         $stmt = $db->prepare(
             'SELECT COALESCE(SUM(principal), 0) AS principal, COALESCE(SUM(interest), 0) AS interest,
-                    COALESCE(SUM(principal_paid), 0) AS principal_paid, COALESCE(SUM(interest_paid), 0) AS interest_paid
+                    COALESCE(SUM(principal_paid), 0) AS principal_paid, COALESCE(SUM(interest_paid), 0) AS interest_paid,
+                    COALESCE(SUM(capitalised), 0) AS capitalised
              FROM loan_installments WHERE loan_id = ?'
         );
         $stmt->execute([$loanId]);
@@ -548,8 +720,8 @@ final class Loans
         $next = $next->fetch() ?: null;
 
         $overdue = $db->prepare(
-            'SELECT COALESCE(SUM(principal + interest - principal_paid - interest_paid), 0)
-             FROM loan_installments WHERE loan_id = ? AND due_date < CURDATE()'
+            'SELECT COALESCE(SUM(' . self::LATE_AMOUNT . '), 0)
+             FROM loan_installments i WHERE i.loan_id = ? AND i.due_date < CURDATE() AND ' . self::LATE
         );
         $overdue->execute([$loanId]);
         $overdueInstalments = Money::fromDecimal($overdue->fetchColumn());
@@ -559,7 +731,9 @@ final class Loans
             'interest_left' => $t['interest'] - $t['interest_paid'],
             'charges_left' => $chargesLeft,
             'total_left' => $t['principal'] + $t['interest'] - $t['principal_paid'] - $t['interest_paid'] + $chargesLeft,
-            'paid' => $t['principal_paid'] + $t['interest_paid'],
+            // Interest added to the principal counts as settled interest, but nobody paid it in money
+            'paid' => $t['principal_paid'] + $t['interest_paid'] - $t['capitalised'],
+            'interest_added' => $t['capitalised'],
             'total_interest' => $t['interest'],
             'next_due_date' => $next['due_date'] ?? null,
             'next_due_amount' => ($next ? Money::fromDecimal($next['due']) : 0) + $chargesLeft,
