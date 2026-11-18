@@ -133,7 +133,7 @@ function agenda() {
 </script>
 
 <template>
-  <div class="max-w-4xl">
+  <div class="max-w-4xl 2xl:max-w-5xl">
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
         <PageHeader eyebrow="Settings" title="Committee decisions">

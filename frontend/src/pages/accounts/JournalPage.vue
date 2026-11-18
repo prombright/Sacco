@@ -144,7 +144,7 @@ async function reverse() {
 
     <ReportView class="mt-5" :report="report" :busy="busy" :error="error">
       <template #controls>
-        <div><label for="j-q" class="label">Search</label><input id="j-q" v-model="q" type="search" class="input !w-44" placeholder="Details or number" /></div>
+        <div><label for="j-q" class="label">Search</label><input id="j-q" v-model="q" type="search" class="input sm:!w-44" placeholder="Details or number" /></div>
         <div>
           <label for="j-kind" class="label">Show</label>
           <select id="j-kind" v-model="kind" class="input">

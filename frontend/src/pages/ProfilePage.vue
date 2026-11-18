@@ -110,7 +110,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="max-w-4xl">
+  <div class="max-w-4xl xl:max-w-6xl">
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
         <PageHeader :eyebrow="t('My account')">

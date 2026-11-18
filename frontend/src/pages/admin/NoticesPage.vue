@@ -56,24 +56,25 @@ async function end(n: Notice) {
 </script>
 
 <template>
-  <div class="max-w-4xl">
+  <div class="max-w-4xl xl:max-w-7xl">
     <PageHeader eyebrow="Members" title="Notices">
       Tell every member something: AGM dates, rule changes, when payroll goes in. Notices show on members' dashboards.
     </PageHeader>
 
-    <form v-can="'notices'" class="card mt-6 space-y-4 p-5" novalidate @submit.prevent="post">
+    <div class="xl:mt-6 xl:grid xl:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] xl:items-start xl:gap-6">
+    <form v-can="'notices'" class="card mt-6 space-y-4 p-5 xl:sticky xl:top-24 xl:mt-0" novalidate @submit.prevent="post">
       <h2 class="font-semibold">New notice</h2>
       <div v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
       <div><label for="ntitle" class="label">Title</label><input id="ntitle" v-model="form.title" class="input" maxlength="120" placeholder="e.g. Annual General Meeting on 20 December" /></div>
       <div><label for="nbody" class="label">Message</label><textarea id="nbody" v-model="form.body" class="input min-h-[7rem]" maxlength="5000" /></div>
-      <div class="grid gap-4 sm:grid-cols-3">
+      <div class="grid gap-4 sm:grid-cols-3 xl:grid-cols-2">
         <div><label for="nstart" class="label">Show from</label><input id="nstart" v-model="form.starts_on" type="date" class="input" /></div>
         <div><label for="nend" class="label">Until <span class="font-normal text-gray-400">(optional)</span></label><input id="nend" v-model="form.ends_on" type="date" :min="form.starts_on" class="input" /></div>
-        <div class="flex items-end"><button type="submit" class="btn-primary w-full" :disabled="busy || !form.title.trim() || !form.body.trim()">Post notice</button></div>
+        <div class="flex items-end xl:col-span-2"><button type="submit" class="btn-primary w-full" :disabled="busy || !form.title.trim() || !form.body.trim()">Post notice</button></div>
       </div>
     </form>
 
-    <ul class="mt-6 space-y-3">
+    <ul class="mt-6 space-y-3 xl:mt-0">
       <li v-for="n in notices" :key="n.id" class="card p-5">
         <div class="flex flex-wrap items-start justify-between gap-2">
           <h3 class="font-semibold">{{ n.title }}</h3>
@@ -87,5 +88,6 @@ async function end(n: Notice) {
       </li>
       <li v-if="!notices.length" class="card"><EmptyState title="No notices yet" text="Notices appear on every member's dashboard, for example the AGM date or a change in the rules." /></li>
     </ul>
+    </div>
   </div>
 </template>

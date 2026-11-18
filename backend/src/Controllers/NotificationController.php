@@ -34,13 +34,16 @@ final class NotificationController
         $db = Database::tenant();
         $limit = max(1, min(100, (int) $request->query('limit', 50)));
         $before = (int) $request->query('before', 0);
+        // Office notices ("X changed the rules") belong to office accounts; a member account that held
+        // an office role in the past doesn't keep showing them
+        $only = Auth::user()['role'] === 'member' ? " AND kind <> 'accountability'" : '';
         $stmt = $db->prepare(
             'SELECT id, title, body, link, kind, read_at, created_at, email_status, emailed_at FROM notifications
-             WHERE user_id = ?' . ($before > 0 ? ' AND id < ?' : '') . " ORDER BY id DESC LIMIT $limit"
+             WHERE user_id = ?' . $only . ($before > 0 ? ' AND id < ?' : '') . " ORDER BY id DESC LIMIT $limit"
         );
         $stmt->execute($before > 0 ? [Auth::id(), $before] : [Auth::id()]);
         $rows = $stmt->fetchAll();
-        $unread = $db->prepare('SELECT COUNT(*) FROM notifications WHERE user_id = ? AND read_at IS NULL');
+        $unread = $db->prepare('SELECT COUNT(*) FROM notifications WHERE user_id = ? AND read_at IS NULL' . $only);
         $unread->execute([Auth::id()]);
         Response::ok(['notifications' => $rows, 'unread' => (int) $unread->fetchColumn(), 'more' => count($rows) === $limit]);
     }

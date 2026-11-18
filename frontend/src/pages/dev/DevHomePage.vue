@@ -165,7 +165,7 @@ function closeAdding() {
           <div class="flex flex-wrap items-center gap-2">
             <div class="relative">
               <MagnifyingGlassIcon class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
-              <input v-model="q" type="search" class="input !w-56 pl-9" placeholder="Find a SACCO" aria-label="Find a SACCO" />
+              <input v-model="q" type="search" class="input pl-9 sm:!w-56" placeholder="Find a SACCO" aria-label="Find a SACCO" />
             </div>
             <div class="flex rounded-lg bg-gray-200/60 p-0.5 text-xs font-semibold" role="radiogroup" aria-label="Show">
               <button v-for="f in (['all', 'active', 'paused', 'attention'] as const)" :key="f" type="button" role="radio" :aria-checked="status === f" class="rounded-md px-2.5 py-1.5" :class="status === f ? 'bg-surface text-ink shadow-sm' : 'text-gray-600'" @click="status = f">

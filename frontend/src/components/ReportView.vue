@@ -135,9 +135,10 @@ const printedAt = computed(() => new Date().toLocaleString('en-GB', { day: 'nume
           <span v-else-if="view.balanced === false" class="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700"><ExclamationTriangleIcon class="h-3.5 w-3.5" />{{ view.subtitle.match(/NOT BALANCED.*/)?.[0] ?? 'Not balanced' }}</span>
         </p>
       </div>
-      <div class="flex flex-wrap items-end gap-2">
+      <!-- Phones: every control a full-width row (two dates side by side), the downloads across the bottom -->
+      <div class="report-controls flex flex-wrap items-end gap-2 max-sm:grid max-sm:w-full max-sm:grid-cols-2">
         <slot name="controls" />
-        <div v-if="searchable" class="relative max-sm:w-full">
+        <div v-if="searchable" class="relative max-sm:col-span-2 max-sm:w-full">
           <MagnifyingGlassIcon class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
           <input
             v-model="query"
@@ -151,7 +152,7 @@ const printedAt = computed(() => new Date().toLocaleString('en-GB', { day: 'nume
             <XMarkIcon class="h-4 w-4" />
           </button>
         </div>
-        <div class="flex overflow-hidden rounded-lg border border-line bg-surface shadow-sm" role="group" aria-label="Download or print">
+        <div class="flex overflow-hidden rounded-lg border border-line bg-surface shadow-sm max-sm:col-span-2 max-sm:[&>button]:flex-1 max-sm:[&>button]:justify-center" role="group" aria-label="Download or print">
           <button type="button" class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-40" :disabled="!view || !view.rows.length || !!making" title="Download as Excel" @click="exportAs('excel')">
             <TableCellsIcon class="h-4 w-4" :class="{ 'animate-pulse': making === 'excel' }" />Excel
           </button>

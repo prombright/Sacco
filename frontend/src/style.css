@@ -145,7 +145,7 @@ h3 {
 
 @layer components {
   .form-actions {
-    @apply max-lg:sticky max-lg:z-20 max-lg:-mx-5 max-lg:border-t max-lg:border-line max-lg:bg-surface/95 max-lg:px-5 max-lg:py-3 max-lg:backdrop-blur;
+    @apply max-lg:sticky max-lg:z-20 max-lg:-mx-4 max-lg:border-t max-lg:border-line max-lg:bg-surface/95 max-lg:px-4 max-lg:py-3 max-lg:backdrop-blur;
     bottom: calc(4rem + env(safe-area-inset-bottom));
   }
   @media (min-width: 1024px) {
@@ -436,4 +436,21 @@ table {
 /* ...and in the label/value lists that show amounts */
 dd {
   font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Report controls on phones (components/ReportView.vue): each control spans the row and its box
+ * fills it; a pair of dates (From, To) sits side by side.
+ */
+@media screen and (max-width: 639px) {
+  .report-controls > * {
+    grid-column: span 2 / span 2;
+    min-width: 0;
+  }
+  .report-controls > :has(input[type='date']) {
+    grid-column: span 1 / span 1;
+  }
+  .report-controls .input {
+    width: 100%;
+  }
 }

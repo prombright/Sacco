@@ -161,7 +161,7 @@ async function submit() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-3xl">
+  <div class="mx-auto max-w-3xl xl:max-w-5xl">
     <RouterLink :to="{ name: 'loans' }" class="text-sm font-medium text-gray-600 hover:text-gray-900">← Loans</RouterLink>
     <h1 class="mt-3 text-2xl font-bold">Apply for a loan</h1>
 

@@ -23,10 +23,36 @@ const loadingOlder = ref(false)
 const filter = ref<'all' | 'money' | 'loans' | 'guarantees' | 'office'>('all')
 const thread = ref<HTMLElement | null>(null)
 
-const filters = computed(() => [
-  { key: 'all', label: t('All') },
-  ...(auth.isAdmin ? [{ key: 'office', label: 'Office' }] : [{ key: 'money', label: t('Money') }, { key: 'loans', label: t('Loans') }, { key: 'guarantees', label: t('Guarantees') }]),
-] as { key: typeof filter.value; label: string }[])
+const filters = computed(() =>
+  ([
+    { key: 'all', label: t('All') },
+    ...(auth.isAdmin ? [{ key: 'office', label: 'Office' }] : [{ key: 'money', label: t('Money') }, { key: 'loans', label: t('Loans') }, { key: 'guarantees', label: t('Guarantees') }]),
+  ] as { key: typeof filter.value; label: string }[]).map((f) => ({
+    ...f,
+    count: f.key === 'all' ? list.value.length : list.value.filter((m) => messageGroup(m.kind) === f.key).length,
+  })),
+)
+const unread = computed(() => list.value.filter((m) => !m.read_at).length)
+
+/**
+ * Wide screens: the conversation scrolls in its own box beside the filters. Phones and tablets:
+ * it scrolls with the page, so nothing hides behind the bottom tabs.
+ */
+const wide = window.matchMedia('(min-width: 1024px)')
+const scrollHeight = () => (wide.matches ? thread.value?.scrollHeight ?? 0 : document.documentElement.scrollHeight)
+const scrollTop = () => (wide.matches ? thread.value?.scrollTop ?? 0 : window.scrollY)
+function scrollTo(top: number) {
+  if (wide.matches) {
+    if (thread.value) thread.value.scrollTop = top
+  } else {
+    window.scrollTo({ top })
+  }
+}
+async function pick(key: typeof filter.value) {
+  filter.value = key
+  await nextTick()
+  scrollTo(scrollHeight())
+}
 
 // Oldest first, in days
 const days = computed(() => {
@@ -58,12 +84,12 @@ async function fetchPage(before?: number) {
 
 async function older() {
   loadingOlder.value = true
-  const keep = thread.value ? thread.value.scrollHeight - thread.value.scrollTop : 0
+  const keep = scrollHeight() - scrollTop()
   try {
     list.value = [...list.value, ...(await fetchPage(list.value[list.value.length - 1]?.id))]
     await nextTick()
     // Stay where they were reading
-    if (thread.value) thread.value.scrollTop = thread.value.scrollHeight - keep
+    scrollTo(scrollHeight() - keep)
   } finally {
     loadingOlder.value = false
   }
@@ -80,7 +106,8 @@ onMounted(async () => {
     loading.value = false
   }
   await nextTick()
-  if (thread.value) thread.value.scrollTop = thread.value.scrollHeight
+  // Open at the newest, at the bottom, as on a phone
+  scrollTo(scrollHeight())
   // Opening the conversation reads them, as on a phone
   if (list.value.some((m) => !m.read_at)) {
     await store.markRead()
@@ -89,32 +116,73 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="mx-auto max-w-2xl">
-    <div class="card overflow-hidden">
-      <!-- Like the top of a conversation on a phone -->
-      <div class="flex items-center gap-3 border-b border-line px-4 py-3">
-        <SaccoMark :sacco="auth.sacco" size="sm" />
-        <div class="min-w-0 flex-1">
-          <h1 class="truncate font-semibold">{{ auth.sacco?.name ?? 'SACCO' }}</h1>
-          <p class="text-xs text-gray-500">{{ t('Messages about your account') }}</p>
+  <div class="mx-auto max-w-6xl lg:grid lg:grid-cols-[16rem_minmax(0,1fr)] lg:gap-6 xl:grid-cols-[18rem_minmax(0,1fr)]">
+    <!-- Wide screens: who the messages are from, and the filters with how many in each -->
+    <aside class="hidden lg:block">
+      <div class="card sticky top-24 p-4">
+        <div class="flex items-center gap-3">
+          <SaccoMark :sacco="auth.sacco" />
+          <div class="min-w-0">
+            <p class="truncate font-semibold">{{ auth.sacco?.name ?? 'SACCO' }}</p>
+            <p class="text-xs text-gray-500">{{ t('Messages about your account') }}</p>
+          </div>
         </div>
+        <nav class="mt-4 space-y-0.5" aria-label="Show">
+          <button
+            v-for="f in filters"
+            :key="f.key"
+            type="button"
+            class="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-medium transition"
+            :class="filter === f.key ? 'bg-navy-50 text-navy-800' : 'text-gray-600 hover:bg-gray-50 hover:text-ink'"
+            :aria-pressed="filter === f.key"
+            @click="pick(f.key)"
+          >
+            {{ f.label }}
+            <span class="rounded-full px-2 py-0.5 text-xs tabular-nums" :class="filter === f.key ? 'bg-brand text-white' : 'bg-gray-100 text-gray-500'">{{ f.count }}</span>
+          </button>
+        </nav>
+        <p class="mt-4 border-t border-line pt-3 text-xs text-gray-500">
+          <template v-if="unread">{{ unread }} new · </template>{{ auth.isAdmin ? 'Changes made in the office, as they happen.' : 'Each one also goes to your email when you have one.' }}
+        </p>
       </div>
-      <div class="flex gap-1.5 overflow-x-auto border-b border-line px-4 py-2" role="radiogroup" aria-label="Show">
+    </aside>
+
+    <div class="card overflow-clip lg:flex lg:h-[calc(100dvh-8rem)] lg:min-h-[28rem] lg:flex-col">
+      <!-- The top of the conversation -->
+      <div class="flex items-center gap-3 border-b border-line px-4 py-3">
+        <SaccoMark :sacco="auth.sacco" size="sm" class="lg:hidden" />
+        <div class="min-w-0 flex-1">
+          <h1 class="truncate font-semibold">
+            <span class="lg:hidden">{{ auth.sacco?.name ?? 'SACCO' }}</span>
+            <span class="hidden lg:inline">{{ filters.find((f) => f.key === filter)?.label }} {{ filter === 'all' ? t('Messages').toLowerCase() : '' }}</span>
+          </h1>
+          <p class="text-xs text-gray-500">
+            <span class="lg:hidden">{{ t('Messages about your account') }}</span>
+            <span class="hidden lg:inline">Oldest at the top, newest at the bottom</span>
+          </p>
+        </div>
+        <span v-if="unread" class="shrink-0 rounded-full bg-saffron-100 px-2.5 py-0.5 text-xs font-semibold text-saffron-800">{{ unread }} new</span>
+      </div>
+
+      <!-- Phones and tablets: the filters stay under the top bar while scrolling -->
+      <div class="sticky top-16 z-20 flex gap-2 overflow-x-auto border-b border-line bg-surface/95 px-4 py-2.5 backdrop-blur lg:hidden" role="radiogroup" aria-label="Show">
         <button
           v-for="f in filters"
           :key="f.key"
           type="button"
           role="radio"
           :aria-checked="filter === f.key"
-          class="shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition"
+          class="tap inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-semibold transition"
           :class="filter === f.key ? 'bg-brand text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
-          @click="filter = f.key"
-        >{{ f.label }}</button>
+          @click="pick(f.key)"
+        >
+          {{ f.label }}<span class="text-xs tabular-nums opacity-75">{{ f.count }}</span>
+        </button>
       </div>
 
-      <div ref="thread" class="h-[calc(100vh-15rem)] min-h-[22rem] overflow-y-auto bg-gray-50 px-3 py-4 sm:px-5">
+      <div ref="thread" class="bg-gray-50 px-3 py-4 sm:px-6 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:px-8">
         <div v-if="more" class="mb-4 text-center">
-          <button type="button" class="rounded-full bg-surface px-4 py-1.5 text-xs font-semibold text-brand shadow-sm hover:underline" :disabled="loadingOlder" @click="older">
+          <button type="button" class="rounded-full bg-surface px-4 py-2 text-sm font-semibold text-brand shadow-sm hover:underline" :disabled="loadingOlder" @click="older">
             {{ loadingOlder ? t('Loading…') : t('Earlier messages') }}
           </button>
         </div>
@@ -123,18 +191,21 @@ onMounted(async () => {
           {{ auth.isAdmin ? 'No messages yet. When a super admin changes the rules or the books, it shows here.' : t('No messages yet. Money in and out of your account, loan news and reminders will show here.') }}
         </p>
         <section v-for="d in days" :key="d.day" class="mb-2">
-          <p class="sticky top-0 z-10 my-3 text-center">
+          <p class="my-3 text-center lg:sticky lg:top-0 lg:z-10">
             <span class="rounded-full bg-gray-200/80 px-3 py-1 text-[11px] font-semibold text-gray-600 backdrop-blur">{{ d.day }}</span>
           </p>
           <div v-for="m in d.items" :key="m.id" class="mb-2.5 flex">
             <div
-              class="max-w-[88%] rounded-2xl rounded-tl-md border border-line bg-surface px-4 py-2.5 shadow-sm sm:max-w-[80%]"
-              :class="{ 'cursor-pointer hover:border-brand/40': m.link, 'ring-2 ring-saffron-300/60': !m.read_at }"
+              class="min-w-0 max-w-[92%] rounded-2xl rounded-tl-md border border-line bg-surface px-4 py-3 shadow-sm sm:max-w-[80%] lg:max-w-[40rem]"
+              :class="{ 'cursor-pointer transition hover:border-brand/40 hover:shadow-card': m.link, 'ring-2 ring-saffron-300/60': !m.read_at }"
+              :role="m.link ? 'link' : undefined"
+              :tabindex="m.link ? 0 : undefined"
               @click="open(m)"
+              @keydown.enter="open(m)"
             >
-              <p class="text-sm font-semibold text-ink">{{ m.title }}</p>
-              <p class="mt-0.5 whitespace-pre-line text-sm text-gray-700">{{ m.body }}</p>
-              <p class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-400">
+              <p class="text-[0.95rem] font-semibold leading-snug text-ink">{{ m.title }}</p>
+              <p class="mt-1 whitespace-pre-line break-words text-sm leading-relaxed text-gray-700">{{ m.body }}</p>
+              <p class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
                 <span>{{ time(m.created_at) }}</span>
                 <span v-if="m.email_status === 'sent'" class="inline-flex items-center gap-1"><EnvelopeIcon class="h-3.5 w-3.5" aria-hidden="true" />{{ t('Also sent to your email') }}</span>
                 <span v-if="m.link" class="ml-auto inline-flex items-center gap-0.5 font-semibold text-brand">{{ t('Open') }}<ArrowRightIcon class="h-3 w-3" aria-hidden="true" /></span>

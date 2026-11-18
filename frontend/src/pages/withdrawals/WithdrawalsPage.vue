@@ -74,12 +74,15 @@ onMounted(() => load().catch((e) => (error.value = e instanceof ApiError ? e.mes
 </script>
 
 <template>
-  <div class="max-w-3xl">
+  <div class="max-w-3xl xl:max-w-6xl">
     <PageHeader eyebrow="My account" title="Withdraw savings">
       Ask for part of your savings. Once approved, you'll get a message to pick up your cheque.
     </PageHeader>
 
-    <div v-if="data" class="card mt-5 p-5">
+    <!-- Big screens: what they can take and the request on the left, their requests on the right -->
+    <div class="xl:mt-5 xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:items-start xl:gap-6">
+    <div class="xl:sticky xl:top-24">
+    <div v-if="data" class="card mt-5 p-5 xl:mt-0">
       <p class="text-sm text-gray-600">You can withdraw up to</p>
       <p class="mt-1 text-2xl font-semibold tabular-nums">{{ formatMoney(data.available) }}</p>
       <dl class="mt-3 grid gap-x-6 gap-y-1 text-sm text-gray-600 sm:grid-cols-3">
@@ -121,7 +124,9 @@ onMounted(() => load().catch((e) => (error.value = e instanceof ApiError ? e.mes
       You can make a new request once {{ open.request_no }} is finished.
     </p>
 
-    <h2 class="mt-8 font-semibold">My requests</h2>
+    </div>
+    <div>
+    <h2 class="mt-8 font-semibold xl:mt-0">My requests</h2>
     <ul class="card mt-3 divide-y divide-gray-100">
       <li v-for="r in data?.requests ?? []" :key="r.id" class="p-4">
         <div class="flex flex-wrap items-start justify-between gap-2">
@@ -142,5 +147,7 @@ onMounted(() => load().catch((e) => (error.value = e instanceof ApiError ? e.mes
       </li>
       <li v-if="data && !data.requests.length"><EmptyState title="No withdrawal requests yet" text="When you ask to take out savings, you can follow the request here until the cheque is ready." compact /></li>
     </ul>
+    </div>
+    </div>
   </div>
 </template>

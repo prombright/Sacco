@@ -356,8 +356,9 @@ async function signOut() {
         <span class="hidden whitespace-nowrap text-sm text-gray-500 xl:inline" :class="auth.isAdmin ? 'ml-4' : 'ml-auto'">
           {{ new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }) }}
         </span>
-        <button v-if="canInstall && !auth.isAdmin" type="button" class="tap ml-auto inline-flex items-center gap-1.5 rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-white lg:hidden" @click="install">
-          <ArrowDownTrayIcon class="h-4 w-4" aria-hidden="true" />{{ t('Install the app') }}
+        <!-- Small phones: just the icon, so the page title keeps its room -->
+        <button v-if="canInstall && !auth.isAdmin" type="button" class="tap ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-white max-[420px]:px-2.5 lg:hidden" :aria-label="t('Install the app')" @click="install">
+          <ArrowDownTrayIcon class="h-4 w-4" aria-hidden="true" /><span class="max-[420px]:hidden">{{ t('Install the app') }}</span>
         </button>
         <button v-if="auth.isAdmin" type="button" class="tap ml-auto rounded-full p-2 text-gray-600 hover:bg-gray-200/60 sm:hidden" aria-label="Find a member, loan or page" @click="searchOpen = true">
           <MagnifyingGlassIcon class="h-6 w-6" />
@@ -369,7 +370,7 @@ async function signOut() {
     </header>
     <CommandPalette v-if="auth.isAdmin" v-model="searchOpen" />
 
-    <main class="mx-auto max-w-7xl px-4 pb-28 pt-6 sm:px-6 lg:px-8 lg:py-8">
+    <main class="mx-auto max-w-7xl px-4 pb-28 pt-6 sm:px-6 lg:px-8 lg:py-8 2xl:max-w-[88rem]">
       <SmsToast />
       <RouterView v-slot="{ Component, route: page }">
         <Transition name="page" mode="out-in">

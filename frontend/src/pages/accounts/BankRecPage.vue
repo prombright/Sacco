@@ -224,7 +224,7 @@ async function saveEdit() {
           <div class="flex flex-wrap items-center justify-between gap-3 border-b border-line p-4">
             <h2 class="font-semibold">Entries in the books</h2>
             <div class="flex flex-wrap items-center gap-2">
-              <input v-model="q" type="search" class="input !w-44" placeholder="Search" aria-label="Search entries" />
+              <input v-model="q" type="search" class="input sm:!w-44" placeholder="Search" aria-label="Search entries" />
               <div class="flex rounded-lg bg-gray-100 p-0.5 text-xs font-semibold" role="radiogroup" aria-label="Show">
                 <button v-for="o in ([['all', 'All'], ['open', 'Unticked'], ['ticked', 'Ticked']] as const)" :key="o[0]" type="button" role="radio" :aria-checked="show === o[0]" class="rounded-md px-2.5 py-1.5" :class="show === o[0] ? 'bg-surface text-ink shadow-sm' : 'text-gray-600'" @click="show = o[0]">{{ o[1] }}</button>
               </div>
