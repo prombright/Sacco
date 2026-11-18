@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import Crumbs from '@/components/Crumbs.vue'
 import { toast } from '@/toast'
+import { ask } from '@/confirm'
 import SkeletonRows from '@/components/SkeletonRows.vue'
 import UserAvatar from '@/components/UserAvatar.vue'
 import CreditBadge from '@/components/CreditBadge.vue'
@@ -148,6 +149,20 @@ const exitForm = ref({ reason: '', cheque_no: '', exit_date: new Date().toLocale
 const exitError = ref('')
 const exiting = ref(false)
 
+/** The super admin removes a member added by mistake (only one with no money history) */
+const deleteError = ref('')
+async function deleteMember() {
+  if (!member.value) return
+  deleteError.value = ''
+  if (!await ask(`Delete ${member.value.full_name} for good? Use this only for a member added by mistake or twice. Their details, next of kin and messages go too; the audit report keeps who they were.`)) return
+  try {
+    await api.delete(`/users/${id}`)
+    toast(`${member.value.full_name} was deleted`)
+    router.replace({ name: 'users' })
+  } catch (e) {
+    deleteError.value = e instanceof ApiError ? e.message : 'Could not delete the member.'
+  }
+}
 async function openExit() {
   exitError.value = ''
   exitQuote.value = await api.get<ExitQuote>(`/members/${id}/exit`)
@@ -438,6 +453,12 @@ function certificate() {
             <h2 class="font-semibold text-red-800">Close membership</h2>
             <p class="mt-1 text-sm text-gray-700">When a member leaves the SACCO: pays out their savings and shares by cheque and marks them as left. They must owe nothing and guarantee nobody first.</p>
             <button type="button" class="btn-secondary mt-3" @click="openExit">Close membership…</button>
+          </section>
+          <section v-if="auth.isSuperAdmin && !isSelf" class="mt-4 rounded-2xl border border-red-200 p-5">
+            <h2 class="font-semibold text-red-800">Delete this member</h2>
+            <p class="mt-1 text-sm text-gray-700">For a member added by mistake or twice. Only someone with no money history here can be deleted; anyone who has saved, borrowed, guaranteed or paid a fee keeps their records, so close their membership instead.</p>
+            <p v-if="deleteError" class="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ deleteError }}</p>
+            <button type="button" class="btn mt-3 bg-red-600 text-white hover:bg-red-700" @click="deleteMember">Delete member…</button>
           </section>
         </div>
 

@@ -326,6 +326,70 @@ final class UserController
         return 'M' . str_pad((string) $id, 5, '0', STR_PAD_LEFT);
     }
 
+    /**
+     * DELETE /api/users/{id} (super admin) - removes a member added by mistake (or twice). Only one
+     * with no money history in this system: anyone with entries, loans, guarantees, transfers,
+     * withdrawals, fees paid, savings interest or an exit keeps their records, and their account is
+     * closed instead. Their office access (Admin or Staff) goes with them; Super admin is taken
+     * away first. The audit report keeps who they were.
+     */
+    public function destroy(Request $request): never
+    {
+        $db = Database::tenant();
+        $user = $this->find((int) $request->param('id'));
+        if ($user['role'] !== Roles::MEMBER) {
+            Response::error(self::DEV_ONLY, 403);
+        }
+        if (Auth::isMe((int) $user['id'])) {
+            Response::error('You can\'t delete your own account.', 403);
+        }
+        $id = (int) $user['id'];
+        $count = function (string $sql) use ($db, $id): int {
+            $s = $db->prepare($sql);
+            $s->execute(array_fill(0, substr_count($sql, '?'), $id));
+            return (int) $s->fetchColumn();
+        };
+        $checks = [
+            'savings or shares entries' => 'SELECT COUNT(*) FROM transactions WHERE user_id = ?',
+            'loans' => 'SELECT COUNT(*) FROM loans WHERE user_id = ?',
+            'guarantees for other members' => 'SELECT COUNT(*) FROM loan_guarantors WHERE guarantor_id = ?',
+            'transfers' => 'SELECT COUNT(*) FROM transfers WHERE from_user_id = ? OR to_user_id = ?',
+            'withdrawal requests' => 'SELECT COUNT(*) FROM withdrawal_requests WHERE user_id = ?',
+            'fees paid or waived' => "SELECT COUNT(*) FROM membership_fees WHERE user_id = ? AND status <> 'unpaid'",
+            'savings interest' => 'SELECT (SELECT COUNT(*) FROM savings_interest WHERE user_id = ?) + (SELECT COUNT(*) FROM savings_interest_payouts WHERE user_id = ?)',
+            'savings interest owed from the old system' => 'SELECT COUNT(*) FROM old_system_interest_payable WHERE user_id = ? AND amount <> 0',
+            'an account exit' => 'SELECT COUNT(*) FROM member_exits WHERE user_id = ?',
+            'entries in the books' => 'SELECT COUNT(*) FROM journal_lines WHERE member_id = ?',
+            'requests waiting for a second approval' => "SELECT COUNT(*) FROM approvals WHERE member_id = ? AND status = 'pending'",
+        ];
+        $has = array_keys(array_filter($checks, fn ($sql) => $count($sql) > 0));
+        if ($has) {
+            Response::error($user['full_name'] . ' can\'t be deleted: they have ' . implode(', ', $has) . '. Their records must stay, so close their account instead (member exit).', 422);
+        }
+        $office = OfficeAccess::officeOf($db, $id);
+        if ($office && $office['role'] === Roles::SUPER_ADMIN) {
+            Response::error($user['full_name'] . ' is a super admin. Take that away first.', 422);
+        }
+
+        Database::transaction(function (\PDO $db) use ($id, $office) {
+            foreach (array_filter([$id, $office['id'] ?? null]) as $uid) {
+                foreach (['notifications', 'next_of_kin', 'password_history', 'password_resets', 'login_log', 'old_system_history', 'old_system_interest_payable'] as $table) {
+                    $db->prepare("DELETE FROM $table WHERE user_id = ?")->execute([$uid]);
+                }
+                $db->prepare("DELETE FROM membership_fees WHERE user_id = ? AND status = 'unpaid'")->execute([$uid]);
+            }
+            if ($office) {
+                $db->prepare('DELETE FROM users WHERE id = ?')->execute([$office['id']]);
+            }
+            $db->prepare('DELETE FROM users WHERE id = ?')->execute([$id]);
+        });
+        Audit::log('member.deleted', 'user', $id, [
+            'name' => $user['full_name'], 'account_no' => $user['account_no'], 'employee_no' => $user['employee_no'],
+            'email' => $user['email'], 'office_access' => $office['role'] ?? null,
+        ]);
+        Response::ok();
+    }
+
     /** POST /api/users/{id}/link-member { member_id|null } (super admin) - the office account's owner's member account */
     public function linkMember(Request $request): never
     {

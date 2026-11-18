@@ -30,7 +30,7 @@ final class AuditView
         'member.slow_payer_marked', 'member.slow_payer_lifted', 'member.exited',
         'loan.months_changed', 'loan.charge_waived', 'loan.security_removed', 'loan.payment_reversed', 'loan.guarantee_on_paper', 'loan.brought_in',
         'membership_fee.waived', 'membership_fee.undone',
-        'transaction.edited', 'transaction.deleted', 'transaction.entered_in_error', 'transfer.reversed', 'payroll.reversed', 'dividend.reversed', 'cashbook.reversed', 'journal.reversed', 'journal.posted',
+        'member.deleted', 'transaction.edited', 'transaction.deleted', 'transaction.entered_in_error', 'transfer.reversed', 'payroll.reversed', 'dividend.reversed', 'cashbook.reversed', 'journal.reversed', 'journal.posted',
         'investment.return_reversed', 'bank_rec.deleted', 'bank_rec.reopened',
         'year.closed', 'year.reopened', 'backup.downloaded', 'two_step.disabled', 'committee.decided', 'approval.rejected',
     ];

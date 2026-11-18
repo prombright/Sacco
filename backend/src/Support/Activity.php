@@ -81,6 +81,7 @@ final class Activity
             'transaction.recorded' => 'recorded a ' . str_replace('_', ' ', (string) ($d['type'] ?? 'entry')) . " of {$amount('amount')}",
             'transaction.reversed' => 'reversed an entry',
             'transaction.edited' => 'corrected an entry',
+            'member.deleted' => 'deleted the member ' . ($d['name'] ?? '') . ' (added by mistake)',
             'savings_interest.paid' => 'paid out savings interest to ' . ($d['members'] ?? '') . ' members (' . (($d['method'] ?? '') === 'cash' ? 'cash' : 'into savings') . ')',
             'transaction.deleted' => 'deleted an entry made by mistake (the member was not told)',
             'cashbook.recorded' => 'recorded SACCO ' . ($d['kind'] ?? 'income or expense') . " of {$amount('amount')}",

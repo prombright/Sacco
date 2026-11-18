@@ -74,6 +74,7 @@ $router->post('/api/auth/change-password', [AuthController::class, 'changePasswo
 $router->get('/api/users', [UserController::class, 'index'], $admins);
 $router->post('/api/users', [UserController::class, 'store'], $edit('members'));
 $router->patch('/api/users/{id}', [UserController::class, 'update'], $edit('members'));
+$router->delete('/api/users/{id}', [UserController::class, 'destroy'], ['roles' => [Roles::SUPER_ADMIN]]);
 $router->post('/api/users/{id}/reset-password', [UserController::class, 'resetPassword'], $edit('members'));
 
 // A member's own savings and shares
