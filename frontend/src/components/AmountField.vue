@@ -22,6 +22,7 @@ const pick = (n: number) => (model.value = String(n))
     <div class="relative">
       <span class="pointer-events-none absolute inset-y-0 left-4 flex items-center text-sm font-semibold text-gray-500">UGX</span>
       <input
+        required
         :id="id"
         v-model="model"
         class="input h-14 pl-14 text-2xl font-semibold tabular-nums tracking-tight"

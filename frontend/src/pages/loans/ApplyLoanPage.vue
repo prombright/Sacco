@@ -336,7 +336,7 @@ async function submit() {
 
           <div>
             <label for="purpose" class="label">What is it for?</label>
-            <input id="purpose" v-model="form.purpose" class="input" maxlength="255" placeholder="e.g. School fees" />
+            <input id="purpose" v-model="form.purpose" class="input" maxlength="255" placeholder="e.g. School fees" required />
             <p v-if="errors.purpose" class="field-error">{{ errors.purpose }}</p>
           </div>
         </div>

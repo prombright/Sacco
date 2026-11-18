@@ -72,7 +72,7 @@ const waitingHere = computed(() => (office.waiting ? items.value.reduce((n, i) =
         <h2 class="mt-4 text-lg font-semibold group-hover:text-brand">{{ item.label }}</h2>
         <p class="mt-1 flex-1 text-sm text-gray-600">{{ item.description }}</p>
         <div class="mt-4 flex items-center justify-between border-t border-line pt-3 text-sm">
-          <span class="font-medium tabular-nums text-gray-700">
+          <span class="tabular-nums" :class="item.figure ? 'font-semibold text-ink' : 'font-medium text-gray-600'">
             <template v-if="item.figure && stats">{{ item.figure(stats) }}</template>
             <span v-else-if="item.figure" class="inline-block h-4 w-24 animate-pulse rounded bg-gray-100" aria-hidden="true" />
             <template v-else>Open</template>

@@ -173,7 +173,7 @@ const byId = (id: unknown) => list.value?.transfers.find((t) => t.id === id)
         </button>
       </div>
 
-      <form class="mt-5 grid gap-4 lg:grid-cols-[1fr_auto_1fr]" @submit.prevent="submit">
+      <form class="mt-5 grid gap-4 lg:grid-cols-[1fr_auto_1fr]" novalidate @submit.prevent="submit">
         <!-- From -->
         <div class="space-y-2">
           <p class="label">From {{ chosen.from }} of</p>

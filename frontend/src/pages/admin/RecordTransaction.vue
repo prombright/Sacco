@@ -94,7 +94,7 @@ async function save() {
         </div>
         <div>
           <label for="value_date" class="label">Date</label>
-          <input id="value_date" v-model="form.value_date" type="date" :max="today" class="input" />
+          <input id="value_date" v-model="form.value_date" type="date" :max="today" class="input" required />
           <p v-if="errors.value_date" class="field-error">{{ errors.value_date }}</p>
         </div>
       </div>

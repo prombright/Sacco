@@ -97,7 +97,7 @@ async function save() {
 
       <div>
         <label for="full_name" class="label">Full name</label>
-        <input id="full_name" v-model="form.full_name" class="input" autocomplete="off" />
+        <input id="full_name" v-model="form.full_name" class="input" autocomplete="off" required />
         <p v-if="errors.full_name" class="field-error">{{ errors.full_name }}</p>
       </div>
 

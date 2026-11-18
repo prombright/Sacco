@@ -87,7 +87,7 @@ const report = computed<Report>(() => ({
       Money a member pays in outside the payroll, in cash or by bank slip. It goes to the bank account in the books.
     </PageHeader>
 
-    <form v-can="'money'" class="card mt-5 grid gap-4 p-5 lg:grid-cols-2" @submit.prevent="save">
+    <form v-can="'money'" class="card mt-5 grid gap-4 p-5 lg:grid-cols-2" novalidate @submit.prevent="save">
       <div class="space-y-2 lg:col-span-2">
         <p class="label">Member</p>
         <div v-if="member" class="flex items-center justify-between rounded-xl border border-line p-3">
@@ -112,7 +112,7 @@ const report = computed<Report>(() => ({
           {{ form.account === 'savings' ? 'Savings' : 'Shares' }} will be <span class="font-semibold text-emerald-700 tabular-nums">{{ formatMoney(String(Number(balances[form.account as 'savings' | 'shares']) + Number(String(form.amount).replace(/[,\s]/g, '')))) }}</span>
         </p>
       </AmountField>
-      <div><label for="d-date" class="label">Date received</label><input id="d-date" v-model="form.value_date" type="date" :max="today" class="input" /></div>
+      <div><label for="d-date" class="label">Date received</label><input id="d-date" v-model="form.value_date" type="date" :max="today" class="input" required /></div>
       <MoneyAccountSelect id="d-money" v-model="form.money_account_id" label="Received into" />
       <div><label for="d-ref" class="label">Receipt or bank slip no.</label><input id="d-ref" v-model="form.reference" class="input" /></div>
       <div class="lg:col-span-2"><label for="d-note" class="label">Note <span class="font-normal text-gray-500">(optional)</span></label><input id="d-note" v-model="form.narration" class="input" /></div>

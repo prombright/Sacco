@@ -148,7 +148,7 @@ const statusLabel: Record<string, string> = { active: 'Active', suspended: 'Susp
               </div>
             </td>
             <template v-if="user.role === 'member'">
-              <td class="whitespace-nowrap px-4 py-2.5 text-right tabular-nums">{{ formatMoney(user.balances?.savings) }}</td>
+              <td class="whitespace-nowrap px-4 py-2.5 text-right font-semibold tabular-nums text-ink">{{ formatMoney(user.balances?.savings) }}</td>
               <td class="whitespace-nowrap px-4 py-2.5 text-right tabular-nums text-gray-600">{{ formatMoney(user.balances?.shares) }}</td>
             </template>
             <td v-else colspan="2" class="px-4 py-2.5 text-right text-xs font-medium text-gray-500">Office account</td>
@@ -177,7 +177,7 @@ const statusLabel: Record<string, string> = { active: 'Active', suspended: 'Susp
                 <span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium" :class="statusStyle[user.status]">{{ statusLabel[user.status] }}</span>
               </div>
               <p class="truncate text-xs text-gray-500">{{ user.employee_no ?? user.email }}<template v-if="user.account_no"> · Acc <span class="font-mono">{{ user.account_no }}</span></template><template v-if="user.role !== 'member'"> · {{ user.role_label }}</template></p>
-              <p v-if="user.role === 'member'" class="mt-1 text-sm tabular-nums">{{ formatMoney(user.balances?.savings) }} <span class="text-xs text-gray-500">savings · {{ formatMoney(user.balances?.shares) }} shares</span></p>
+              <p v-if="user.role === 'member'" class="mt-1 text-sm font-semibold tabular-nums">{{ formatMoney(user.balances?.savings) }} <span class="text-xs text-gray-500">savings · {{ formatMoney(user.balances?.shares) }} shares</span></p>
               <p v-else class="mt-1 text-xs text-gray-500">Office account</p>
               <div v-if="canManage(user)" class="mt-2 flex flex-wrap items-center gap-2">
                 <button v-can="'members'" type="button" class="btn-secondary px-3 py-1.5 text-xs" @click="editing = user"><PencilSquareIcon class="h-4 w-4" />Edit</button>

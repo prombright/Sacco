@@ -165,7 +165,7 @@ async function signOut() {
       aria-label="Menu"
     >
       <!-- Brand -->
-      <div class="flex h-16 shrink-0 items-center gap-3 px-4" :class="{ 'justify-center !px-0': !wide }">
+      <div class="mx-3 flex h-16 shrink-0 items-center gap-3 border-b border-white/[0.06] px-1" :class="{ 'justify-center !mx-2 !px-0': !wide }">
         <SaccoMark :sacco="auth.sacco" />
         <div v-if="wide" class="min-w-0 flex-1">
           <p class="truncate text-[15px] font-bold leading-tight text-white">{{ auth.sacco?.short_name || auth.sacco?.name }}</p>
@@ -177,7 +177,7 @@ async function signOut() {
       </div>
 
       <!-- Links -->
-      <nav class="flex-1 overflow-y-auto overflow-x-hidden px-3 pb-4 pt-2 [scrollbar-width:thin]">
+      <nav class="flex-1 overflow-y-auto overflow-x-hidden px-3 pb-4 pt-3 [mask-image:linear-gradient(to_bottom,transparent,black_10px,black_calc(100%-18px),transparent)] [scrollbar-width:thin]">
         <!-- Office: Dashboard, then the sections -->
         <template v-if="auth.isAdmin">
           <RouterLink
@@ -200,7 +200,7 @@ async function signOut() {
                 :class="[wide ? 'pl-3' : 'justify-center', currentSection === s.key ? 'text-white' : 'text-navy-100/75 hover:text-white']"
                 :aria-label="wide ? undefined : s.label"
               >
-                <span class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br shadow-sm" :class="currentSection === s.key ? s.tone : 'from-white/10 to-white/5'">
+                <span class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br shadow-sm ring-1 ring-white/[0.06] transition duration-200 group-hover:scale-110" :class="currentSection === s.key ? [s.tone, 'shadow-[0_4px_12px_-4px_rgba(0,0,0,0.5)]'] : 'from-white/10 to-white/5'">
                   <component :is="s.icon" class="h-4 w-4" :class="currentSection === s.key ? 'text-white' : 'text-navy-100/70'" aria-hidden="true" />
                 </span>
                 <span v-if="wide" class="flex-1 truncate">{{ s.label }}</span>
@@ -218,18 +218,22 @@ async function signOut() {
                 <ChevronDownIcon class="h-4 w-4 transition-transform" :class="{ 'rotate-180': open.has(s.key) }" />
               </button>
             </div>
+            <Transition name="sub">
             <div v-if="wide && open.has(s.key)" class="mb-2 ml-[1.35rem] mt-0.5 border-l border-white/10 pl-3">
               <RouterLink
                 v-for="i in visibleItems(s)"
                 :key="i.name"
                 :to="{ name: i.name }"
-                class="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] transition"
-                :class="isItemCurrent(i) ? 'bg-white/10 font-semibold text-white' : 'text-navy-100/60 hover:bg-white/[0.05] hover:text-white'"
+                class="relative flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] transition duration-150"
+                :class="isItemCurrent(i)
+                  ? 'bg-white/10 font-semibold text-white before:absolute before:-left-[15.5px] before:top-1/2 before:h-2 before:w-2 before:-translate-y-1/2 before:rounded-full before:bg-saffron-400 before:ring-4 before:ring-navy-950'
+                  : 'text-navy-100/60 hover:translate-x-0.5 hover:bg-white/[0.05] hover:text-white'"
               >
                 <span class="flex-1 truncate">{{ i.label }}</span>
                 <span v-if="itemBadge(i)" class="rounded-full bg-saffron-400 px-1.5 py-0.5 text-[11px] font-bold leading-none text-navy-950">{{ itemBadge(i) }}</span>
               </RouterLink>
             </div>
+            </Transition>
           </div>
         </template>
 
@@ -250,7 +254,7 @@ async function signOut() {
             <span v-if="isCurrent(link)" class="absolute inset-y-2 left-0 w-[3px] rounded-r-full bg-saffron-400" aria-hidden="true" />
             <component
               :is="link.icon"
-              class="h-5 w-5 shrink-0 transition"
+              class="h-5 w-5 shrink-0 transition duration-200 group-hover:scale-110"
               :class="isCurrent(link) ? 'text-saffron-300' : 'text-navy-200/50 group-hover:text-navy-100'"
               aria-hidden="true"
             />
@@ -279,8 +283,8 @@ async function signOut() {
         <div class="relative">
           <button
             type="button"
-            class="flex w-full items-center gap-3 rounded-xl p-2 text-left transition hover:bg-white/[0.06]"
-            :class="{ 'justify-center': !wide }"
+            class="flex w-full items-center gap-3 rounded-xl p-2 text-left ring-1 ring-white/[0.06] transition hover:bg-white/[0.06] hover:ring-white/10"
+            :class="wide ? 'bg-white/[0.04]' : 'justify-center'"
             :aria-expanded="accountMenu"
             aria-haspopup="menu"
             @click="accountMenu = !accountMenu"

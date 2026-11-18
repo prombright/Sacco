@@ -55,8 +55,8 @@ export default {
         },
       },
       boxShadow: {
-        card: '0 1px 2px rgba(21, 24, 33, 0.04), 0 6px 16px -10px rgba(16, 36, 74, 0.14)',
-        lift: '0 10px 30px -12px rgba(16, 36, 74, 0.25)',
+        card: 'inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 1px 2px rgba(21, 24, 33, 0.05), 0 10px 28px -18px rgba(16, 36, 74, 0.28)',
+        lift: '0 2px 4px rgba(21, 24, 33, 0.04), 0 18px 40px -16px rgba(16, 36, 74, 0.32)',
       },
     },
   },
