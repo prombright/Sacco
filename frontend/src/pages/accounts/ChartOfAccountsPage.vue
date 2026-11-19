@@ -96,13 +96,13 @@ const byId = (id: unknown) => accounts.value.find((a) => a.id === id)
 
 <template>
   <div>
-    <div class="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <PageHeader eyebrow="Financial reports" title="Chart of accounts">
-          Every account in the SACCO's books. Deposits, loans, repayments, withdrawals, dividends, income and expenses post to them by themselves. Click an account to see its ledger.
-        </PageHeader>
-      </div>
-      <button v-if="auth.isSuperAdmin" type="button" class="btn-primary" @click="start()"><PlusIcon class="h-4 w-4" />Add an account</button>
+    <div>
+      <PageHeader eyebrow="Financial reports" title="Chart of accounts">
+        Every account in the SACCO's books. Deposits, loans, repayments, withdrawals, dividends, income and expenses post to them by themselves. Click an account to see its ledger.
+      <template #actions>
+        <button v-if="auth.isSuperAdmin" type="button" class="btn-primary" @click="start()"><PlusIcon class="h-4 w-4" />Add an account</button>
+      </template>
+      </PageHeader>
     </div>
     <div v-if="error" class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
 

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageBanner from '@/components/PageBanner.vue'
 import { feeText } from '@/loanFee'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -206,7 +207,7 @@ async function submit() {
 <template>
   <div class="mx-auto max-w-3xl xl:max-w-5xl">
     <RouterLink :to="{ name: 'loans' }" class="text-sm font-medium text-gray-600 hover:text-gray-900">← Loans</RouterLink>
-    <h1 class="mt-3 text-2xl font-bold">Apply for a loan</h1>
+    <PageBanner class="mt-3" title="Apply for a loan" />
 
     <!-- Which kind of loan -->
     <fieldset v-if="quote && quote.products.length > 1 && step === 0" class="mt-5">
@@ -375,7 +376,7 @@ async function submit() {
         </div>
 
         <!-- What it costs, as you move the sliders; it stays in view beside the form and the plan -->
-        <aside class="bg-gradient-to-br from-navy-800 via-navy-900 to-navy-950 relative overflow-hidden rounded-2xl p-5 text-white shadow-lift sm:p-6 lg:sticky lg:top-24 lg:self-start" aria-live="polite">
+        <aside class="hero-glass relative overflow-hidden rounded-2xl p-5 text-white shadow-lift sm:p-6 lg:sticky lg:top-24 lg:self-start" aria-live="polite">
           <p class="text-sm text-navy-100/80">Each month you pay</p>
           <p class="mt-1 text-4xl font-bold tracking-tight"><CountUp :value="cost.monthly" :duration="450" /></p>
           <p class="mt-1 text-sm text-navy-100/80">for {{ form.months }} month{{ form.months === 1 ? '' : 's' }}, off your pay</p>

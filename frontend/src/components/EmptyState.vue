@@ -8,7 +8,7 @@ withDefaults(defineProps<{ title: string; text?: string; icon?: Component; compa
 
 <template>
   <div class="flex flex-col items-center text-center" :class="compact ? 'px-4 py-6' : 'px-6 py-12'">
-    <span class="flex items-center justify-center rounded-2xl bg-navy-50 text-navy-800" :class="compact ? 'h-10 w-10' : 'h-12 w-12'">
+    <span class="flex items-center justify-center rounded-2xl icon-gold" :class="compact ? 'h-10 w-10' : 'h-12 w-12'">
       <component :is="icon" :class="compact ? 'h-5 w-5' : 'h-6 w-6'" aria-hidden="true" />
     </span>
     <p class="mt-3 font-semibold text-ink">{{ title }}</p>

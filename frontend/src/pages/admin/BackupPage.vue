@@ -62,7 +62,7 @@ const when = (s: string) => {
 </script>
 
 <template>
-  <div class="max-w-3xl">
+  <div>
     <PageHeader title="Backups">
       Copies of {{ auth.sacco?.name }}'s data: members, balances, loans, the books and the audit log. If the server is ever lost, the SACCO can be restored from one of them.
     </PageHeader>
@@ -112,7 +112,7 @@ const when = (s: string) => {
     <!-- Now, as a download -->
     <div class="card mt-5 p-6">
       <div class="flex items-start gap-4">
-        <span class="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-navy-50 text-navy-800"><ShieldCheckIcon class="h-6 w-6" aria-hidden="true" /></span>
+        <span class="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl icon-gold"><ShieldCheckIcon class="h-6 w-6" aria-hidden="true" /></span>
         <div>
           <p class="font-semibold">Download a copy now</p>
           <p class="mt-1 text-sm text-gray-600">An extra copy you keep yourselves, for example once a month and before the AGM, on a flash disk in the office safe. A copy is also made on the server every time the system is updated. The file holds members' personal details, so treat it like the member register.</p>

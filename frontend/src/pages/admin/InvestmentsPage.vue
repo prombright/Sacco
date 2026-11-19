@@ -160,21 +160,21 @@ const progress = computed(() => {
 
 <template>
   <div>
-    <div class="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <PageHeader eyebrow="Cash book" title="Investments">
-          What the SACCO invests, the profit it brings, and sharing that profit with members by their savings.
-        </PageHeader>
-      </div>
-      <div class="flex items-end gap-2">
-        <div>
-          <label for="year" class="label">Year</label>
-          <select id="year" v-model.number="year" class="input">
-            <option v-for="y in [thisYear, thisYear - 1, thisYear - 2]" :key="y" :value="y">{{ y }}</option>
-          </select>
+    <div>
+      <PageHeader eyebrow="Cash book" title="Investments">
+        What the SACCO invests, the profit it brings, and sharing that profit with members by their savings.
+      <template #actions>
+        <div class="flex items-end gap-2">
+          <div>
+            <label for="year" class="label">Year</label>
+            <select id="year" v-model.number="year" class="input">
+              <option v-for="y in [thisYear, thisYear - 1, thisYear - 2]" :key="y" :value="y">{{ y }}</option>
+            </select>
+          </div>
+          <button v-if="auth.isSuperAdmin" type="button" class="btn-primary" @click="open('add')"><PlusIcon class="h-4 w-4" />Add an investment</button>
         </div>
-        <button v-if="auth.isSuperAdmin" type="button" class="btn-primary" @click="open('add')"><PlusIcon class="h-4 w-4" />Add an investment</button>
-      </div>
+      </template>
+      </PageHeader>
     </div>
 
     <div v-if="error" class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>

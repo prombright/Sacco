@@ -133,17 +133,17 @@ function agenda() {
 </script>
 
 <template>
-  <div class="max-w-4xl 2xl:max-w-5xl">
-    <div class="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <PageHeader eyebrow="Settings" title="Committee decisions">
-          Rules waiting for the committee. Until it decides, the system uses what's on Setup, shown with each question.
-        </PageHeader>
-      </div>
-      <div class="flex flex-wrap gap-2">
-        <button type="button" class="btn-secondary" :disabled="!open.length" @click="agenda"><DocumentArrowDownIcon class="h-4 w-4" />Agenda (PDF)</button>
-        <button v-if="auth.isSuperAdmin" type="button" class="btn-primary" @click="startEdit()"><PlusIcon class="h-4 w-4" />Add a question</button>
-      </div>
+  <div>
+    <div>
+      <PageHeader eyebrow="Settings" title="Committee decisions">
+        Rules waiting for the committee. Until it decides, the system uses what's on Setup, shown with each question.
+      <template #actions>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" class="btn-secondary" :disabled="!open.length" @click="agenda"><DocumentArrowDownIcon class="h-4 w-4" />Agenda (PDF)</button>
+          <button v-if="auth.isSuperAdmin" type="button" class="btn-primary" @click="startEdit()"><PlusIcon class="h-4 w-4" />Add a question</button>
+        </div>
+      </template>
+      </PageHeader>
     </div>
 
     <div v-if="error" class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>

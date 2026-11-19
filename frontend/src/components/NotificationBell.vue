@@ -96,7 +96,7 @@ function ago(at: string) {
       @click="open = !open; open && load()"
     >
       <BellIcon class="h-6 w-6" />
-      <span v-if="unread" class="absolute right-1 top-1 inline-flex min-w-[1.15rem] items-center justify-center rounded-full bg-saffron-500 px-1 text-[11px] font-bold leading-[1.15rem] text-navy-950 ring-2 ring-paper">{{ unread > 99 ? '99+' : unread }}</span>
+      <span v-if="unread" class="absolute right-1 top-1 inline-flex min-w-[1.15rem] items-center justify-center rounded-full bg-[#6246ea] px-1 text-[11px] font-bold leading-[1.15rem] text-white ring-2 ring-paper">{{ unread > 99 ? '99+' : unread }}</span>
     </button>
 
     <div v-if="open" class="fixed inset-0 z-30" @click="open = false" />

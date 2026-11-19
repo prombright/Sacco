@@ -43,7 +43,7 @@ export const useTheme = defineStore('theme', () => {
   apply()
 
   /** Chart colours, one set for every chart: deeper in light mode, brighter on dark cards */
-  const chart = computed(() => (dark.value ? { blue: '#6b78ec', amber: '#d69a1b' } : { blue: '#3a46c4', amber: '#c98a08' }))
+  const chart = computed(() => (dark.value ? { blue: '#9d86ff', amber: '#b9a8ff' } : { blue: '#6246ea', amber: '#8f74f7' }))
 
   return { mode, dark, chart, set, toggle }
 })

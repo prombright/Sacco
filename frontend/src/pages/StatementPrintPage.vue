@@ -112,7 +112,7 @@ async function download(kind: 'pdf' | 'excel') {
 </script>
 
 <template>
-  <div class="force-light min-h-screen bg-paper px-4 py-6 text-ink print:bg-white print:p-0">
+  <div class="force-light text-ink print:bg-white print:p-0">
     <div class="mx-auto mb-4 flex max-w-4xl flex-wrap items-end gap-3 print:hidden">
       <button type="button" class="btn-secondary" @click="$router.back()">← Back</button>
       <div><label for="from" class="label">From</label><input id="from" v-model="from" type="date" class="input" /></div>

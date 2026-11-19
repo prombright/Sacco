@@ -40,7 +40,11 @@ async function load() {
   }
 }
 watch(status, load)
-onMounted(load)
+/** Open on the tab where something is waiting: nothing to approve but a cheque to issue → that tab */
+onMounted(async () => {
+  await load()
+  if (!counts.value.pending && counts.value.approved) status.value = 'approved'
+})
 
 function open(kind: 'reject' | 'pay', request: Withdrawal) {
   Object.assign(form, { note: '', cheque_no: '', paid_on: today })

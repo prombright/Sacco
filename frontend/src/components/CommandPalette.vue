@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue'
 import { useRouter, type RouteLocationRaw } from 'vue-router'
-import { MagnifyingGlassIcon, UserIcon, BanknotesIcon } from '@heroicons/vue/24/outline'
+import { MagnifyingGlassIcon, UserIcon, BanknotesIcon, ChatBubbleLeftRightIcon, DocumentTextIcon, HomeIcon, KeyIcon, PlusCircleIcon, PrinterIcon, QuestionMarkCircleIcon, ReceiptPercentIcon, UserCircleIcon, WalletIcon } from '@heroicons/vue/24/outline'
 import { api } from '@/api'
 import { useAuth } from '@/stores/auth'
 import { dashboardIcon, sections } from '@/sections'
@@ -10,8 +10,9 @@ import { formatMoney } from '@/money'
 import type { Loan, User } from '@/types'
 
 /**
- * Quick search for the office (Ctrl + K, or "/"): type a name, account number, loan number or a
- * page, then Enter to go straight there. Arrow keys move, Escape closes.
+ * Quick search (Ctrl + K, or "/"). The office: a name, account number, loan number or a page.
+ * A member: their own pages (statement, loans, receipts...). Enter goes there, arrows move,
+ * Escape closes.
  */
 const open = defineModel<boolean>({ required: true })
 const router = useRouter()
@@ -35,7 +36,22 @@ const searching = ref(false)
 const active = ref(0)
 
 /** Every office page this account may open */
+const memberPages: Hit[] = [
+  { key: 'p-dashboard', group: 'Pages', title: 'Dashboard', detail: 'My money, my loan and my saver level', icon: HomeIcon, to: { name: 'dashboard' } },
+  { key: 'p-statement', group: 'Pages', title: 'My statement', detail: 'Every entry on my savings and shares', icon: DocumentTextIcon, to: { name: 'statement' } },
+  { key: 'p-statement-print', group: 'Pages', title: 'Print a statement', detail: 'A statement for a period, to print or save', icon: PrinterIcon, to: { name: 'statement-print' } },
+  { key: 'p-receipts', group: 'Pages', title: 'Receipts', detail: 'Receipts for money paid in', icon: ReceiptPercentIcon, to: { name: 'receipts-mine' } },
+  { key: 'p-loans', group: 'Pages', title: 'My loans', detail: 'Loans, repayments and guarantees', icon: BanknotesIcon, to: { name: 'loans' } },
+  { key: 'p-loan-apply', group: 'Pages', title: 'Apply for a loan', detail: 'Borrow against my savings', icon: PlusCircleIcon, to: { name: 'loan-apply' } },
+  { key: 'p-withdrawals', group: 'Pages', title: 'Withdraw savings', detail: 'Ask to take out savings', icon: WalletIcon, to: { name: 'withdrawals' } },
+  { key: 'p-messages', group: 'Pages', title: 'Messages', detail: 'Messages from the SACCO', icon: ChatBubbleLeftRightIcon, to: { name: 'messages' } },
+  { key: 'p-profile', group: 'Pages', title: 'Profile & next of kin', detail: 'My details, photo and next of kin', icon: UserCircleIcon, to: { name: 'profile' } },
+  { key: 'p-password', group: 'Pages', title: 'Change password', detail: 'Choose a new password', icon: KeyIcon, to: '/change-password' },
+  { key: 'p-help', group: 'Pages', title: 'Help', detail: 'How things work, questions and answers', icon: QuestionMarkCircleIcon, to: { name: 'help' } },
+]
+
 const pages = computed<Hit[]>(() => {
+  if (!auth.isAdmin) return memberPages
   const out: Hit[] = [{ key: 'p-overview', group: 'Pages', title: 'Dashboard', detail: 'The office at a glance', icon: dashboardIcon, to: { name: 'overview' } }]
   for (const s of sections) {
     out.push({ key: `p-${s.hub}`, group: 'Pages', title: s.label, detail: s.intro, icon: s.icon, to: { name: s.hub } })
@@ -96,7 +112,7 @@ watch(q, (value) => {
   active.value = 0
   clearTimeout(timer)
   const term = value.trim()
-  if (term.length < 2) {
+  if (term.length < 2 || !auth.isAdmin) {
     members.value = []
     loans.value = []
     return
@@ -175,8 +191,8 @@ onBeforeUnmount(() => document.removeEventListener('keydown', shortcut))
               v-model="q"
               type="search"
               class="h-14 w-full bg-transparent pl-12 pr-16 text-base text-ink placeholder:text-gray-400 focus:outline-none"
-              placeholder="Find a member, loan or page…"
-              aria-label="Find a member, loan or page"
+              :placeholder="auth.isAdmin ? 'Find a member, loan or page…' : 'Search for statements, loans, receipts…'"
+              :aria-label="auth.isAdmin ? 'Find a member, loan or page' : 'Search my pages'"
               role="combobox"
               aria-controls="cmd-results"
               :aria-expanded="flat.length > 0"

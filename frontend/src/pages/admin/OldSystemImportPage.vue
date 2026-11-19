@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageBanner from '@/components/PageBanner.vue'
 import { reactive } from 'vue'
 import { ArrowUpTrayIcon, CheckCircleIcon } from '@heroicons/vue/24/outline'
 import { api, ApiError } from '@/api'
@@ -94,10 +95,9 @@ async function save(s: Step) {
 </script>
 
 <template>
-  <div class="max-w-5xl">
+  <div>
     <RouterLink :to="{ name: 'member-import' }" class="text-sm font-medium text-gray-600 hover:text-gray-900">← Import members</RouterLink>
-    <h1 class="mt-3 text-2xl font-bold">Bring in the old system</h1>
-    <p class="mt-1 text-gray-600">Do the members first, then these in order. Every file is checked before anything is saved.</p>
+    <PageBanner class="mt-3" title="Bring in the old system">Do the members first, then these in order. Every file is checked before anything is saved.</PageBanner>
 
     <ol class="mt-6 space-y-4">
       <li v-for="(s, i) in steps" :key="s.kind" class="card p-5">
