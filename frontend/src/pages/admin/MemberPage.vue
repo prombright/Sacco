@@ -283,6 +283,7 @@ function certificate() {
               <template v-if="docsOpen">
                 <div class="fixed inset-0 z-30" aria-hidden="true" @click="docsOpen = false" />
                 <div class="card absolute right-0 z-40 mt-2 w-60 p-1.5 shadow-lift" role="menu" @click="docsOpen = false">
+                  <RouterLink :to="{ name: 'member-full-statement', params: { id: member.id } }" class="menu-item font-semibold" role="menuitem"><DocumentTextIcon class="h-4 w-4" />Full statement</RouterLink>
                   <RouterLink :to="{ name: 'member-statement', params: { id: member.id } }" class="menu-item" role="menuitem"><PrinterIcon class="h-4 w-4" />Print statement</RouterLink>
                   <RouterLink :to="{ name: 'member-receipts', params: { id: member.id } }" class="menu-item" role="menuitem"><ReceiptPercentIcon class="h-4 w-4" />Receipts</RouterLink>
                   <button type="button" class="menu-item" role="menuitem" @click="downloadMembershipForm(member, kin, balances, who())"><DocumentTextIcon class="h-4 w-4" />Membership form</button>

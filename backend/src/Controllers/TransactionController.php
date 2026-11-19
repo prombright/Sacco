@@ -123,6 +123,35 @@ final class TransactionController
         Response::ok($this->statement(Auth::user(), $request));
     }
 
+    /** GET /api/me/full-statement?from=&to= (member) - everything on one list, old system included */
+    public function myFullStatement(Request $request): never
+    {
+        Response::ok($this->fullStatement(Auth::user(), $request));
+    }
+
+    /** GET /api/members/{id}/full-statement?from=&to= (office) */
+    public function memberFullStatement(Request $request): never
+    {
+        Response::ok($this->fullStatement($this->findUser((int) $request->param('id')), $request));
+    }
+
+    private function fullStatement(array $user, Request $request): array
+    {
+        $from = $request->string('from') ?: null;
+        $to = $request->string('to') ?: date('Y-m-d');
+        foreach (array_filter([$from, $to]) as $d) {
+            $p = \DateTime::createFromFormat('!Y-m-d', $d);
+            if (!$p || $p->format('Y-m-d') !== $d) {
+                Response::error('Enter valid dates.', 422);
+            }
+        }
+        if ($from !== null && $from > $to) {
+            Response::error('The start date is after the end date.', 422);
+        }
+        return \Sacco\Loans\FullStatement::forPeriod(Database::tenant(), (int) $user['id'], $from, $to)
+            + ['member' => ['full_name' => $user['full_name'], 'account_no' => $user['account_no'], 'employee_no' => $user['employee_no'], 'joined_on' => $user['joined_on'] ?? null]];
+    }
+
     /** GET /api/members/{id}/statement?from=&to= (admin) */
     public function memberStatement(Request $request): never
     {

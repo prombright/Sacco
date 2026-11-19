@@ -159,6 +159,8 @@ $router->get('/api/office/overview', [OfficeController::class, 'overview'], $adm
 // Printable statements
 $router->get('/api/me/statement', [TransactionController::class, 'myStatement'], $members);
 $router->get('/api/members/{id}/statement', [TransactionController::class, 'memberStatement'], $admins);
+$router->get('/api/me/full-statement', [TransactionController::class, 'myFullStatement'], $members);
+$router->get('/api/members/{id}/full-statement', [TransactionController::class, 'memberFullStatement'], $admins);
 
 // Bringing in many members at once from Excel
 $router->post('/api/members/import/preview', [MemberImportController::class, 'preview'], $admins);

@@ -35,7 +35,10 @@ load()
           Every entry on your account, newest first.
         </PageHeader>
       </div>
-      <RouterLink :to="{ name: 'statement-print' }" class="btn-secondary">Print a statement</RouterLink>
+      <div class="flex flex-wrap gap-2">
+        <RouterLink :to="{ name: 'statement-full' }" class="btn-primary">My full statement</RouterLink>
+        <RouterLink :to="{ name: 'statement-print' }" class="btn-secondary">Print a statement</RouterLink>
+      </div>
     </div>
 
     <div class="mt-5"><AccountTabs v-model="account" /></div>

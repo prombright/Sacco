@@ -48,6 +48,7 @@ const router = createRouter({
         { path: 'profile', name: 'profile', component: () => import('@/pages/ProfilePage.vue'), meta: { member: true, title: 'My profile' } },
         { path: 'admin/cashbook', name: 'cashbook', redirect: { name: 'payments' } },
         { path: 'admin/notices', name: 'notices', component: () => import('@/pages/admin/NoticesPage.vue'), meta: { admin: true, title: 'Notices' } },
+        { path: 'statement/full', name: 'statement-full', component: () => import('@/pages/FullStatementPage.vue'), meta: { member: true, title: 'My full statement' } },
         { path: 'statement', name: 'statement', component: () => import('@/pages/StatementPage.vue'), meta: { member: true, title: 'My statement' } },
         { path: 'loans', name: 'loans', component: () => import('@/pages/loans/LoansPage.vue'), meta: { member: true, title: 'My loans' } },
         { path: 'loans/apply', name: 'loan-apply', component: () => import('@/pages/loans/ApplyLoanPage.vue'), meta: { member: true, title: 'Apply for a loan' } },
@@ -68,6 +69,7 @@ const router = createRouter({
         { path: 'admin/reports', name: 'reports', component: () => import('@/pages/admin/ReportsPage.vue'), meta: { admin: true, title: 'Reports' } },
         { path: 'admin/settings', name: 'settings', component: () => import('@/pages/admin/SettingsPage.vue'), meta: { admin: true, title: 'Setup & rules' } },
         { path: 'users', name: 'users', component: () => import('@/pages/admin/UsersPage.vue'), meta: { admin: true, title: 'Members' } },
+        { path: 'members/:id(\\d+)/full-statement', name: 'member-full-statement', component: () => import('@/pages/FullStatementPage.vue'), meta: { admin: true, title: 'Full statement' } },
         { path: 'members/:id(\\d+)', name: 'member', component: () => import('@/pages/admin/MemberPage.vue'), meta: { admin: true, title: 'Member' } },
         // Each section of the office menu opens on its own dashboard
         { path: 'office/members', name: 'section-members', component: () => import('@/pages/admin/SectionPage.vue'), meta: { admin: true, title: 'Members' } },
