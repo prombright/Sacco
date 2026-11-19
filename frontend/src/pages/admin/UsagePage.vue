@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import BannerArt from '@/components/BannerArt.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import {
   CheckCircleIcon,
@@ -175,29 +176,30 @@ async function unlock(u: { id: number }) {
 
 <template>
   <div>
-    <div class="bg-gradient-to-br from-navy-800 via-navy-900 to-navy-950 relative overflow-hidden rounded-3xl p-6 text-white shadow-lift sm:p-8">
+    <div class="page-banner relative overflow-hidden rounded-[1.25rem] border border-[#e4dcff] p-5 shadow-sm dark:border-line sm:p-6">
+      <BannerArt />
       <div class="relative flex flex-wrap items-center justify-between gap-6">
         <div class="min-w-0">
-          <p class="text-xs font-semibold uppercase tracking-wider text-saffron-300">Settings</p>
-          <h1 class="mt-1 text-3xl font-bold">Usage &amp; security</h1>
-          <p class="mt-1 max-w-xl text-navy-100/80">Who is using the system, when and on what, and how well it is protected.</p>
+          <p class="text-xs font-semibold uppercase tracking-wider text-[#6246ea] dark:text-navy-200">Settings</p>
+          <h1 class="mt-1 text-[1.3rem] font-bold leading-tight text-[#16133a] dark:text-white sm:text-[1.75rem]">Usage &amp; security</h1>
+          <p class="mt-1 max-w-xl text-gray-600 dark:text-gray-400">Who is using the system, when and on what, and how well it is protected.</p>
           <div class="mt-4 flex flex-wrap items-center gap-2">
-            <div class="flex rounded-lg bg-white/10 p-0.5 text-sm font-semibold backdrop-blur sm:w-max" role="radiogroup" aria-label="Period">
-            <button v-for="d in ([7, 30, 90] as const)" :key="d" type="button" role="radio" :aria-checked="days === d" class="flex-1 whitespace-nowrap rounded-md px-3 py-1.5" :class="days === d ? 'bg-white text-navy-900' : 'text-white/80 hover:text-white'" @click="days = d">{{ d }} days</button>
+            <div class="flex rounded-lg bg-[#e6ecfb] p-0.5 text-sm font-semibold dark:bg-white/10 sm:w-max" role="radiogroup" aria-label="Period">
+            <button v-for="d in ([7, 30, 90] as const)" :key="d" type="button" role="radio" :aria-checked="days === d" class="flex-1 whitespace-nowrap rounded-md px-3 py-1.5" :class="days === d ? 'bg-white text-[#6246ea] shadow-sm dark:bg-surface' : 'text-gray-600 hover:text-ink'" @click="days = d">{{ d }} days</button>
           </div>
-            <button type="button" class="btn-accent" :disabled="!data || !!making" @click="exportReport('pdf')"><DocumentArrowDownIcon class="h-4 w-4" :class="{ 'animate-pulse': making === 'pdf' }" />Security report (PDF)</button>
-            <button type="button" class="btn border border-white/25 bg-white/10 text-white hover:bg-white/20" :disabled="!data || !!making" @click="exportReport('excel')"><TableCellsIcon class="h-4 w-4" :class="{ 'animate-pulse': making === 'excel' }" />Excel</button>
+            <button type="button" class="btn-primary" :disabled="!data || !!making" @click="exportReport('pdf')"><DocumentArrowDownIcon class="h-4 w-4" :class="{ 'animate-pulse': making === 'pdf' }" />Security report (PDF)</button>
+            <button type="button" class="btn-secondary" :disabled="!data || !!making" @click="exportReport('excel')"><TableCellsIcon class="h-4 w-4" :class="{ 'animate-pulse': making === 'excel' }" />Excel</button>
           </div>
         </div>
         <div v-if="data" class="flex items-center gap-4">
-          <span class="relative inline-flex h-28 w-28 items-center justify-center">
+          <span class="relative inline-flex h-28 w-28 items-center justify-center rounded-full bg-white/85 shadow-sm dark:bg-surface/85">
             <svg viewBox="0 0 100 100" class="h-28 w-28 -rotate-90" aria-hidden="true">
-              <circle cx="50" cy="50" r="44" fill="none" stroke-width="9" stroke="rgba(255,255,255,0.14)" />
+              <circle cx="50" cy="50" r="44" fill="none" stroke-width="9" stroke="#e3e9f8" />
               <circle cx="50" cy="50" r="44" fill="none" stroke-width="9" stroke-linecap="round" stroke="#f2b934" class="ring-fill" :style="{ '--ring': ring }" :stroke-dasharray="ring" :stroke-dashoffset="ring * (1 - adoption / 100)" />
             </svg>
-            <span class="absolute text-2xl font-bold"><CountUp :value="adoption" :format="(n: number) => `${n}%`" /></span>
+            <span class="absolute text-2xl font-bold text-[#16133a] dark:text-white"><CountUp :value="adoption" :format="(n: number) => `${n}%`" /></span>
           </span>
-          <p class="max-w-[9rem] text-sm text-navy-100/85">of members logged in during the last {{ days }} days</p>
+          <p class="max-w-[9rem] text-sm text-gray-600 dark:text-gray-400">of members logged in during the last {{ days }} days</p>
         </div>
       </div>
     </div>

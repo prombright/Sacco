@@ -27,13 +27,13 @@ onMounted(async () => {
 
 <template>
   <div>
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <PageHeader eyebrow="My account" title="Loans">
-          Your loans, and members who've asked you to guarantee theirs.
-        </PageHeader>
-      </div>
-      <RouterLink v-if="loans && !inProgress" :to="{ name: 'loan-apply' }" class="btn-primary">Apply for a loan</RouterLink>
+    <div>
+      <PageHeader eyebrow="My account" title="Loans">
+        Your loans, and members who've asked you to guarantee theirs.
+      <template #actions>
+        <RouterLink v-if="loans && !inProgress" :to="{ name: 'loan-apply' }" class="btn-primary">Apply for a loan</RouterLink>
+      </template>
+      </PageHeader>
     </div>
 
     <div v-if="error" class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>

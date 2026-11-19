@@ -109,7 +109,7 @@ async function submit(e: Event) {
     </section>
 
     <!-- Log in -->
-    <section class="relative flex flex-col">
+    <section class="login-bg relative flex flex-col">
       <!-- Language and light/dark, top right (over the photo band on phones) -->
       <div class="absolute right-3 top-3 z-10 flex items-center gap-0.5 rounded-xl border border-line bg-surface/90 p-1 shadow-sm backdrop-blur sm:right-5 sm:top-5">
         <LanguagePicker compact />
@@ -132,9 +132,12 @@ async function submit(e: Event) {
       </div>
 
       <div class="flex flex-1 items-start justify-center px-4 pb-10 pt-6 sm:pt-12 lg:items-center lg:pt-16">
-        <div class="w-full max-w-sm">
-          <h1 class="text-2xl font-bold sm:text-3xl">{{ t('Welcome back') }}</h1>
-          <p class="mt-1.5 text-gray-600">Log in to {{ auth.sacco?.name ?? 'your SACCO' }}.</p>
+        <div class="login-card w-full max-w-md overflow-hidden rounded-2xl border bg-surface shadow-card">
+          <div class="login-cream border-b px-6 py-5 sm:px-8">
+            <h1 class="text-2xl font-bold sm:text-3xl">{{ t('Welcome back') }}</h1>
+            <p class="mt-1.5 text-gray-600">Log in to {{ auth.sacco?.name ?? 'your SACCO' }}.</p>
+          </div>
+          <div class="px-6 pb-6 sm:px-8 sm:pb-8">
 
           <form v-if="needCode" class="mt-8 space-y-4" novalidate @submit.prevent="submitCode">
             <div v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
@@ -193,8 +196,19 @@ async function submit(e: Event) {
               <ArrowRightIcon class="h-3.5 w-3.5 transition group-hover:translate-x-0.5" aria-hidden="true" />
             </RouterLink>
           </div>
+          </div>
         </div>
       </div>
     </section>
   </main>
 </template>
+
+<style scoped>
+/* Like Tusome: light blue page, cream card header, white card */
+.login-bg { background-color: #f5f4fe; }
+.login-card { border-color: #e4dcff; }
+.login-cream { background-color: #f1edff; border-color: #e4dcff; }
+.dark .login-bg { background-color: rgb(var(--paper)); }
+.dark .login-card { border-color: rgb(var(--line)); }
+.dark .login-cream { background-color: rgb(124 92 245 / 0.12); border-color: rgb(124 92 245 / 0.25); }
+</style>

@@ -90,17 +90,17 @@ const blankForm = () => downloadGuaranteeForm({ borrower: null, loan: null, guar
 
 <template>
   <div>
-    <div class="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <PageHeader eyebrow="Loans" title="Loan applications">
-          Approve, pay out and record repayments. Your own loans are handled by another admin.
-        </PageHeader>
-      </div>
-      <div class="flex flex-wrap gap-2">
-        <button type="button" class="btn-secondary" title="Each loan's page has the form filled in for that loan" @click="blankForm"><DocumentTextIcon class="h-4 w-4" aria-hidden="true" />Blank guarantee form</button>
-        <button v-can="'loans'" type="button" class="btn-secondary" :disabled="charging" @click="chargePenalties">Charge late-payment penalties</button>
-        <button v-can="'loans'" type="button" class="btn-primary" @click="bringingIn = true">Record a loan from old records</button>
-      </div>
+    <div>
+      <PageHeader eyebrow="Loans" title="Loan applications">
+        Approve, pay out and record repayments. Your own loans are handled by another admin.
+      <template #actions>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" class="btn-secondary" title="Each loan's page has the form filled in for that loan" @click="blankForm"><DocumentTextIcon class="h-4 w-4" aria-hidden="true" />Blank guarantee form</button>
+          <button v-can="'loans'" type="button" class="btn-secondary" :disabled="charging" @click="chargePenalties">Charge late-payment penalties</button>
+          <button v-can="'loans'" type="button" class="btn-primary" @click="bringingIn = true">Record a loan from old records</button>
+        </div>
+      </template>
+      </PageHeader>
     </div>
     <div v-if="charged" class="mt-4 rounded-lg bg-saffron-50 px-4 py-3 text-sm text-gray-800" role="status">{{ charged }}</div>
 

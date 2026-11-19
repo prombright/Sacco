@@ -164,7 +164,19 @@ final class TransactionController
      */
     private function statement(array $user, Request $request): array
     {
-        $from = $request->string('from') ?: date('Y-01-01');
+        // no start date: the member's whole history, from their first entry (old system included)
+        $from = $request->string('from');
+        if ($from === '') {
+            $first = Database::tenant()->prepare(
+                "SELECT MIN(d) FROM (
+                    SELECT MIN(entry_date) AS d FROM old_system_history WHERE user_id = ?
+                    UNION ALL SELECT MIN(value_date) FROM transactions WHERE user_id = ? AND in_error = 0
+                    UNION ALL SELECT MIN(disbursed_on) FROM loans WHERE user_id = ?
+                 ) x"
+            );
+            $first->execute([(int) $user['id'], (int) $user['id'], (int) $user['id']]);
+            $from = (string) ($first->fetchColumn() ?: date('Y-01-01'));
+        }
         $to = $request->string('to') ?: date('Y-m-d');
         foreach ([$from, $to] as $d) {
             $p = \DateTime::createFromFormat('!Y-m-d', $d);
@@ -242,8 +254,149 @@ final class TransactionController
             'to' => $to,
             'accounts' => $accounts,
             'loans' => $loans,
+            'ledger' => $this->ledger($db, $id, $from, $to),
             'printed_at' => date('Y-m-d H:i'),
         ];
+    }
+
+    /**
+     * The individual member statement as one ledger, the way the old system printed it: every
+     * entry on savings, shares and loans in date order, with the savings running balance (Run Bal),
+     * the loan interest still owed (Run Int.) and the loan plus interest still owed (Ln + Int.),
+     * then the period's totals. The member's history from the old system comes first, entry by
+     * entry; the opening balances it was brought in with are then left out, as they repeat it.
+     * Savings interest from the old system is shown but, as there, not added to the balance (it is
+     * payable until the committee settles it). Amounts are decimals; money out is negative.
+     */
+    private function ledger(\PDO $db, int $id, string $from, string $to): array
+    {
+        $price = (int) Money::parse(Settings::get('share_price', '0'));
+        $q = function (string $sql, array $args) use ($db): array {
+            $s = $db->prepare($sql);
+            $s->execute($args);
+            return $s->fetchAll();
+        };
+        $c = fn (?string $v) => Money::fromDecimal($v ?? '0');
+        $hasOld = (bool) $q('SELECT 1 FROM old_system_history WHERE user_id = ? LIMIT 1', [$id]);
+
+        // Every entry, from the beginning: [date, order, id, fields]
+        $events = [];
+        foreach ($q('SELECT id, entry_date, details, voucher, savings, shares, loan, loan_interest, savings_interest, other FROM old_system_history WHERE user_id = ?', [$id]) as $o) {
+            $share = $c($o['shares']);
+            $other = $c($o['other']);
+            $events[] = [$o['entry_date'], 0, (int) $o['id'], [
+                'vno' => $o['voucher'],
+                'shares' => $share > 0 && $price > 0 ? intdiv($share, $price) : 0,
+                'share' => $share,
+                'savings' => $c($o['savings']),
+                'interest' => $c($o['savings_interest']),
+                'interest_in_balance' => false,
+                'loan' => $c($o['loan']),
+                'loan_int' => $c($o['loan_interest']),
+                'details' => trim($o['details'] . ($other ? ' (other ' . number_format($other / 100) . ')' : '')),
+            ]];
+        }
+        foreach ($q('SELECT id, account, type, amount, value_date, reference, narration FROM transactions WHERE user_id = ? AND in_error = 0', [$id]) as $t) {
+            if ($hasOld && $t['type'] === 'opening_balance') {
+                continue;
+            }
+            $v = $c($t['amount']);
+            $isShares = $t['account'] === 'shares';
+            $isInterest = !$isShares && $t['type'] === 'interest';
+            $events[] = [$t['value_date'], 1, (int) $t['id'], [
+                'vno' => $t['reference'],
+                'shares' => $isShares && $price > 0 ? intdiv($v, $price) : 0,
+                'share' => $isShares ? $v : 0,
+                'savings' => !$isShares && !$isInterest ? $v : 0,
+                'interest' => $isInterest ? $v : 0,
+                'interest_in_balance' => true,
+                'details' => $t['narration'] ?: ucfirst(str_replace('_', ' ', $t['type'])),
+            ]];
+        }
+        foreach ($q("SELECT id, loan_no, amount, disbursed_on, disbursement_ref, source FROM loans WHERE user_id = ? AND disbursed_on IS NOT NULL AND status IN ('active', 'closed')", [$id]) as $l) {
+            // a loan brought in from the old records is already in the old history
+            if ($hasOld && $l['source'] === 'old_records') {
+                continue;
+            }
+            $events[] = [$l['disbursed_on'], 2, (int) $l['id'], ['vno' => $l['loan_no'], 'loan' => $c($l['amount']), 'details' => trim('Loan disbursement ' . ($l['disbursement_ref'] ?? ''))]];
+        }
+        foreach ($q("SELECT i.id, i.due_date, i.interest, l.loan_no FROM loan_installments i JOIN loans l ON l.id = i.loan_id WHERE l.user_id = ? AND l.disbursed_on IS NOT NULL AND l.status IN ('active', 'closed') AND i.due_date > l.disbursed_on AND i.due_date <= ? AND i.interest > 0", [$id, $to]) as $i) {
+            $events[] = [$i['due_date'], 3, (int) $i['id'], ['vno' => $i['loan_no'], 'loan_int' => $c($i['interest']), 'details' => 'Loan interest charged']];
+        }
+        foreach ($q('SELECT ch.id, ch.type, ch.amount, ch.charged_on, ch.note, l.loan_no FROM loan_charges ch JOIN loans l ON l.id = ch.loan_id WHERE l.user_id = ? AND ch.waived_at IS NULL', [$id]) as $ch) {
+            $events[] = [$ch['charged_on'], 4, (int) $ch['id'], ['vno' => $ch['loan_no'], 'loan_int' => $c($ch['amount']), 'details' => $ch['note'] ?: ($ch['type'] === 'penalty' ? 'Late-payment penalty' : 'Loan fee')]];
+        }
+        foreach ($q(
+            "SELECT p.id, p.paid_on, p.reference, p.narration, l.loan_no,
+                    COALESCE(SUM(CASE WHEN a.part = 'principal' THEN a.amount END), 0) AS principal,
+                    COALESCE(SUM(CASE WHEN a.part <> 'principal' THEN a.amount END), 0) AS other
+             FROM loan_payments p JOIN loans l ON l.id = p.loan_id LEFT JOIN loan_payment_allocations a ON a.payment_id = p.id
+             WHERE l.user_id = ? GROUP BY p.id, p.paid_on, p.reference, p.narration, l.loan_no",
+            [$id],
+        ) as $p) {
+            $events[] = [$p['paid_on'], 5, (int) $p['id'], ['vno' => $p['reference'] ?: $p['loan_no'], 'loan' => -$c($p['principal']), 'loan_int' => -$c($p['other']), 'details' => $p['narration'] ?: 'Loan repayment']];
+        }
+        usort($events, fn ($a, $b) => [$a[0], $a[1], $a[2]] <=> [$b[0], $b[1], $b[2]]);
+
+        // Run through everything: the figures before the period make the opening line
+        $savings = 0;
+        $principal = 0;
+        $interest = 0;
+        $opening = null;
+        $rows = [];
+        $totals = ['shares' => 0, 'share' => 0, 'savings' => 0, 'interest' => 0, 'loan_issue' => 0, 'loan_paid' => 0, 'interest_charge' => 0, 'interest_paid' => 0];
+        // reads the running figures as they are now (a reference, not a copy)
+        $shareTotal = 0;
+        $snapshot = function () use (&$savings, &$principal, &$interest, &$shareTotal, $price): array {
+            return [
+                'savings' => Money::toDecimal($savings), 'loan' => Money::toDecimal($principal), 'loan_interest' => Money::toDecimal($interest),
+                // share capital held, and how many shares that is
+                'shares' => Money::toDecimal($shareTotal), 'share_count' => $price > 0 ? intdiv($shareTotal, $price) : null,
+            ];
+        };
+        foreach ($events as [$date, , , $e]) {
+            if ($date > $to) {
+                break;
+            }
+            if ($date >= $from && $opening === null) {
+                $opening = $snapshot();
+            }
+            $e += ['shares' => 0, 'share' => 0, 'savings' => 0, 'interest' => 0, 'interest_in_balance' => true, 'loan' => 0, 'loan_int' => 0];
+            $savings += $e['savings'] + ($e['interest_in_balance'] ? $e['interest'] : 0);
+            $principal += $e['loan'];
+            $interest += $e['loan_int'];
+            $shareTotal += $e['share'];
+            if ($date < $from) {
+                continue;
+            }
+            $totals['shares'] += $e['shares'];
+            $totals['share'] += $e['share'];
+            $totals['savings'] += $e['savings'];
+            $totals['interest'] += $e['interest'];
+            $e['loan'] > 0 ? $totals['loan_issue'] += $e['loan'] : $totals['loan_paid'] -= $e['loan'];
+            $e['loan_int'] > 0 ? $totals['interest_charge'] += $e['loan_int'] : $totals['interest_paid'] -= $e['loan_int'];
+            $rows[] = [
+                'date' => $date,
+                'vno' => $e['vno'],
+                'shares' => $e['shares'],
+                'share' => Money::toDecimal($e['share']),
+                'savings' => Money::toDecimal($e['savings']),
+                'run_bal' => Money::toDecimal($savings),
+                'interest' => Money::toDecimal($e['interest']),
+                'loan' => Money::toDecimal($e['loan']),
+                'loan_int' => Money::toDecimal($e['loan_int']),
+                'run_int' => Money::toDecimal($interest),
+                'ln_int' => Money::toDecimal($principal + $interest),
+                'details' => $e['details'],
+            ];
+        }
+        $opening ??= $snapshot();
+        foreach (['share', 'savings', 'interest', 'loan_issue', 'loan_paid', 'interest_charge', 'interest_paid'] as $k) {
+            $totals[$k] = Money::toDecimal($totals[$k]);
+        }
+        $first = $events[0][0] ?? null;
+
+        return ['opening' => $opening, 'rows' => $rows, 'totals' => $totals, 'closing' => $snapshot(), 'first_date' => $first];
     }
 
     /** GET /api/me/transactions?account=&page= */

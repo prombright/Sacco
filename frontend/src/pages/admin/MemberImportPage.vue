@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageBanner from '@/components/PageBanner.vue'
 import { ask } from '@/confirm'
 import { computed, ref } from 'vue'
 import { ArrowDownTrayIcon, ArrowUpTrayIcon, CheckCircleIcon } from '@heroicons/vue/24/outline'
@@ -80,10 +81,9 @@ async function importAll() {
 </script>
 
 <template>
-  <div class="max-w-5xl">
+  <div>
     <RouterLink :to="{ name: 'users' }" class="text-sm font-medium text-gray-600 hover:text-gray-900">← Members</RouterLink>
-    <h1 class="mt-3 text-2xl font-bold">Import members</h1>
-    <p class="mt-1 text-gray-600">Bring in everyone at once from Excel, with the savings and shares they already have in the old records.</p>
+    <PageBanner class="mt-3" title="Import members">Bring in everyone at once from Excel, with the savings and shares they already have in the old records.</PageBanner>
     <p v-if="auth.isSuperAdmin" class="mt-1 text-sm"><RouterLink :to="{ name: 'old-system-import' }" class="font-medium text-navy-700 hover:underline">After the members: loans, opening journal and old transactions →</RouterLink></p>
 
     <!-- Done -->

@@ -140,7 +140,7 @@ const money = (v: string, sign = false) => (Number(v) ? formatMoney(v, { sign })
 </script>
 
 <template>
-  <div class="max-w-6xl">
+  <div>
     <PageHeader eyebrow="Savings & shares" title="Import transactions from Excel" />
     <p class="mt-1 max-w-3xl text-gray-600">
       Deposits, withdrawals, shares and loan repayments, each on its real date: for example everything since the old system's balance date.

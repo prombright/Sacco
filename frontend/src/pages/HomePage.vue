@@ -134,10 +134,10 @@ const loginTo = computed(() => (auth.user ? (auth.isAdmin ? '/office' : '/') : '
 </script>
 
 <template>
-  <div class="min-h-screen bg-paper" data-motion>
+  <div class="welcome-bg min-h-screen" data-motion>
     <!-- Top bar -->
     <header class="absolute inset-x-0 top-0 z-30">
-      <nav class="mx-auto flex max-w-7xl items-center gap-4 px-4 py-4 sm:px-6 lg:px-8" aria-label="Home">
+      <nav class="mx-auto flex max-w-7xl 2xl:max-w-[88rem] min-[1700px]:max-w-[100rem] items-center gap-4 px-4 py-4 sm:px-6 lg:px-8" aria-label="Home">
         <a href="#top" class="flex items-center gap-3">
           <SaccoMark :sacco="auth.sacco" />
           <span class="text-lg font-bold text-white drop-shadow">{{ name }}</span>
@@ -157,7 +157,7 @@ const loginTo = computed(() => (auth.user ? (auth.isAdmin ? '/office' : '/') : '
       <img v-if="photo" :src="photo" alt="SACCO members celebrating together" class="absolute inset-0 -z-10 h-full w-full object-cover object-[60%_center]" />
       <div class="absolute inset-0 -z-10 bg-gradient-to-r from-navy-950 via-navy-950/85 to-navy-950/20" aria-hidden="true" />
       <div class="absolute inset-x-0 bottom-0 -z-10 h-40 bg-gradient-to-t from-navy-950/80 to-transparent" aria-hidden="true" />
-      <div class="mx-auto max-w-7xl px-4 pb-32 pt-36 sm:px-6 sm:pt-44 lg:px-8 lg:pb-44">
+      <div class="mx-auto max-w-7xl 2xl:max-w-[88rem] min-[1700px]:max-w-[100rem] px-4 pb-32 pt-36 sm:px-6 sm:pt-44 lg:px-8 lg:pb-44">
         <div class="max-w-2xl text-white">
           <p class="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-sm font-semibold text-saffron-300 backdrop-blur">
             Savings &amp; credit cooperative
@@ -173,7 +173,7 @@ const loginTo = computed(() => (auth.user ? (auth.isAdmin ? '/office' : '/') : '
     </section>
 
     <!-- The numbers that matter -->
-    <section class="relative z-10 mx-auto -mt-20 max-w-7xl px-4 sm:px-6 lg:px-8" aria-label="At a glance">
+    <section class="relative z-10 mx-auto -mt-20 max-w-7xl 2xl:max-w-[88rem] min-[1700px]:max-w-[100rem] px-4 sm:px-6 lg:px-8" aria-label="At a glance">
       <div class="grid gap-px overflow-hidden rounded-3xl bg-line shadow-lift sm:grid-cols-2 lg:grid-cols-4">
         <div class="bg-surface p-6">
           <p class="text-4xl font-bold text-brand">{{ main?.interest_rate_monthly ?? 1 }}%</p>
@@ -199,8 +199,8 @@ const loginTo = computed(() => (auth.user ? (auth.isAdmin ? '/office' : '/') : '
     </section>
 
     <!-- Benefits -->
-    <section id="benefits" class="mx-auto max-w-7xl scroll-mt-8 px-4 py-24 sm:px-6 lg:px-8">
-      <div class="max-w-2xl">
+    <section id="benefits" class="mx-auto max-w-7xl 2xl:max-w-[88rem] min-[1700px]:max-w-[100rem] scroll-mt-8 px-4 py-24 sm:px-6 lg:px-8">
+      <div class="max-w-2xl 2xl:max-w-4xl">
         <p class="eyebrow !text-saffron-600">Why join</p>
         <h2 class="mt-2 text-3xl font-bold sm:text-4xl">Your money works for you, and for each other</h2>
         <p class="mt-3 text-lg text-gray-600">{{ name }} is owned by its members. What it earns comes back to you.</p>
@@ -225,9 +225,9 @@ const loginTo = computed(() => (auth.user ? (auth.isAdmin ? '/office' : '/') : '
 
     <!-- How it works -->
     <section id="how" class="scroll-mt-8 bg-navy-950 py-24 text-white">
-      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div class="mx-auto max-w-7xl 2xl:max-w-[88rem] min-[1700px]:max-w-[100rem] px-4 sm:px-6 lg:px-8">
         <p class="text-xs font-semibold uppercase tracking-wider text-saffron-300">How it works</p>
-        <h2 class="mt-2 max-w-2xl text-3xl font-bold sm:text-4xl">Four steps to a better tomorrow</h2>
+        <h2 class="mt-2 max-w-2xl 2xl:max-w-4xl text-3xl font-bold sm:text-4xl">Four steps to a better tomorrow</h2>
         <ol class="mt-12 grid gap-8 md:grid-cols-4">
           <li v-for="(s, i) in [
             { t: 'Join', d: `Buy at least ${terms?.min_shares ?? 5} shares of ${money(Number(terms?.share_price ?? 40000))} each. That makes you an owner.` },
@@ -245,8 +245,8 @@ const loginTo = computed(() => (auth.user ? (auth.isAdmin ? '/office' : '/') : '
     </section>
 
     <!-- On any screen -->
-    <section id="screens" class="scroll-mt-8 overflow-hidden bg-gradient-to-b from-paper to-navy-50/60 py-24">
-      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <section id="screens" class="welcome-cream scroll-mt-8 overflow-hidden border-y py-24">
+      <div class="mx-auto max-w-7xl 2xl:max-w-[88rem] min-[1700px]:max-w-[100rem] px-4 sm:px-6 lg:px-8">
         <div class="mx-auto max-w-2xl text-center">
           <p class="eyebrow">On any screen</p>
           <h2 class="mt-2 text-3xl font-bold sm:text-4xl">Your SACCO in your pocket, the office on the desk</h2>
@@ -257,8 +257,8 @@ const loginTo = computed(() => (auth.user ? (auth.isAdmin ? '/office' : '/') : '
     </section>
 
     <!-- Loan calculator and earnings -->
-    <section id="calculator" class="mx-auto max-w-7xl scroll-mt-8 px-4 py-24 sm:px-6 lg:px-8">
-      <div class="max-w-2xl">
+    <section id="calculator" class="mx-auto max-w-7xl 2xl:max-w-[88rem] min-[1700px]:max-w-[100rem] scroll-mt-8 px-4 py-24 sm:px-6 lg:px-8">
+      <div class="max-w-2xl 2xl:max-w-4xl">
         <p class="eyebrow !text-saffron-600">Try it</p>
         <h2 class="mt-2 text-3xl font-bold sm:text-4xl">What could you borrow, and what would it cost?</h2>
       </div>
@@ -324,7 +324,7 @@ const loginTo = computed(() => (auth.user ? (auth.isAdmin ? '/office' : '/') : '
     </section>
 
     <!-- Membership rules -->
-    <section v-if="terms" class="mx-auto max-w-7xl px-4 pb-24 sm:px-6 lg:px-8">
+    <section v-if="terms" class="mx-auto max-w-7xl 2xl:max-w-[88rem] min-[1700px]:max-w-[100rem] px-4 pb-24 sm:px-6 lg:px-8">
       <div class="card grid gap-8 p-8 md:grid-cols-[1fr_1.4fr]">
         <div>
           <p class="eyebrow !text-saffron-600">Good to know</p>
@@ -364,7 +364,7 @@ const loginTo = computed(() => (auth.user ? (auth.isAdmin ? '/office' : '/') : '
 
     <!-- Call to action -->
     <section class="px-4 pb-16 sm:px-6 lg:px-8">
-      <div class="relative mx-auto max-w-7xl overflow-hidden rounded-3xl bg-gradient-to-r from-navy-700 to-navy-950 px-8 py-14 text-center text-white shadow-lift">
+      <div class="relative mx-auto max-w-7xl 2xl:max-w-[88rem] min-[1700px]:max-w-[100rem] overflow-hidden rounded-3xl bg-gradient-to-r from-navy-700 to-navy-950 px-8 py-14 text-center text-white shadow-lift">
         <div class="absolute -left-20 -top-20 h-64 w-64 rounded-full border-2 border-saffron-400/50" aria-hidden="true" />
         <div class="absolute -bottom-24 -right-16 h-72 w-72 rounded-full bg-saffron-400/10" aria-hidden="true" />
         <h2 class="relative text-3xl font-bold sm:text-4xl">{{ terms?.sacco.slogan ?? 'Save together. Grow together.' }}</h2>
@@ -374,7 +374,7 @@ const loginTo = computed(() => (auth.user ? (auth.isAdmin ? '/office' : '/') : '
     </section>
 
     <footer class="border-t border-line">
-      <div class="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-8 text-sm text-gray-500 sm:px-6 lg:px-8">
+      <div class="mx-auto flex max-w-7xl 2xl:max-w-[88rem] min-[1700px]:max-w-[100rem] flex-wrap items-center gap-4 px-4 py-8 text-sm text-gray-500 sm:px-6 lg:px-8">
         <SaccoMark :sacco="auth.sacco" />
         <p>{{ name }} · {{ terms?.sacco.slogan }}</p>
         <p class="ml-auto">To join, visit the SACCO office.</p>
@@ -383,3 +383,11 @@ const loginTo = computed(() => (auth.user ? (auth.isAdmin ? '/office' : '/') : '
     </footer>
   </div>
 </template>
+
+<style scoped>
+/* Like Tusome (and the log-in page): light blue page, cream band, white cards */
+.welcome-bg { background-color: #f5f4fe; }
+.welcome-cream { background-color: #f1edff; border-color: #e4dcff; }
+.dark .welcome-bg { background-color: rgb(var(--paper)); }
+.dark .welcome-cream { background-color: rgb(124 92 245 / 0.1); border-color: rgb(124 92 245 / 0.2); }
+</style>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageBanner from '@/components/PageBanner.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ArrowRightIcon, EyeIcon } from '@heroicons/vue/24/outline'
@@ -29,21 +30,20 @@ const waitingHere = computed(() => (office.waiting ? items.value.reduce((n, i) =
 
 <template>
   <div>
-    <!-- Heading -->
-    <div class="bg-gradient-to-br from-navy-800 to-navy-950 relative overflow-hidden rounded-3xl p-6 text-white shadow-lift sm:p-8">
-      <div class="relative flex items-center gap-4">
-        <span class="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br shadow-lg" :class="section.tone">
-          <component :is="section.icon" class="h-7 w-7 text-white" aria-hidden="true" />
+    <!-- Heading: the light banner, with the section's own coloured tile -->
+    <PageBanner :title="section.label">
+      <template #icon>
+        <span class="icon-gold inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl sm:h-14 sm:w-14">
+          <component :is="section.icon" class="h-6 w-6 sm:h-7 sm:w-7" aria-hidden="true" />
         </span>
-        <div>
-          <h1 class="text-2xl font-bold sm:text-3xl">{{ section.label }}</h1>
-          <p class="mt-1 max-w-2xl text-navy-100/80">{{ section.intro }}</p>
-        </div>
-      </div>
-      <p v-if="waitingHere" class="relative mt-5 inline-flex items-center gap-2 rounded-full bg-saffron-400 px-3 py-1 text-sm font-semibold text-navy-950">
-        {{ waitingHere }} thing{{ waitingHere === 1 ? '' : 's' }} waiting for you here
-      </p>
-    </div>
+      </template>
+      {{ section.intro }}
+      <template v-if="waitingHere" #below>
+        <p class="mt-3 inline-flex items-center gap-2 icon-gold rounded-full px-3 py-1 text-sm font-semibold">
+          {{ waitingHere }} thing{{ waitingHere === 1 ? '' : 's' }} waiting for you here
+        </p>
+      </template>
+    </PageBanner>
 
     <p v-if="auth.viewOnly" class="mt-4 flex items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3 text-sm text-gray-700">
       <EyeIcon class="h-5 w-5 shrink-0 text-brand" aria-hidden="true" />
@@ -59,14 +59,14 @@ const waitingHere = computed(() => (office.waiting ? items.value.reduce((n, i) =
         :style="{ '--i': n }"
         class="reveal card-link group relative flex flex-col overflow-hidden p-5"
       >
-        <span class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r opacity-0 transition group-hover:opacity-100" :class="section.tone" aria-hidden="true" />
+        <span class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-saffron-300 to-saffron-500 opacity-0 transition group-hover:opacity-100" aria-hidden="true" />
         <div class="flex items-start justify-between gap-3">
-          <span class="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-sm transition group-hover:scale-105" :class="section.tone">
+          <span class="icon-gold inline-flex h-12 w-12 items-center justify-center rounded-2xl transition group-hover:scale-105">
             <component :is="item.icon" class="h-6 w-6" aria-hidden="true" />
           </span>
           <span
             v-if="office.waiting && item.badge?.(office.waiting)"
-            class="rounded-full bg-saffron-400 px-2.5 py-1 text-xs font-bold text-navy-950"
+            class="icon-gold rounded-full px-2.5 py-1 text-xs font-bold"
           >{{ item.badge(office.waiting) }} waiting</span>
         </div>
         <h2 class="mt-4 text-lg font-semibold group-hover:text-brand">{{ item.label }}</h2>

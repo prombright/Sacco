@@ -4,6 +4,20 @@ import { t } from '@/i18n'
 import { computed, onMounted, ref, watch } from 'vue'
 import {
   ArrowRightIcon,
+  CalendarDaysIcon,
+  ReceiptPercentIcon,
+  UsersIcon,
+  ArrowDownIcon,
+  ArrowUpIcon,
+  ArrowsRightLeftIcon,
+  ChartBarIcon,
+  ArrowTrendingUpIcon,
+  ChevronRightIcon,
+  CircleStackIcon,
+  SparklesIcon,
+  Square3Stack3DIcon,
+  TrophyIcon,
+  WalletIcon,
   ArrowUpTrayIcon,
   BanknotesIcon,
   CheckCircleIcon,
@@ -25,7 +39,6 @@ import NoticeBoard from '@/components/NoticeBoard.vue'
 import EarningsCard from '@/components/EarningsCard.vue'
 import MonthChart from '@/components/MonthChart.vue'
 import CountUp from '@/components/CountUp.vue'
-import Sparkline from '@/components/Sparkline.vue'
 import { formatDate, formatMoney } from '@/money'
 
 interface ActiveLoan {
@@ -96,10 +109,34 @@ watch(hidden, (h) => {
 })
 const show = (v: string | number) => (hidden.value ? '••••••' : formatMoney(String(v)))
 
+/** How much an account grew over the chart's period, in percent (null when it can't be said) */
+function change(key: 'savings' | 'shares'): number | null {
+  const v = (data.value?.trend[key] ?? []).slice(-range.value).map((p) => Number(p.value))
+  const first = v.find((n) => n > 0)
+  const last = v[v.length - 1]
+  if (!first || last === undefined) return null
+  return Math.round(((last - first) / first) * 1000) / 10
+}
+/** Computers: the account at a glance */
+const glance = computed(() => {
+  const d = data.value
+  const since = auth.user?.joined_on ?? auth.user?.created_at ?? null
+  return [
+    { label: 'Account Number', value: auth.user?.account_no ?? '-', icon: UsersIcon },
+    { label: 'Member Since', value: since ? formatDate(since.slice(0, 10)) : '-', icon: CalendarDaysIcon },
+    { label: 'Dividends so far', value: d ? show(d.dividends_total) : '-', icon: ReceiptPercentIcon },
+    { label: 'Savings This Year', value: d ? show(d.saved_this_year) : '-', icon: ChartBarIcon },
+  ]
+})
+/** Phones: the three latest entries, named the way a member reads them */
+const recentPhone = computed(() => (data.value?.recent ?? []).filter((x) => !x.in_error).slice(0, 3))
+const txKind: Record<string, string> = { deposit: 'Deposit', withdrawal: 'Withdrawal', dividend: 'Dividend', adjustment: 'Adjustment', reversal: 'Reversal', opening_balance: 'Opening balance' }
+const txTitle = (x: Transaction) => `${x.account === 'shares' ? 'Share Capital' : 'Savings'} ${txKind[x.type] ?? ''}`.trim()
+const txWhen = (x: Transaction) => new Date((x.created_at || x.value_date).replace(' ', 'T')).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }).replace(' at ', ', ')
+
 const savings = computed(() => Number(data.value?.balances.savings ?? 0))
 const shares = computed(() => Number(data.value?.balances.shares ?? 0))
 const total = computed(() => savings.value + shares.value)
-const savingsShare = computed(() => (total.value > 0 ? (savings.value / total.value) * 100 : 50))
 
 // Validated for colour-blind separation and contrast on each theme's surface
 const colors = computed(() => theme.chart)
@@ -154,65 +191,41 @@ const badges = computed(() => {
 })
 
 const actions = computed(() => [
-  { label: t('Apply for a loan'), short: t('Borrow'), to: { name: 'loan-apply' }, icon: BanknotesIcon },
-  { label: t('Withdraw savings'), short: t('Withdraw'), to: { name: 'withdrawals' }, icon: ArrowUpTrayIcon },
+  { label: t('Apply for a loan'), short: t('Apply for Loan'), to: { name: 'loan-apply' }, icon: BanknotesIcon },
+  { label: t('Withdraw savings'), short: t('Withdraw Savings'), to: { name: 'withdrawals' }, icon: ArrowUpTrayIcon },
   { label: t('My statement'), short: t('Statement'), to: { name: 'statement' }, icon: DocumentTextIcon },
-  { label: t('My profile'), short: t('Profile'), to: { name: 'profile' }, icon: UserCircleIcon },
+  { label: t('My profile'), short: t('My Profile'), to: { name: 'profile' }, icon: UserCircleIcon },
 ])
-/** Phones: the extras (saver level, growth chart, this year's estimate) wait behind one button */
-const more = ref(false)
 /** The first login welcome, once */
 const welcome = ref(true)
 </script>
 
 <template>
   <div>
-    <div class="flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <p class="eyebrow">{{ t('My account') }} · <span class="font-mono normal-case tracking-normal">{{ auth.user?.account_no }}</span></p>
-        <h1 class="mt-1 text-2xl font-bold sm:text-3xl">{{ greeting }}, {{ firstName }}</h1>
+    <!-- The top. Phones: a violet header (it carries on from the top bar) with the greeting in white,
+         and the quick actions on a white panel over its lower edge. Wider screens: plain. -->
+    <section class="member-hero relative">
+      <svg class="member-hero-wave sm:hidden" viewBox="0 0 400 120" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M0 80C110 40 220 120 400 30V120H0Z" fill="#7a5cf7" opacity="0.45" />
+        <path d="M120 120C220 70 300 90 400 60V120Z" fill="#8f74fa" opacity="0.35" />
+      </svg>
+      <svg class="pointer-events-none absolute -right-6 -top-8 hidden h-48 w-[36rem] lg:block" viewBox="0 0 540 180" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M0 180C120 150 200 60 330 70C420 78 480 30 540 0V180Z" fill="#7c5cf5" opacity="0.08" />
+        <path d="M120 180C230 150 300 110 400 120C470 126 510 100 540 80V180Z" fill="#7c5cf5" opacity="0.07" />
+      </svg>
+      <div class="relative">
+        <p class="text-[0.95rem] font-medium text-[#6246ea] max-sm:!text-white/90 dark:text-[#b9a8ff] sm:text-lg">{{ t('My account') }}: <span class="font-bold">{{ auth.user?.account_no }}</span></p>
+        <h1 class="mt-0.5 text-[1.55rem] font-extrabold leading-tight tracking-[-0.015em] text-[#16133a] max-sm:!text-white dark:text-white sm:text-[2.2rem]">{{ greeting }}, {{ firstName }}</h1>
+        <p class="mt-1 text-sm text-white/85 sm:text-[0.95rem] sm:text-gray-600 sm:dark:text-gray-400">Manage your savings, loans and SACCO services<span class="max-sm:hidden"> in one place</span>.</p>
       </div>
-      <nav class="hidden flex-wrap gap-2 sm:flex" aria-label="Quick actions">
-        <RouterLink v-for="a in actions" :key="a.label" :to="a.to" class="btn-secondary !rounded-full !px-3.5">
-          <component :is="a.icon" class="h-4 w-4 text-brand" aria-hidden="true" />{{ a.label }}
-        </RouterLink>
-      </nav>
-      <nav class="grid w-full grid-cols-4 gap-2 sm:hidden" aria-label="Quick actions">
-        <RouterLink v-for="a in actions" :key="a.label" :to="a.to" class="tap flex flex-col items-center gap-1.5 rounded-2xl border border-line bg-surface px-1 py-2.5 text-xs font-medium shadow-card">
-          <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-navy-50 text-brand"><component :is="a.icon" class="h-5 w-5" aria-hidden="true" /></span>
-          {{ a.short }}
-        </RouterLink>
-      </nav>
-    </div>
+    </section>
+    <nav class="quick-actions mt-3 max-sm:relative max-sm:z-[1] max-sm:-mt-16 max-sm:rounded-[1.6rem] max-sm:bg-surface max-sm:p-3 max-sm:shadow-lift" aria-label="Quick actions">
+      <RouterLink v-for="(a, i) in actions" :key="a.label" :to="a.to" class="pill-action" :class="{ 'pill-action-main': i === 0 }">
+        <component :is="a.icon" aria-hidden="true" /><span><span class="sm:hidden">{{ a.short }}</span><span class="hidden sm:inline">{{ a.label }}</span></span>
+      </RouterLink>
+    </nav>
 
-    <NoticeBoard class="mt-5" />
     <div v-if="error" class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
-
-    <RouterLink
-      v-if="data?.guarantee_requests"
-      :to="{ name: 'loans' }"
-      class="mt-5 flex items-center justify-between gap-3 rounded-2xl border border-saffron-300 bg-saffron-50 px-4 py-3 text-sm hover:shadow-lift"
-    >
-      <span class="flex items-center gap-3">
-        <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-saffron-400 text-navy-950"><UserGroupIcon class="h-5 w-5" aria-hidden="true" /></span>
-        <span><strong class="font-semibold">{{ data.guarantee_requests }} colleague{{ data.guarantee_requests === 1 ? '' : 's' }}</strong> {{ data.guarantee_requests === 1 ? 'has' : 'have' }} asked you to guarantee a loan.</span>
-      </span>
-      <span class="font-semibold text-brand">Answer →</span>
-    </RouterLink>
-
-    <div
-      v-if="data?.membership_fee && data.membership_fee.status === 'unpaid'"
-      class="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-navy-100 bg-navy-50/60 px-4 py-3 text-sm"
-    >
-      <span class="flex items-center gap-3">
-        <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-white"><IdentificationIcon class="h-5 w-5" aria-hidden="true" /></span>
-        <span>Your <strong class="font-semibold">{{ data.membership_fee.year }} subscription</strong> of {{ formatMoney(data.membership_fee.amount) }} is due. The office can take it from your savings, or pay it at the office.</span>
-      </span>
-    </div>
-
-    <div v-if="data?.joining_fee?.status === 'unpaid'" class="mt-3 rounded-2xl border border-navy-100 bg-navy-50/60 px-4 py-3 text-sm">
-      Your <strong class="font-semibold">membership fee</strong> of {{ formatMoney(data.joining_fee.amount) }} is due. It is paid once. The office can take it from your savings, or pay it at the office.
-    </div>
 
     <WelcomeTour
       v-if="data && welcome && auth.user && !auth.isAdmin && !auth.user.welcomed && !auth.user.must_change_password"
@@ -226,49 +239,55 @@ const welcome = ref(true)
 
     <template v-if="data">
       <!-- What I have, and what I can borrow -->
-      <section class="mt-6 grid gap-4 lg:grid-cols-3" aria-label="Balances">
-        <div class="bg-gradient-to-br from-navy-800 via-navy-900 to-navy-950 reveal relative min-w-0 overflow-hidden rounded-3xl p-6 text-white shadow-lift lg:col-span-2">
+      <section class="mt-6 grid gap-4 lg:grid-cols-[1.3fr_1fr_1fr]" aria-label="Balances">
+        <div class="hero-glass reveal relative min-w-0 overflow-hidden rounded-3xl p-5 text-white shadow-lift sm:p-8 lg:p-6">
           <div class="relative flex items-start justify-between gap-4">
             <div>
-              <p class="text-sm text-navy-100/80">{{ t('My money in the SACCO') }}</p>
-              <p class="mt-1 text-4xl font-bold sm:text-5xl"><CountUp :value="total" :format="show" :duration="1500" /></p>
+              <p class="text-sm text-white/85 sm:text-base">{{ t('My money in the SACCO') }}</p>
+              <p class="mt-1 text-[2.4rem] font-extrabold leading-tight tracking-[-0.01em] sm:text-[3.4rem] lg:text-[2.6rem] 2xl:text-[3rem]"><CountUp :value="total" :format="show" :duration="1500" /></p>
             </div>
-            <button
-              type="button"
-              class="rounded-full bg-white/10 p-2 text-white/90 backdrop-blur transition hover:bg-white/20"
-              :aria-label="hidden ? 'Show amounts' : 'Hide amounts'"
-              :aria-pressed="hidden"
-              @click="hidden = !hidden"
-            >
-              <component :is="hidden ? EyeIcon : EyeSlashIcon" class="h-5 w-5" />
-            </button>
+            <div class="flex items-start gap-2">
+              <WalletIcon class="hidden h-16 w-16 text-white/25 sm:block" aria-hidden="true" />
+              <button
+                type="button"
+                class="rounded-full bg-white/10 p-2 text-white/90 backdrop-blur transition hover:bg-white/20"
+                :aria-label="hidden ? 'Show amounts' : 'Hide amounts'"
+                :aria-pressed="hidden"
+                @click="hidden = !hidden"
+              >
+                <component :is="hidden ? EyeIcon : EyeSlashIcon" class="h-5 w-5" />
+              </button>
+            </div>
           </div>
 
-          <!-- Savings and shares, side by side -->
-          <div class="relative mt-6 flex h-3 overflow-hidden rounded-full bg-white/10" role="img" :aria-label="`Savings ${Math.round(savingsShare)}%, shares ${100 - Math.round(savingsShare)}%`">
-            <div class="fill-bar h-full bg-navy-200" :style="{ width: savingsShare + '%' }" />
-            <div class="ml-0.5 h-full flex-1 bg-saffron-400" />
-          </div>
-          <div class="relative mt-3 grid grid-cols-2 gap-4">
-            <div class="flex items-start gap-2.5">
-              <span class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-navy-200" aria-hidden="true" />
-              <div>
-                <p class="text-sm text-navy-100/80">{{ t('Savings') }}</p>
-                <p class="whitespace-nowrap text-lg font-semibold sm:text-xl"><CountUp :value="data.balances.savings" :format="show" :delay="200" /></p>
-                <Sparkline class="mt-1.5 hidden sm:block" :values="data.trend.savings.map((p) => Number(p.value))" color="#c2c7f2" label="Savings" :width="120" :height="26" />
-                <p v-if="Number(data.pledged) > 0" class="mt-1 text-xs text-navy-100/80">
+          <!-- phones: a stack of coins beside the figure -->
+          <svg class="pointer-events-none absolute right-5 top-[4.4rem] h-16 w-24 sm:hidden" viewBox="0 0 96 64" aria-hidden="true">
+            <g v-for="(c, i) in [[18, 46], [18, 38], [18, 30], [52, 50], [52, 42], [52, 34], [52, 26], [52, 18]]" :key="i">
+              <ellipse :cx="c[0] + 13" :cy="c[1] + 4" rx="14" ry="5" fill="#5b3fd6" />
+              <rect :x="c[0] - 1" :y="c[1] - 4" width="28" height="8" fill="#6d52e8" />
+              <ellipse :cx="c[0] + 13" :cy="c[1] - 4" rx="14" ry="5" fill="#a28dff" />
+            </g>
+          </svg>
+
+          <!-- Savings and share capital, side by side -->
+          <div class="relative mt-5 grid grid-cols-2 border-t border-white/15 pt-5">
+            <div class="flex min-w-0 items-start gap-3 pr-3">
+              <WalletIcon class="h-8 w-8 shrink-0 text-[#38e1f5] sm:h-10 sm:w-10" aria-hidden="true" />
+              <div class="min-w-0">
+                <p class="text-sm text-white/80">{{ t('Savings') }}</p>
+                <p class="whitespace-nowrap text-lg font-extrabold sm:text-2xl lg:text-xl"><CountUp :value="data.balances.savings" :format="show" :delay="200" /></p>
+                <p v-if="Number(data.pledged) > 0" class="mt-1 text-xs text-white/75">
                   <span class="font-semibold text-white">−{{ show(data.pledged) }}</span> {{ t('held for loans and guarantees') }}<br />
                   <span class="font-semibold text-white">{{ show(data.free_to_guarantee) }}</span> {{ t('free to guarantee') }}
                 </p>
               </div>
             </div>
-            <div class="flex items-start gap-2.5">
-              <span class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-saffron-400" aria-hidden="true" />
-              <div>
-                <p class="text-sm text-navy-100/80">{{ t('Share capital') }}</p>
-                <p class="whitespace-nowrap text-lg font-semibold sm:text-xl"><CountUp :value="data.balances.shares" :format="show" :delay="350" /></p>
-                <Sparkline class="mt-1.5 hidden sm:block" :values="data.trend.shares.map((p) => Number(p.value))" color="#f2b934" label="Share capital" :width="120" :height="26" />
-                <p v-if="data.share_position.min_shares > 0 && data.share_position.shares !== null" class="mt-0.5 flex items-center gap-1 text-xs" :class="Number(data.share_position.still_needed) > 0 ? 'text-saffron-300' : 'text-navy-100/80'">
+            <div class="flex min-w-0 items-start gap-3 border-l border-white/15 pl-3 sm:pl-8">
+              <CircleStackIcon class="h-7 w-7 shrink-0 text-saffron-400 sm:h-10 sm:w-10" aria-hidden="true" />
+              <div class="min-w-0">
+                <p class="text-sm text-white/80">{{ t('Share capital') }}</p>
+                <p class="whitespace-nowrap text-lg font-extrabold sm:text-2xl lg:text-xl"><CountUp :value="data.balances.shares" :format="show" :delay="350" /></p>
+                <p v-if="data.share_position.min_shares > 0 && data.share_position.shares !== null" class="mt-0.5 hidden items-center gap-1 text-xs sm:flex" :class="Number(data.share_position.still_needed) > 0 ? 'text-saffron-300' : 'text-white/75'">
                   <CheckCircleIcon v-if="Number(data.share_position.still_needed) <= 0" class="h-3.5 w-3.5" aria-hidden="true" />
                   {{ data.share_position.shares }} share{{ data.share_position.shares === 1 ? '' : 's' }}<template v-if="Number(data.share_position.still_needed) > 0"> · {{ show(data.share_position.still_needed) }} more to reach {{ data.share_position.min_shares }}</template><template v-else> · minimum of {{ data.share_position.min_shares }} reached</template>
                 </p>
@@ -276,25 +295,6 @@ const welcome = ref(true)
             </div>
           </div>
 
-          <dl class="relative mt-6 grid grid-cols-2 gap-4 border-t border-white/10 pt-4 text-sm sm:grid-cols-3">
-            <div>
-              <dt class="text-navy-100/70">{{ t('You can withdraw') }}</dt>
-              <dd class="mt-0.5 font-semibold"><CountUp :value="data.withdrawable" :format="show" :delay="500" /></dd>
-              <dd class="text-[11px] text-navy-100/60">from savings · shares stay</dd>
-            </div>
-            <div>
-              <dt class="text-navy-100/70">{{ t('Saved this year') }}</dt>
-              <dd class="mt-0.5 font-semibold"><CountUp :value="data.saved_this_year" :format="show" :delay="600" /></dd>
-            </div>
-            <div v-if="Number(data.pledged) > 0">
-              <dt class="flex items-center gap-1 text-navy-100/70"><LockClosedIcon class="h-3.5 w-3.5" aria-hidden="true" />{{ t('Held for loans and guarantees') }}</dt>
-              <dd class="mt-0.5 font-semibold"><CountUp :value="data.pledged" :format="show" :delay="700" /></dd>
-            </div>
-            <div v-else>
-              <dt class="text-navy-100/70">Dividends &amp; profit so far</dt>
-              <dd class="mt-0.5 font-semibold"><CountUp :value="data.dividends_total" :format="show" :delay="700" /></dd>
-            </div>
-          </dl>
         </div>
 
         <!-- Phones: what to pay next, straight after the money -->
@@ -313,12 +313,29 @@ const welcome = ref(true)
           <ArrowRightIcon class="h-4 w-4 text-gray-400" aria-hidden="true" />
         </RouterLink>
 
-        <!-- Borrowing power -->
-        <div class="reveal card flex min-w-0 flex-col p-6" style="--i: 1">
-          <p class="eyebrow">{{ t('Borrowing power') }}</p>
+        <!-- Borrowing power on phones: the amount, big, with a money bag -->
+        <RouterLink :to="data.loan_wait_reason ? { name: 'loans' } : { name: 'loan-apply' }" class="card relative flex items-center gap-3 overflow-hidden p-4 sm:hidden">
+          <span class="icon-gold inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"><Square3Stack3DIcon class="h-6 w-6" aria-hidden="true" /></span>
+          <span class="min-w-0 flex-1 pr-16">
+            <span class="block text-[1.05rem] font-bold">Borrowing Power</span>
+            <template v-if="!data.loan_wait_reason">
+              <span class="block text-[13px] text-gray-600">You can apply for a loan of up to</span>
+              <span class="block text-[1.35rem] font-extrabold tabular-nums text-[#5b3ff0] dark:text-[#b9a8ff]">{{ show(data.loan_limit) }}</span>
+            </template>
+            <span v-else class="block text-[13px] text-gray-600">{{ data.loan_wait_reason }}</span>
+          </span>
+          <svg class="pointer-events-none absolute bottom-2 right-9 h-14 w-14" viewBox="0 0 56 56" aria-hidden="true">
+            <path d="M20 10h16l-3 7H23z" fill="#9b84fb" />
+            <path d="M23 17h10c9 6 15 14 15 23 0 8-8 12-20 12S8 48 8 40c0-9 6-17 15-23z" fill="#8a70f7" />
+            <text x="28" y="40" text-anchor="middle" font-size="10" font-weight="700" fill="#fff">UGX</text>
+          </svg>
+          <ChevronRightIcon class="absolute right-3 top-3 h-5 w-5 text-gray-400" aria-hidden="true" />
+        </RouterLink>
+        <div class="reveal card hidden min-w-0 flex-col p-6 sm:flex lg:p-5" style="--i: 1">
+          <h2 class="flex items-center gap-3 text-[1.15rem] font-bold"><span class="icon-gold inline-flex h-10 w-10 items-center justify-center rounded-xl"><Square3Stack3DIcon class="h-5 w-5" aria-hidden="true" /></span>{{ t('Borrowing power') }}</h2>
           <template v-if="!data.loan_wait_reason">
-            <p class="mt-3 text-sm text-gray-600">{{ t('You can borrow up to') }}</p>
-            <p class="figure text-3xl"><CountUp :value="data.loan_limit" :format="show" :delay="300" /></p>
+            <p class="mt-3 text-sm text-gray-600">You can apply for a loan of up to</p>
+            <p class="text-[2rem] font-extrabold leading-tight tabular-nums text-[#5b3ff0] dark:text-[#b9a8ff]"><CountUp :value="data.loan_limit" :format="show" :delay="300" /></p>
             <div class="mt-4 h-2 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
               <div class="fill-bar h-full rounded-full bg-brand" :style="{ width: Math.min(100, (Number(data.loan_owed) / (Number(data.loan_owed) + Number(data.loan_limit) || 1)) * 100) + '%' }" />
             </div>
@@ -334,58 +351,64 @@ const welcome = ref(true)
               <p v-if="data.credit.grade !== 'good'" class="mt-1.5 text-xs max-sm:line-clamp-3" :class="data.credit.grade === 'poor' || data.credit.overdue_now ? 'text-red-700' : 'text-gray-600'">{{ data.credit.advice }}</p>
               <p v-else class="mt-1.5 text-xs text-gray-600">{{ data.credit.on_time }} of your last {{ data.credit.due }} instalments paid on time.</p>
             </div>
-            <RouterLink :to="{ name: 'loan-apply' }" class="btn-primary mt-auto w-full !mt-6">Apply for a loan<ArrowRightIcon class="h-4 w-4" /></RouterLink>
+            <RouterLink :to="{ name: 'loan-apply' }" class="btn-primary mt-auto w-full !mt-5 !rounded-full !py-3">Apply for a Loan<ArrowRightIcon class="h-4 w-4" /></RouterLink>
           </template>
           <template v-else>
             <p class="mt-3 text-sm text-gray-700">{{ data.loan_wait_reason }}</p>
             <p class="mt-3 text-sm text-gray-500">Keep saving: the more you save, the more you'll be able to borrow.</p>
-            <RouterLink :to="{ name: 'loans' }" class="btn-secondary mt-auto w-full !mt-6">{{ t('See my loans') }}</RouterLink>
+            <RouterLink :to="{ name: 'loans' }" class="mt-auto !mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-[#d9cffd] bg-[#f3f0ff] px-4 py-2.5 text-sm font-bold text-[#5b3fd6] transition hover:bg-[#ebe5ff] dark:border-white/15 dark:bg-white/5 dark:text-[#b9a8ff]">{{ t('See my loans') }}<ChevronRightIcon class="h-4 w-4" aria-hidden="true" /></RouterLink>
           </template>
         </div>
-      </section>
 
-      <button type="button" class="tap mt-4 flex w-full items-center justify-between rounded-2xl border border-line bg-surface px-5 py-3 text-sm font-semibold shadow-card sm:hidden" :aria-expanded="more" @click="more = !more">
-        {{ more ? 'Less about my account' : 'More about my account' }}
-        <span class="text-xs font-normal text-gray-500">{{ more ? '' : 'saver level, growth, this year' }}</span>
-      </button>
-
-      <!-- Saver level and achievements -->
-      <section class="reveal mt-4 rounded-2xl border border-line bg-surface p-5 shadow-card" :class="{ 'max-sm:hidden': !more }" style="--i: 2">
-        <div class="flex flex-wrap items-center gap-5">
-          <div class="min-w-[14rem] flex-1">
-            <p class="eyebrow">{{ t('My saver level') }}</p>
-            <p class="text-xl font-bold">{{ level.name }}</p>
-            <template v-if="nextLevel">
-              <div class="mt-2 h-2 overflow-hidden rounded-full bg-gray-100"><div class="fill-bar h-full rounded-full bg-gradient-to-r" :class="level.tone" :style="{ width: levelProgress + '%' }" /></div>
-              <p class="mt-1 text-xs text-gray-500">{{ hidden ? 'Keep saving' : `${formatMoney(String(nextLevel.from - total))} more` }} to reach {{ nextLevel.name }}</p>
-            </template>
-            <p v-else class="mt-1 text-xs text-gray-500">The top level. Well done!</p>
+        <!-- Saver level and achievements -->
+        <section class="reveal card p-4 sm:p-5" style="--i: 2">
+          <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
+            <span class="tile-green inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl sm:h-12 sm:w-12"><SparklesIcon class="h-6 w-6" aria-hidden="true" /></span>
+            <div class="min-w-[8rem]">
+              <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">{{ t('My saver level') }}</p>
+              <p class="text-xl font-extrabold sm:text-2xl">{{ level.name }}</p>
+            </div>
+            <div class="order-last w-full sm:order-none sm:w-auto sm:min-w-[12rem] sm:flex-1 lg:order-last lg:w-full lg:flex-none">
+              <template v-if="nextLevel">
+                <div class="h-2.5 overflow-hidden rounded-full bg-gray-100"><div class="fill-bar h-full rounded-full bg-emerald-500" :style="{ width: levelProgress + '%' }" /></div>
+                <p class="mt-1.5 text-xs text-gray-500">{{ hidden ? 'Keep saving' : `${formatMoney(String(nextLevel.from - total))} more` }} to reach {{ nextLevel.name }}</p>
+              </template>
+              <p v-else class="text-sm text-gray-500">The top level. Well done!</p>
+            </div>
+            <span v-if="nextLevel" class="ml-auto inline-flex items-center gap-1.5 rounded-xl bg-saffron-50 sm:ml-0 lg:ml-auto px-3.5 py-2 text-sm font-bold text-saffron-700"><TrophyIcon class="h-4 w-4" aria-hidden="true" />{{ nextLevel.name }}</span>
           </div>
-          <ul class="flex flex-wrap gap-2" aria-label="Achievements">
-            <li v-for="(b, n) in badges" :key="b.label" class="badge-pop inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold" :style="{ '--i': n }" :class="b.earned ? 'bg-saffron-100 text-saffron-700' : 'bg-gray-100 text-gray-400'" :title="b.earned ? 'Earned' : 'Not yet'">
+          <ul class="mt-4 hidden flex-wrap gap-2 border-t border-line pt-3 sm:flex" aria-label="Achievements">
+            <li v-for="(b, n) in badges" :key="b.label" class="badge-pop inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold" :style="{ '--i': n }" :class="b.earned ? 'bg-[#f1edff] text-[#5b3fd6] dark:bg-white/10 dark:text-[#b9a8ff]' : 'bg-gray-100 text-gray-400'" :title="b.earned ? 'Earned' : 'Not yet'">
               {{ b.label }}
             </li>
           </ul>
-        </div>
+        </section>
       </section>
 
       <!-- Growth, and loans -->
-      <section class="mt-4 grid gap-4 lg:grid-cols-3" :class="{ 'max-sm:hidden': !more }">
-        <div class="reveal card min-w-0 p-5 lg:col-span-2" style="--i: 2">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 class="font-semibold">{{ series === 'savings' ? t('How my savings have grown') : 'How my shares have grown' }}</h2>
-              <p class="text-sm text-gray-500">
+      <section class="mt-4 grid gap-4 lg:grid-cols-[1.4fr_0.85fr_1.15fr]">
+        <div class="reveal card min-w-0 p-5" style="--i: 2">
+          <div class="flex items-center justify-between gap-3 sm:flex-wrap">
+            <div class="flex items-start gap-3">
+              <span class="icon-gold inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"><ChartBarIcon class="h-5 w-5" aria-hidden="true" /></span>
+              <div>
+              <h2 class="text-[1.05rem] font-bold"><span class="sm:hidden">Savings Growth</span><span class="hidden sm:inline">{{ series === 'savings' ? t('How my savings have grown') : 'How my shares have grown' }}</span></h2>
+              <p class="hidden text-sm text-gray-500 sm:block">
                 <template v-if="growth > 0"><span class="font-semibold text-emerald-700">+{{ show(growth) }}</span> {{ points.length < range ? `since ${sinceLabel}` : `in the last ${range} months` }}</template>
                 <template v-else>Balance at the end of each month</template>
               </p>
-            </div>
-            <div class="flex gap-2">
-              <div class="flex rounded-lg bg-gray-100 p-0.5 text-xs font-semibold" role="radiogroup" aria-label="Account">
-                <button v-for="s in (['savings', 'shares'] as const)" :key="s" type="button" role="radio" :aria-checked="series === s" class="rounded-md px-2.5 py-1 capitalize" :class="series === s ? 'bg-surface text-ink shadow-sm' : 'text-gray-600'" @click="series = s">{{ s }}</button>
               </div>
-              <div class="flex rounded-lg bg-gray-100 p-0.5 text-xs font-semibold" role="radiogroup" aria-label="Period">
-                <button v-for="r in ([6, 12] as const)" :key="r" type="button" role="radio" :aria-checked="range === r" class="rounded-md px-2.5 py-1" :class="range === r ? 'bg-surface text-ink shadow-sm' : 'text-gray-600'" @click="range = r">{{ r }}M</button>
+            </div>
+            <select v-model.number="range" class="shrink-0 rounded-full border border-line bg-surface py-1.5 pl-3 pr-8 text-xs font-semibold text-ink sm:hidden" aria-label="Period">
+              <option :value="12">Last 12 Months</option>
+              <option :value="6">Last 6 Months</option>
+            </select>
+            <div class="hidden gap-2 sm:flex">
+              <div class="flex gap-1 rounded-xl bg-[#f3f1fb] p-1 text-xs font-semibold dark:bg-white/5" role="radiogroup" aria-label="Account">
+                <button v-for="s in (['savings', 'shares'] as const)" :key="s" type="button" role="radio" :aria-checked="series === s" class="rounded-md px-2.5 py-1 capitalize" :class="series === s ? 'bg-surface text-[#6246ea] shadow-sm ring-1 ring-[#6246ea]/30' : 'text-gray-600'" @click="series = s">{{ s }}</button>
+              </div>
+              <div class="flex gap-1 rounded-xl bg-[#f3f1fb] p-1 text-xs font-semibold dark:bg-white/5" role="radiogroup" aria-label="Period">
+                <button v-for="r in ([6, 12] as const)" :key="r" type="button" role="radio" :aria-checked="range === r" class="rounded-md px-2.5 py-1" :class="range === r ? 'bg-surface text-[#6246ea] shadow-sm ring-1 ring-[#6246ea]/30' : 'text-gray-600'" @click="range = r">{{ r }}M</button>
               </div>
             </div>
           </div>
@@ -400,10 +423,30 @@ const welcome = ref(true)
           />
         </div>
 
-        <div class="reveal card min-w-0 p-5" style="--i: 3">
+        <!-- phones: savings and share capital, with how much each grew over the period -->
+        <div class="grid grid-cols-2 gap-3 sm:hidden lg:grid lg:grid-cols-1">
+          <div class="money-tile money-tile-green lg:flex lg:items-center lg:gap-4">
+            <span class="tile-green inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl lg:h-12 lg:w-12"><ArrowTrendingUpIcon class="h-5 w-5" aria-hidden="true" /></span>
+            <div>
+            <p class="mt-3 text-sm text-gray-600 lg:mt-0">Total Savings</p>
+            <p class="text-lg font-extrabold tabular-nums">{{ show(data.balances.savings) }}</p>
+            <span v-if="change('savings') !== null" class="mt-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold" :class="change('savings')! >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-50 text-red-700'">{{ change('savings')! >= 0 ? '↑' : '↓' }} {{ change('savings')! >= 0 ? '+' : '' }}{{ change('savings') }}%</span>
+            </div>
+          </div>
+          <div class="money-tile money-tile-blue lg:flex lg:items-center lg:gap-4">
+            <span class="tile-blue inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl lg:h-12 lg:w-12"><CircleStackIcon class="h-5 w-5" aria-hidden="true" /></span>
+            <div>
+            <p class="mt-3 text-sm text-gray-600 lg:mt-0">Share Capital</p>
+            <p class="text-lg font-extrabold tabular-nums">{{ show(data.balances.shares) }}</p>
+            <span v-if="change('shares') !== null" class="mt-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold" :class="change('shares')! >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-50 text-red-700'">{{ change('shares')! >= 0 ? '↑' : '↓' }} {{ change('shares')! >= 0 ? '+' : '' }}{{ change('shares') }}%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="reveal card min-w-0 p-5 lg:order-last lg:col-span-3" style="--i: 3">
           <div class="flex items-center justify-between">
-            <h2 class="font-semibold">{{ data.loans.length > 1 ? t('Loans') : t('My loan') }}</h2>
-            <RouterLink :to="{ name: 'loans' }" class="text-sm font-semibold text-brand hover:underline">{{ t('All loans') }}</RouterLink>
+            <h2 class="flex items-center gap-3 text-[1.05rem] font-bold"><span class="icon-gold inline-flex h-10 w-10 items-center justify-center rounded-xl"><Square3Stack3DIcon class="h-5 w-5" aria-hidden="true" /></span>{{ data.loans.length > 1 ? t('Loans') : t('My loan') }}</h2>
+            <RouterLink :to="{ name: 'loans' }" class="inline-flex items-center gap-0.5 rounded-full border border-[#e4dcff] px-3 py-1 text-xs font-semibold text-[#5b3ff0] hover:bg-[#f3f0ff] dark:border-white/15 dark:text-[#b9a8ff]">{{ t('All loans') }}<ChevronRightIcon class="h-3.5 w-3.5" aria-hidden="true" /></RouterLink>
           </div>
           <ul v-if="data.loans.length" class="mt-4 space-y-5">
             <li v-for="l in data.loans" :key="l.id">
@@ -425,20 +468,114 @@ const welcome = ref(true)
               </RouterLink>
             </li>
           </ul>
-          <div v-else class="mt-6 text-center">
-            <span class="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700"><CheckCircleIcon class="h-7 w-7" aria-hidden="true" /></span>
-            <p class="mt-3 font-semibold">No loan to repay</p>
-            <p class="mt-1 text-sm text-gray-600">Repayments come off your pay automatically when you have one.</p>
+          <div v-else class="mt-4 sm:mt-6 sm:text-center lg:mt-4 lg:flex lg:items-center lg:justify-between lg:gap-6 lg:text-left">
+            <div class="flex items-start gap-4 sm:block lg:flex lg:items-center">
+              <span class="tile-green inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl"><CheckCircleIcon class="h-7 w-7" aria-hidden="true" /></span>
+              <div>
+                <p class="font-bold sm:mt-3 lg:mt-0">You don't have an active loan</p>
+                <p class="mt-1 text-sm text-gray-600">Apply for a loan today and grow your goals with {{ auth.sacco?.name || 'the SACCO' }}. Repayments come off your pay.</p>
+              </div>
+            </div>
+            <RouterLink :to="{ name: 'loan-apply' }" class="btn-primary mt-5 w-full !rounded-full !py-3 lg:mt-0 lg:w-auto lg:shrink-0 lg:!px-8">Apply for a Loan<ArrowRightIcon class="h-4 w-4" aria-hidden="true" /></RouterLink>
           </div>
           <p v-if="data.next_repayment" class="mt-5 border-t border-line pt-3 text-xs text-gray-500">
             Next repayment {{ formatDate(data.next_repayment.date) }}; it comes off your payroll.
           </p>
         </div>
+
+        <!-- the latest entries on my account (phones and computers) -->
+        <section class="card min-w-0 p-4 sm:max-lg:hidden lg:p-5" aria-labelledby="recent-phone">
+          <div class="flex items-center justify-between gap-2">
+            <h2 id="recent-phone" class="flex items-center gap-3 text-[1.05rem] font-bold"><span class="icon-gold inline-flex h-10 w-10 items-center justify-center rounded-xl"><ArrowsRightLeftIcon class="h-5 w-5" aria-hidden="true" /></span>Recent Transactions</h2>
+            <RouterLink :to="{ name: 'statement' }" class="inline-flex items-center gap-0.5 rounded-full border border-[#e4dcff] px-3 py-1 text-xs font-semibold text-[#5b3ff0] dark:border-white/15 dark:text-[#b9a8ff]">View All<ChevronRightIcon class="h-3.5 w-3.5" aria-hidden="true" /></RouterLink>
+          </div>
+          <ul class="mt-2 divide-y divide-line">
+            <li v-for="tx in recentPhone" :key="tx.id" class="flex items-center gap-3 py-3">
+              <span class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" :class="Number(tx.amount) < 0 ? 'tile-red' : 'tile-green'">
+                <component :is="Number(tx.amount) < 0 ? ArrowUpIcon : ArrowDownIcon" class="h-5 w-5" aria-hidden="true" />
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="block truncate text-sm font-bold">{{ txTitle(tx) }}</span>
+                <span class="block text-xs text-gray-500">{{ txWhen(tx) }}</span>
+              </span>
+              <span class="shrink-0 text-sm font-extrabold tabular-nums" :class="Number(tx.amount) < 0 ? 'text-red-600' : 'text-emerald-600'">{{ Number(tx.amount) < 0 ? '- ' : '+ ' }}{{ show(Math.abs(Number(tx.amount))) }}</span>
+            </li>
+            <li v-if="!recentPhone.length" class="py-4 text-sm text-gray-500">Nothing yet.</li>
+          </ul>
+        </section>
       </section>
 
-      <EarningsCard class="reveal mt-4" :class="{ 'max-sm:hidden': !more }" style="--i: 4" />
 
-      <section class="reveal mt-4" style="--i: 5">
+      <!-- computers: my account at a glance -->
+      <section class="mt-4 hidden gap-4 lg:grid lg:grid-cols-4" aria-label="My account at a glance">
+        <div v-for="c in glance" :key="c.label" class="stat-card !flex-row items-center gap-4">
+          <span class="icon-gold inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl"><component :is="c.icon" class="h-7 w-7" aria-hidden="true" /></span>
+          <span class="min-w-0">
+            <span class="block text-sm text-gray-500">{{ c.label }}</span>
+            <span class="block truncate text-[1.45rem] font-extrabold leading-tight tabular-nums">{{ c.value }}</span>
+          </span>
+        </div>
+      </section>
+
+      <!-- Notices from the office and things to answer -->
+      <NoticeBoard class="mt-5" />
+
+      <RouterLink
+        v-if="data?.guarantee_requests"
+        :to="{ name: 'loans' }"
+        class="mt-5 flex items-center justify-between gap-3 rounded-2xl border border-saffron-300/70 bg-surface px-4 py-3 text-sm hover:shadow-lift"
+      >
+        <span class="flex items-center gap-3">
+          <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl icon-gold"><UserGroupIcon class="h-5 w-5" aria-hidden="true" /></span>
+          <span><strong class="font-semibold">{{ data.guarantee_requests }} colleague{{ data.guarantee_requests === 1 ? '' : 's' }}</strong> {{ data.guarantee_requests === 1 ? 'has' : 'have' }} asked you to guarantee a loan.</span>
+        </span>
+        <span class="font-semibold text-brand">Answer →</span>
+      </RouterLink>
+
+      <div
+        v-if="data?.membership_fee && data.membership_fee.status === 'unpaid'"
+        class="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-navy-100 bg-navy-50/60 px-4 py-3 text-sm"
+      >
+        <span class="flex items-center gap-3">
+          <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl icon-gold"><IdentificationIcon class="h-5 w-5" aria-hidden="true" /></span>
+          <span>Your <strong class="font-semibold">{{ data.membership_fee.year }} subscription</strong> of {{ formatMoney(data.membership_fee.amount) }} is due. The office can take it from your savings, or pay it at the office.</span>
+        </span>
+      </div>
+
+      <div v-if="data?.joining_fee?.status === 'unpaid'" class="mt-3 rounded-2xl border border-navy-100 bg-navy-50/60 px-4 py-3 text-sm">
+        Your <strong class="font-semibold">membership fee</strong> of {{ formatMoney(data.joining_fee.amount) }} is due. It is paid once. The office can take it from your savings, or pay it at the office.
+      </div>
+
+      <!-- More about my money (kept from the money card) -->
+      <!-- four cards: two pairs on phones, one row on wider screens -->
+      <section class="mt-4 grid grid-cols-2 gap-3" aria-label="More about my money">
+        <div class="stat-card">
+          <p class="text-sm text-gray-500">{{ t('You can withdraw') }}</p>
+          <p class="mt-1 text-lg font-extrabold tabular-nums"><CountUp :value="data.withdrawable" :format="show" /></p>
+          <p class="text-xs text-gray-500">from savings · shares stay</p>
+        </div>
+        <div class="stat-card lg:hidden">
+          <p class="text-sm text-gray-500">{{ t('Saved this year') }}</p>
+          <p class="mt-1 text-lg font-extrabold tabular-nums"><CountUp :value="data.saved_this_year" :format="show" /></p>
+        </div>
+        <div class="stat-card lg:hidden">
+          <p class="text-sm text-gray-500">Dividends &amp; profit so far</p>
+          <p class="mt-1 text-lg font-extrabold tabular-nums"><CountUp :value="data.dividends_total" :format="show" /></p>
+        </div>
+        <div v-if="Number(data.pledged) > 0" class="stat-card">
+          <p class="flex items-center gap-1 text-sm text-gray-500"><LockClosedIcon class="h-3.5 w-3.5" aria-hidden="true" />{{ t('Held for loans and guarantees') }}</p>
+          <p class="mt-1 text-lg font-extrabold tabular-nums"><CountUp :value="data.pledged" :format="show" /></p>
+        </div>
+        <div v-else class="stat-card">
+          <p class="text-sm text-gray-500">{{ t('Free to guarantee') }}</p>
+          <p class="mt-1 text-lg font-extrabold tabular-nums"><CountUp :value="data.free_to_guarantee" :format="show" /></p>
+          <p class="text-xs text-gray-500">savings you can pledge for a colleague</p>
+        </div>
+      </section>
+
+      <EarningsCard class="reveal mt-4" style="--i: 4" />
+
+      <section class="reveal mt-4 hidden sm:block lg:hidden" style="--i: 5">
         <div class="flex items-center justify-between">
           <h2 class="font-semibold">{{ t('Recent activity') }}</h2>
           <RouterLink :to="{ name: 'statement' }" class="text-sm font-semibold text-brand hover:underline">{{ t('Full statement') }}</RouterLink>

@@ -89,17 +89,17 @@ const statusLabel: Record<string, string> = { active: 'Active', suspended: 'Susp
 
 <template>
   <div>
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <PageHeader eyebrow="Members">
-          <template #title>Member register <span v-if="total" class="text-base font-medium text-gray-500">· {{ total.toLocaleString() }}</span></template>
-          Everyone who can log in to the SACCO, with their balances. Click a name to open their account.
-        </PageHeader>
-      </div>
-      <div class="flex flex-wrap gap-2">
-        <RouterLink :to="{ name: 'member-import' }" class="btn-secondary">Import from Excel</RouterLink>
-        <button v-can="'members'" type="button" class="btn-primary" @click="editing = null">Add member</button>
-      </div>
+    <div>
+      <PageHeader eyebrow="Members">
+        <template #title>Member register <span v-if="total" class="text-base font-medium text-gray-500">· {{ total.toLocaleString() }}</span></template>
+        Everyone who can log in to the SACCO, with their balances. Click a name to open their account.
+      <template #actions>
+        <div class="flex flex-wrap gap-2">
+          <RouterLink :to="{ name: 'member-import' }" class="btn-secondary">Import from Excel</RouterLink>
+          <button v-can="'members'" type="button" class="btn-primary" @click="editing = null">Add member</button>
+        </div>
+      </template>
+      </PageHeader>
     </div>
 
     <div class="mt-5 flex flex-col gap-2 sm:flex-row">

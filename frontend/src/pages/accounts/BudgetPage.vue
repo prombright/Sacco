@@ -60,18 +60,18 @@ async function save() {
 
 <template>
   <div>
-    <div class="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <PageHeader eyebrow="Reports" title="Budget and actual">
-          Set what the SACCO expects to earn and spend in a year, account by account, and see how the year is going against it.
-        </PageHeader>
-      </div>
-      <div class="flex flex-wrap items-center gap-2">
-        <div class="flex rounded-lg bg-gray-200/60 p-0.5 text-sm font-semibold" role="radiogroup" aria-label="Year">
-          <button v-for="y in [thisYear - 1, thisYear, thisYear + 1]" :key="y" type="button" role="radio" :aria-checked="year === y" class="rounded-md px-3 py-1.5" :class="year === y ? 'bg-surface text-ink shadow-sm' : 'text-gray-600'" @click="year = y">{{ y }}</button>
+    <div>
+      <PageHeader eyebrow="Reports" title="Budget and actual">
+        Set what the SACCO expects to earn and spend in a year, account by account, and see how the year is going against it.
+      <template #actions>
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="flex rounded-lg bg-gray-200/60 p-0.5 text-sm font-semibold" role="radiogroup" aria-label="Year">
+            <button v-for="y in [thisYear - 1, thisYear, thisYear + 1]" :key="y" type="button" role="radio" :aria-checked="year === y" class="rounded-md px-3 py-1.5" :class="year === y ? 'bg-surface text-ink shadow-sm' : 'text-gray-600'" @click="year = y">{{ y }}</button>
+          </div>
+          <button v-if="auth.isSuperAdmin && !editing" type="button" class="btn-primary" :disabled="!data" @click="editing = true; message = ''"><PencilSquareIcon class="h-4 w-4" />Set the budget</button>
         </div>
-        <button v-if="auth.isSuperAdmin && !editing" type="button" class="btn-primary" :disabled="!data" @click="editing = true; message = ''"><PencilSquareIcon class="h-4 w-4" />Set the budget</button>
-      </div>
+      </template>
+      </PageHeader>
     </div>
     <p v-if="message" class="mt-4 flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800"><CheckCircleIcon class="h-5 w-5" />{{ message }}</p>
     <p v-if="error" class="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">{{ error }}</p>

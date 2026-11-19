@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useRouter } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { MagnifyingGlassIcon, PaperAirplaneIcon, PrinterIcon } from '@heroicons/vue/24/outline'
@@ -53,7 +54,21 @@ const shown = computed(() => {
   return (data.value?.members ?? []).filter((m) => !term || m.full_name.toLowerCase().includes(term) || (m.account_no ?? '').includes(term) || (m.employee_no ?? '').toLowerCase().includes(term))
 })
 
+/** A member's individual statement: their whole history up to the end of the chosen month */
+const monthEnd = computed(() => {
+  const [y, m] = month.value.split('-').map(Number)
+  const d = new Date(y, m, 0)
+  return `${y}-${String(m).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+})
+const statementFor = (m: Row, print = false) => ({ name: 'member-statement', params: { id: m.user_id }, query: { to: monthEnd.value, ...(print ? { print: '1' } : {}) } })
+const router = useRouter()
+
+/** One member found: print their individual statement. Several: the month's one-page summaries. */
 async function print() {
+  if (shown.value.length === 1) {
+    router.push(statementFor(shown.value[0], true))
+    return
+  }
   document.body.classList.add('printing-report')
   await nextTick()
   const done = () => {
@@ -94,14 +109,14 @@ async function send() {
           <MagnifyingGlassIcon class="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" aria-hidden="true" />
           <input v-model="q" type="search" class="input pl-10" placeholder="Find a member" aria-label="Find a member" />
         </div>
-        <button type="button" class="btn-secondary" :disabled="!shown.length" @click="print"><PrinterIcon class="h-4 w-4" />Print {{ q ? shown.length : 'all' }}</button>
+        <button type="button" class="btn-secondary" :disabled="!shown.length" @click="print"><PrinterIcon class="h-4 w-4" />{{ shown.length === 1 ? 'Print statement' : `Print ${q ? shown.length : 'all'}` }}</button>
         <button v-if="auth.isSuperAdmin" type="button" class="btn-primary" :disabled="busy || !data?.members.length" @click="send"><PaperAirplaneIcon class="h-4 w-4" />{{ busy ? 'Sending…' : 'Send to members now' }}</button>
       </div>
       <div v-if="error" class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
     </div>
 
     <div class="print-area mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3 print:mt-0 print:block">
-      <article v-for="m in shown" :key="m.user_id" class="card p-5 print:mb-0 print:break-after-page print:rounded-none print:border-0 print:p-0 print:shadow-none">
+      <article v-for="m in shown" :key="m.user_id" class="card relative cursor-pointer p-5 transition hover:-translate-y-0.5 hover:shadow-lift print:mb-0 print:break-after-page print:rounded-none print:border-0 print:p-0 print:shadow-none">
         <div class="hidden items-center gap-3 border-b-2 border-gray-800 pb-3 print:flex">
           <SaccoMark :sacco="auth.sacco" />
           <div>
@@ -111,10 +126,11 @@ async function send() {
         </div>
         <div class="flex items-start justify-between gap-3 print:mt-4">
           <div class="min-w-0">
-            <p class="truncate font-semibold">{{ m.full_name }}</p>
+            <!-- the whole card opens the member's individual statement -->
+            <RouterLink :to="statementFor(m)" class="truncate font-semibold after:absolute after:inset-0 after:content-[''] hover:text-brand print:after:hidden">{{ m.full_name }}</RouterLink>
             <p class="text-xs text-gray-500">{{ m.employee_no }}<template v-if="m.account_no"> · Acc <span class="font-mono">{{ m.account_no }}</span></template></p>
           </div>
-          <span class="shrink-0 rounded-full bg-navy-50 px-2 py-0.5 text-xs font-semibold text-navy-800 print:hidden">{{ label }}</span>
+          <span class="flex shrink-0 items-center gap-2 print:hidden"><span class="rounded-full bg-navy-50 px-2 py-0.5 text-xs font-semibold text-navy-800">{{ label }}</span><RouterLink :to="statementFor(m, true)" class="relative z-[1] rounded-full p-1.5 text-gray-500 hover:bg-navy-50 hover:text-brand" title="Print the individual statement" aria-label="Print the individual statement"><PrinterIcon class="h-4 w-4" /></RouterLink></span>
         </div>
         <dl class="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
           <div><dt class="text-xs text-gray-500">Savings at month end</dt><dd class="font-semibold tabular-nums">{{ formatMoney(m.savings_end) }}</dd></div>

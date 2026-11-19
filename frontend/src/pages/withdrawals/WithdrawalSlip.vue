@@ -27,7 +27,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="force-light min-h-screen bg-gray-100 px-4 py-8 text-ink print:bg-white print:p-0">
+  <div class="force-light text-ink print:bg-white print:p-0">
     <div class="mx-auto mb-4 flex max-w-2xl justify-between print:hidden">
       <button type="button" class="btn-secondary" @click="$router.back()">← Back</button>
       <button type="button" class="btn-primary" @click="printSlip">Print</button>

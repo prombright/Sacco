@@ -29,16 +29,13 @@ load()
 
 <template>
   <div>
-    <div class="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <PageHeader eyebrow="My account" title="My statement">
-          Every entry on your account, newest first.
-        </PageHeader>
-      </div>
-      <div class="flex flex-wrap gap-2">
-        <RouterLink :to="{ name: 'statement-full' }" class="btn-primary">My full statement</RouterLink>
+    <div>
+      <PageHeader eyebrow="My account" title="My statement">
+        Every entry on your account, newest first.
+      <template #actions>
         <RouterLink :to="{ name: 'statement-print' }" class="btn-secondary">Print a statement</RouterLink>
-      </div>
+      </template>
+      </PageHeader>
     </div>
 
     <div class="mt-5"><AccountTabs v-model="account" /></div>

@@ -17,7 +17,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"Inter Variable"', 'Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+        sans: ['"Space Grotesk Variable"', '"Inter Variable"', 'Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
       },
       colors: {
         gray: Object.fromEntries([50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950].map((n) => [n, v(`g-${n}`)])),
@@ -26,17 +26,17 @@ export default {
         surface: v('surface'),
         ink: v('ink'),
         line: v('line'),
-        // SMACON royal blue (its logo and banner), from light tints to the deep sidebar blue
+        // The app's violet (was SMACON royal blue), from light tints to the deep sidebar indigo
         navy: {
-          50: '#eef0fc',
-          100: '#dfe2f9',
-          200: '#c2c7f2',
-          300: '#9aa2e6',
-          600: '#3a46c4',
-          700: '#2b35af',
-          800: '#1f2788',
-          900: '#161c63',
-          950: '#0d1240',
+          50: '#f3f0ff',
+          100: '#e8e1ff',
+          200: '#d3c7fe',
+          300: '#b3a1fc',
+          600: '#6246ea',
+          700: '#5233d6',
+          800: '#3f22b0',
+          900: '#2a1885',
+          950: '#1b1150',
         },
         // The amber of SMACON's banner and app tiles: highlights and things waiting for you
         saffron: {
@@ -50,7 +50,7 @@ export default {
         },
         // Charts: validated for colour-blind separation and contrast (light; dark uses brighter blue)
         chart: {
-          primary: '#3a46c4',
+          primary: '#6246ea',
           accent: '#c98a08',
         },
       },
