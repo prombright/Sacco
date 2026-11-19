@@ -39,12 +39,12 @@ const uid = Math.random().toString(36).slice(2, 8)
     </g>
 
     <!-- shapes -->
-    <circle cx="1440" cy="100" r="30" fill="#6246ea" opacity="0.9" />
+    <circle cx="1440" cy="100" r="30" fill="#6a1ff5" opacity="0.9" />
     <circle cx="1440" cy="100" r="12" fill="#fff" opacity="0.9" />
     <circle cx="1290" cy="44" r="14" fill="#14b8a6" opacity="0.85" class="ba-float" />
     <circle cx="1565" cy="172" r="22" class="ba-navy" />
     <circle cx="1205" cy="156" r="7" class="ba-navy" opacity="0.7" />
-    <rect x="1330" y="150" width="54" height="16" rx="8" fill="#6246ea" opacity="0.18" transform="rotate(-18 1357 158)" />
+    <rect x="1330" y="150" width="54" height="16" rx="8" fill="#6a1ff5" opacity="0.18" transform="rotate(-18 1357 158)" />
     <rect x="1505" y="22" width="40" height="12" rx="6" fill="#14b8a6" opacity="0.35" transform="rotate(24 1525 28)" />
     </g>
   </svg>
@@ -54,8 +54,8 @@ const uid = Math.random().toString(36).slice(2, 8)
 .ba-bg-1 { stop-color: #ffffff; }
 .ba-bg-2 { stop-color: #f1f5ff; }
 .ba-bg-3 { stop-color: #dfe8ff; }
-.ba-dot { fill: #6246ea; opacity: 0.35; }
-.ba-ring { stroke: #6246ea; }
+.ba-dot { fill: #6a1ff5; opacity: 0.35; }
+.ba-ring { stroke: #6a1ff5; }
 .ba-navy { fill: #16133a; }
 .ba-spin { animation: ba-turn 40s linear infinite; }
 .ba-float { animation: ba-float 6s ease-in-out infinite alternate; }

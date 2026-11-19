@@ -161,7 +161,7 @@ onMounted(async () => {
             <span class="hidden lg:inline">Oldest at the top, newest at the bottom</span>
           </p>
         </div>
-        <span v-if="unread" class="shrink-0 rounded-full bg-[#f1edff] px-2.5 py-0.5 text-xs font-semibold text-[#5b3ff0] dark:bg-white/10 dark:text-[#b9a8ff]">{{ unread }} new</span>
+        <span v-if="unread" class="shrink-0 rounded-full bg-[#efe8fe] px-2.5 py-0.5 text-xs font-semibold text-[#5b19f3] dark:bg-white/10 dark:text-[#c4a6ff]">{{ unread }} new</span>
       </div>
 
       <!-- Phones and tablets: the filters stay under the top bar while scrolling -->
@@ -197,7 +197,7 @@ onMounted(async () => {
           <div v-for="m in d.items" :key="m.id" class="mb-2.5 flex">
             <div
               class="w-full min-w-0 rounded-2xl rounded-tl-md border border-line bg-surface px-4 py-3 shadow-sm sm:px-5"
-              :class="{ 'cursor-pointer transition hover:border-brand/40 hover:shadow-card': m.link, 'ring-2 ring-[#7c5cf5]/40': !m.read_at }"
+              :class="{ 'cursor-pointer transition hover:border-brand/40 hover:shadow-card': m.link, 'ring-2 ring-[#8a3ffb]/40': !m.read_at }"
               :role="m.link ? 'link' : undefined"
               :tabindex="m.link ? 0 : undefined"
               @click="open(m)"

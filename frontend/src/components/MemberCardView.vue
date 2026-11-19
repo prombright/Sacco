@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { accountLabel } from '@/account'
 import { onMounted, ref, watch } from 'vue'
 import UserAvatar from '@/components/UserAvatar.vue'
 import SaccoMark from '@/components/SaccoMark.vue'
@@ -23,7 +24,6 @@ onMounted(makeQr)
 watch(() => props.member.account_no, makeQr)
 
 /** "004" -> "0 0 4"-style spacing for the long number look of a card */
-const spaced = (s: string | null) => (s ?? '').split('').join(' ')
 </script>
 
 <template>
@@ -53,7 +53,7 @@ const spaced = (s: string | null) => (s ?? '').split('').join(' ')
       <div class="mt-auto flex items-end gap-3">
         <UserAvatar :name="member.full_name" :photo-url="member.photo_url" size="h-14 w-14 text-lg ring-2 ring-white/70 sm:h-16 sm:w-16" />
         <div class="min-w-0 flex-1">
-          <p class="font-mono text-base tracking-[0.2em] text-navy-100 sm:text-lg">{{ spaced(member.account_no) }}</p>
+          <p class="font-mono text-base tracking-[0.2em] text-navy-100 sm:text-lg">{{ accountLabel(member.account_no, auth.sacco) }}</p>
           <p class="truncate text-base font-semibold uppercase tracking-wide sm:text-lg">{{ member.full_name }}</p>
           <p class="text-[11px] text-navy-200">
             {{ member.employee_no }}<template v-if="member.joined_on"> · member since {{ formatDate(member.joined_on) }}</template>

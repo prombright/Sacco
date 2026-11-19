@@ -53,7 +53,7 @@ async function go() {
       class="tap group relative inline-flex h-10 w-10 items-center justify-center rounded-full border text-[13px] font-extrabold tracking-wide shadow-sm transition"
       :class="
         target
-          ? 'border-[#16133a] bg-[#16133a] text-white hover:bg-[#6246ea] hover:border-[#6246ea] dark:border-white/20'
+          ? 'border-[#16133a] bg-[#16133a] text-white hover:bg-[#6a1ff5] hover:border-[#6a1ff5] dark:border-white/20'
           : 'border-line bg-surface text-gray-600 hover:border-navy-100 hover:text-navy-800'
       "
       :aria-label="`You are in: ${now}. ${label}`"
@@ -64,7 +64,7 @@ async function go() {
     >
       <!-- the account you are in now, short; the small arrows say it switches -->
       <span aria-hidden="true">{{ short }}</span>
-      <span class="absolute -bottom-1 -right-1 inline-flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[#6246ea] text-white ring-2 ring-white dark:ring-navy-950" aria-hidden="true">
+      <span class="absolute -bottom-1 -right-1 inline-flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[#6a1ff5] text-white ring-2 ring-white dark:ring-navy-950" aria-hidden="true">
         <ArrowsRightLeftIcon class="h-2.5 w-2.5 transition duration-300 group-hover:rotate-180" :class="{ 'animate-spin': busy }" />
       </span>
     </button>

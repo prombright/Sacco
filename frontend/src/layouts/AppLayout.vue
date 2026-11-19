@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { accountLabel } from '@/account'
 import BottomTabs from '@/components/BottomTabs.vue'
 import ToastHost from '@/components/ToastHost.vue'
 import SmsToast from '@/components/SmsToast.vue'
@@ -216,8 +217,8 @@ async function signOut() {
     >
       <!-- the violet wave at the foot of the sidebar -->
       <svg class="sidebar-wave" viewBox="0 0 264 300" preserveAspectRatio="none" aria-hidden="true">
-        <path d="M0 70C70 40 150 70 264 150V300H0Z" fill="#4535c2" opacity="0.5" />
-        <path d="M0 150C80 115 170 150 264 215V300H0Z" fill="#6a50ea" opacity="0.35" />
+        <path d="M0 70C70 40 150 70 264 150V300H0Z" fill="#4a2bb8" opacity="0.5" />
+        <path d="M0 150C80 115 170 150 264 215V300H0Z" fill="#7a3cf0" opacity="0.35" />
       </svg>
       <!-- Brand: logo, name and office -->
       <div class="relative z-[1] flex shrink-0 items-center gap-3 px-5 pb-7 pt-7" :class="{ 'justify-center !px-0': !wide }">
@@ -340,7 +341,7 @@ async function signOut() {
     <!-- Shrink / expand: a small round arrow on the sidebar's right edge (wide screens) -->
     <button
       type="button"
-      class="fixed top-1/2 z-[55] hidden h-6 w-6 print:!hidden -translate-y-1/2 items-center justify-center rounded-full border border-[#e4dcff] bg-white text-[#5b3fd6] shadow-md transition-[left] duration-200 hover:bg-[#f3f0ff] dark:border-white/15 dark:bg-navy-900 dark:text-white lg:flex"
+      class="fixed top-1/2 z-[55] hidden h-6 w-6 print:!hidden -translate-y-1/2 items-center justify-center rounded-full border border-[#e5ddfd] bg-white text-[#5a1fd0] shadow-md transition-[left] duration-200 hover:bg-[#f2ecff] dark:border-white/15 dark:bg-navy-900 dark:text-white lg:flex"
       :style="{ left: (collapsed ? 76 : 264) - 12 + 'px' }"
       :aria-label="collapsed ? 'Expand the menu' : 'Shrink the menu'"
       :title="collapsed ? 'Expand the menu' : 'Shrink the menu'"
@@ -395,7 +396,7 @@ async function signOut() {
           v-if="auth.isAdmin"
           :to="{ name: 'messages' }"
           class="tap rounded-full p-2 text-gray-600 transition hover:bg-gray-200/60 hover:text-ink"
-          :class="{ '!bg-[#6246ea]/10 !text-[#6246ea]': route.name === 'messages' }"
+          :class="{ '!bg-[#6a1ff5]/10 !text-[#6a1ff5]': route.name === 'messages' }"
           aria-label="Messages"
           title="Messages"
         >
@@ -434,14 +435,14 @@ async function signOut() {
               <!-- tap the picture to change it -->
               <label class="group relative shrink-0 cursor-pointer" :class="{ 'pointer-events-none opacity-60': photoBusy }" :title="auth.user?.photo_url ? 'Change photo' : 'Add a photo'">
                 <UserAvatar :name="auth.user?.full_name ?? ''" :photo-url="auth.user?.photo_url" size="h-12 w-12 text-base" />
-                <span class="absolute -bottom-0.5 -right-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#6246ea] text-white ring-2 ring-surface transition group-hover:scale-110" aria-hidden="true">
+                <span class="absolute -bottom-0.5 -right-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#6a1ff5] text-white ring-2 ring-surface transition group-hover:scale-110" aria-hidden="true">
                   <CameraIcon class="h-3 w-3" />
                 </span>
                 <input type="file" accept="image/jpeg,image/png,image/webp" class="sr-only" :disabled="photoBusy" :aria-label="auth.user?.photo_url ? 'Change photo' : 'Add a photo'" @change="pickPhoto" />
               </label>
               <span class="min-w-0">
                 <span class="block truncate font-semibold">{{ auth.user?.full_name }}</span>
-                <span class="block truncate text-xs text-gray-500">{{ auth.user?.role_label }}<template v-if="auth.viewOnly"> · view only</template><template v-if="!auth.isAdmin"> · {{ auth.user?.account_no }}</template></span>
+                <span class="block truncate text-xs text-gray-500">{{ auth.user?.role_label }}<template v-if="auth.viewOnly"> · view only</template><template v-if="!auth.isAdmin"> · {{ accountLabel(auth.user?.account_no, auth.sacco) }}</template></span>
               </span>
             </div>
             <RouterLink v-if="!auth.isAdmin" :to="{ name: 'profile' }" class="menu-item" role="menuitem">
@@ -461,7 +462,7 @@ async function signOut() {
             <RouterLink to="/change-password" class="menu-item" role="menuitem">
               <KeyIcon class="h-4 w-4 text-gray-500" />Change password
             </RouterLink>
-            <button v-if="auth.user?.switch_to" type="button" class="menu-item !bg-[#f1edff] font-semibold !text-[#6246ea] hover:!bg-[#e0e8ff] dark:!bg-white/10 dark:!text-navy-200" role="menuitem" @click="switchAccount">
+            <button v-if="auth.user?.switch_to" type="button" class="menu-item !bg-[#efe8fe] font-semibold !text-[#6a1ff5] hover:!bg-[#e0e8ff] dark:!bg-white/10 dark:!text-navy-200" role="menuitem" @click="switchAccount">
               <ArrowsRightLeftIcon class="h-4 w-4" />{{ auth.user.switch_to.to === 'member' ? 'Switch to my member account' : auth.user.switch_to.label }}
             </button>
             <button v-if="canInstall" type="button" class="menu-item" role="menuitem" @click="install">

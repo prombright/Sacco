@@ -213,7 +213,7 @@ export async function downloadReceipt(r: Receipt, member: ReceiptMember, who: Wh
     // the stamp
     y += 4
     const stamp = r.reversed ? 'REVERSED' : incoming ? 'RECEIVED' : 'PAID OUT'
-    const tone: [number, number, number] = r.reversed ? [210, 55, 70] : incoming ? [196, 122, 20] : [98, 70, 234]
+    const tone: [number, number, number] = r.reversed ? [210, 55, 70] : incoming ? [196, 122, 20] : [106, 31, 245]
     const ang = (-6 * Math.PI) / 180
     const cx = W / 2
     const cy = y + 5

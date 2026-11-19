@@ -32,7 +32,7 @@ export async function downloadMemberSummary(row: ReportRow, sacco: Sacco | null,
   const W = doc.internal.pageSize.getWidth()
   const H = doc.internal.pageSize.getHeight()
   const M = 14
-  const violet: [number, number, number] = [82, 51, 230]
+  const violet: [number, number, number] = [106, 31, 245]
   const ink: [number, number, number] = [22, 19, 58]
   const muted: [number, number, number] = [107, 104, 144]
   const tint: [number, number, number] = [246, 244, 255]

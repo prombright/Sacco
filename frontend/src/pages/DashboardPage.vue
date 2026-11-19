@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { accountLabel } from '@/account'
 import WelcomeTour from '@/components/WelcomeTour.vue'
 import { t } from '@/i18n'
 import { computed, onMounted, ref, watch } from 'vue'
@@ -122,7 +123,7 @@ const glance = computed(() => {
   const d = data.value
   const since = auth.user?.joined_on ?? auth.user?.created_at ?? null
   return [
-    { label: 'Account Number', value: auth.user?.account_no ?? '-', icon: UsersIcon },
+    { label: 'Account Number', value: accountLabel(auth.user?.account_no, auth.sacco), icon: UsersIcon },
     { label: 'Member Since', value: since ? formatDate(since.slice(0, 10)) : '-', icon: CalendarDaysIcon },
     { label: 'Dividends so far', value: d ? show(d.dividends_total) : '-', icon: ReceiptPercentIcon },
     { label: 'Savings This Year', value: d ? show(d.saved_this_year) : '-', icon: ChartBarIcon },
@@ -206,15 +207,15 @@ const welcome = ref(true)
          and the quick actions on a white panel over its lower edge. Wider screens: plain. -->
     <section class="member-hero relative">
       <svg class="member-hero-wave sm:hidden" viewBox="0 0 400 120" preserveAspectRatio="none" aria-hidden="true">
-        <path d="M0 80C110 40 220 120 400 30V120H0Z" fill="#7a5cf7" opacity="0.45" />
-        <path d="M120 120C220 70 300 90 400 60V120Z" fill="#8f74fa" opacity="0.35" />
+        <path d="M0 80C110 40 220 120 400 30V120H0Z" fill="#a467fa" opacity="0.45" />
+        <path d="M120 120C220 70 300 90 400 60V120Z" fill="#b07cfb" opacity="0.35" />
       </svg>
       <svg class="pointer-events-none absolute -right-6 -top-8 hidden h-48 w-[36rem] lg:block" viewBox="0 0 540 180" preserveAspectRatio="none" aria-hidden="true">
-        <path d="M0 180C120 150 200 60 330 70C420 78 480 30 540 0V180Z" fill="#7c5cf5" opacity="0.08" />
-        <path d="M120 180C230 150 300 110 400 120C470 126 510 100 540 80V180Z" fill="#7c5cf5" opacity="0.07" />
+        <path d="M0 180C120 150 200 60 330 70C420 78 480 30 540 0V180Z" fill="#8a3ffb" opacity="0.08" />
+        <path d="M120 180C230 150 300 110 400 120C470 126 510 100 540 80V180Z" fill="#8a3ffb" opacity="0.07" />
       </svg>
       <div class="relative">
-        <p class="text-[0.95rem] font-medium text-[#6246ea] max-sm:!text-white/90 dark:text-[#b9a8ff] sm:text-lg">{{ t('My account') }}: <span class="font-bold">{{ auth.user?.account_no }}</span></p>
+        <p class="text-[0.95rem] font-medium text-[#6a1ff5] max-sm:!text-white/90 dark:text-[#c4a6ff] sm:text-lg">{{ t('My account') }}: <span class="font-bold">{{ accountLabel(auth.user?.account_no, auth.sacco) }}</span></p>
         <h1 class="mt-0.5 text-[1.55rem] font-extrabold leading-tight tracking-[-0.015em] text-[#16133a] max-sm:!text-white dark:text-white sm:text-[2.2rem]">{{ greeting }}, {{ firstName }}</h1>
         <p class="mt-1 text-sm text-white/85 sm:text-[0.95rem] sm:text-gray-600 sm:dark:text-gray-400">Manage your savings, loans and SACCO services<span class="max-sm:hidden"> in one place</span>.</p>
       </div>
@@ -263,7 +264,7 @@ const welcome = ref(true)
           <!-- phones: a stack of coins beside the figure -->
           <svg class="pointer-events-none absolute right-5 top-[4.4rem] h-16 w-24 sm:hidden" viewBox="0 0 96 64" aria-hidden="true">
             <g v-for="(c, i) in [[18, 46], [18, 38], [18, 30], [52, 50], [52, 42], [52, 34], [52, 26], [52, 18]]" :key="i">
-              <ellipse :cx="c[0] + 13" :cy="c[1] + 4" rx="14" ry="5" fill="#5b3fd6" />
+              <ellipse :cx="c[0] + 13" :cy="c[1] + 4" rx="14" ry="5" fill="#5a1fd0" />
               <rect :x="c[0] - 1" :y="c[1] - 4" width="28" height="8" fill="#6d52e8" />
               <ellipse :cx="c[0] + 13" :cy="c[1] - 4" rx="14" ry="5" fill="#a28dff" />
             </g>
@@ -320,7 +321,7 @@ const welcome = ref(true)
             <span class="block text-[1.05rem] font-bold">Borrowing Power</span>
             <template v-if="!data.loan_wait_reason">
               <span class="block text-[13px] text-gray-600">You can apply for a loan of up to</span>
-              <span class="block text-[1.35rem] font-extrabold tabular-nums text-[#5b3ff0] dark:text-[#b9a8ff]">{{ show(data.loan_limit) }}</span>
+              <span class="block text-[1.35rem] font-extrabold tabular-nums text-[#5b19f3] dark:text-[#c4a6ff]">{{ show(data.loan_limit) }}</span>
             </template>
             <span v-else class="block text-[13px] text-gray-600">{{ data.loan_wait_reason }}</span>
           </span>
@@ -335,7 +336,7 @@ const welcome = ref(true)
           <h2 class="flex items-center gap-3 text-[1.15rem] font-bold"><span class="icon-gold inline-flex h-10 w-10 items-center justify-center rounded-xl"><Square3Stack3DIcon class="h-5 w-5" aria-hidden="true" /></span>{{ t('Borrowing power') }}</h2>
           <template v-if="!data.loan_wait_reason">
             <p class="mt-3 text-sm text-gray-600">You can apply for a loan of up to</p>
-            <p class="text-[2rem] font-extrabold leading-tight tabular-nums text-[#5b3ff0] dark:text-[#b9a8ff]"><CountUp :value="data.loan_limit" :format="show" :delay="300" /></p>
+            <p class="text-[2rem] font-extrabold leading-tight tabular-nums text-[#5b19f3] dark:text-[#c4a6ff]"><CountUp :value="data.loan_limit" :format="show" :delay="300" /></p>
             <div class="mt-4 h-2 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
               <div class="fill-bar h-full rounded-full bg-brand" :style="{ width: Math.min(100, (Number(data.loan_owed) / (Number(data.loan_owed) + Number(data.loan_limit) || 1)) * 100) + '%' }" />
             </div>
@@ -356,16 +357,16 @@ const welcome = ref(true)
           <template v-else>
             <p class="mt-3 text-sm text-gray-700">{{ data.loan_wait_reason }}</p>
             <p class="mt-3 text-sm text-gray-500 phone-hide">Keep saving: the more you save, the more you'll be able to borrow.</p>
-            <RouterLink :to="{ name: 'loans' }" class="mt-auto !mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-[#d9cffd] bg-[#f3f0ff] px-4 py-2.5 text-sm font-bold text-[#5b3fd6] transition hover:bg-[#ebe5ff] dark:border-white/15 dark:bg-white/5 dark:text-[#b9a8ff]">{{ t('See my loans') }}<ChevronRightIcon class="h-4 w-4" aria-hidden="true" /></RouterLink>
+            <RouterLink :to="{ name: 'loans' }" class="mt-auto !mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-[#d9cffd] bg-[#f2ecff] px-4 py-2.5 text-sm font-bold text-[#5a1fd0] transition hover:bg-[#ebe5ff] dark:border-white/15 dark:bg-white/5 dark:text-[#c4a6ff]">{{ t('See my loans') }}<ChevronRightIcon class="h-4 w-4" aria-hidden="true" /></RouterLink>
           </template>
         </div>
 
         <!-- Saver level and achievements -->
         <section class="reveal card p-4 sm:p-5" style="--i: 2">
-          <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
+          <div class="flex flex-wrap items-center gap-x-3 gap-y-3 sm:gap-x-6">
             <span class="tile-green inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl sm:h-12 sm:w-12"><SparklesIcon class="h-6 w-6" aria-hidden="true" /></span>
-            <div class="min-w-[8rem]">
-              <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">{{ t('My saver level') }}</p>
+            <div class="min-w-0 flex-1 sm:min-w-[8rem] sm:flex-none">
+              <p class="text-[13px] font-medium text-gray-500 sm:text-xs sm:font-semibold sm:uppercase sm:tracking-wider">{{ t('My saver level') }}</p>
               <p class="text-xl font-extrabold sm:text-2xl">{{ level.name }}</p>
             </div>
             <div class="order-last w-full sm:order-none sm:w-auto sm:min-w-[12rem] sm:flex-1 lg:order-last lg:w-full lg:flex-none">
@@ -375,10 +376,10 @@ const welcome = ref(true)
               </template>
               <p v-else class="text-sm text-gray-500">The top level. Well done!</p>
             </div>
-            <span v-if="nextLevel" class="ml-auto inline-flex items-center gap-1.5 rounded-xl bg-saffron-50 sm:ml-0 lg:ml-auto px-3.5 py-2 text-sm font-bold text-saffron-700"><TrophyIcon class="h-4 w-4" aria-hidden="true" />{{ nextLevel.name }}</span>
+            <span v-if="nextLevel" class="ml-auto inline-flex items-center gap-1.5 rounded-full bg-[#fdf1d6] px-3.5 py-2 text-sm font-bold text-[#5b320f] sm:ml-0 sm:rounded-xl lg:ml-auto"><TrophyIcon class="h-4 w-4" aria-hidden="true" />{{ nextLevel.name }}</span>
           </div>
           <ul class="mt-4 hidden flex-wrap gap-2 border-t border-line pt-3 sm:flex" aria-label="Achievements">
-            <li v-for="(b, n) in badges" :key="b.label" class="badge-pop inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold" :style="{ '--i': n }" :class="b.earned ? 'bg-[#f1edff] text-[#5b3fd6] dark:bg-white/10 dark:text-[#b9a8ff]' : 'bg-gray-100 text-gray-400'" :title="b.earned ? 'Earned' : 'Not yet'">
+            <li v-for="(b, n) in badges" :key="b.label" class="badge-pop inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold" :style="{ '--i': n }" :class="b.earned ? 'bg-[#efe8fe] text-[#5a1fd0] dark:bg-white/10 dark:text-[#c4a6ff]' : 'bg-gray-100 text-gray-400'" :title="b.earned ? 'Earned' : 'Not yet'">
               {{ b.label }}
             </li>
           </ul>
@@ -405,10 +406,10 @@ const welcome = ref(true)
             </select>
             <div class="hidden gap-2 sm:flex">
               <div class="flex gap-1 rounded-xl bg-[#f3f1fb] p-1 text-xs font-semibold dark:bg-white/5" role="radiogroup" aria-label="Account">
-                <button v-for="s in (['savings', 'shares'] as const)" :key="s" type="button" role="radio" :aria-checked="series === s" class="rounded-md px-2.5 py-1 capitalize" :class="series === s ? 'bg-surface text-[#6246ea] shadow-sm ring-1 ring-[#6246ea]/30' : 'text-gray-600'" @click="series = s">{{ s }}</button>
+                <button v-for="s in (['savings', 'shares'] as const)" :key="s" type="button" role="radio" :aria-checked="series === s" class="rounded-md px-2.5 py-1 capitalize" :class="series === s ? 'bg-surface text-[#6a1ff5] shadow-sm ring-1 ring-[#6a1ff5]/30' : 'text-gray-600'" @click="series = s">{{ s }}</button>
               </div>
               <div class="flex gap-1 rounded-xl bg-[#f3f1fb] p-1 text-xs font-semibold dark:bg-white/5" role="radiogroup" aria-label="Period">
-                <button v-for="r in ([6, 12] as const)" :key="r" type="button" role="radio" :aria-checked="range === r" class="rounded-md px-2.5 py-1" :class="range === r ? 'bg-surface text-[#6246ea] shadow-sm ring-1 ring-[#6246ea]/30' : 'text-gray-600'" @click="range = r">{{ r }}M</button>
+                <button v-for="r in ([6, 12] as const)" :key="r" type="button" role="radio" :aria-checked="range === r" class="rounded-md px-2.5 py-1" :class="range === r ? 'bg-surface text-[#6a1ff5] shadow-sm ring-1 ring-[#6a1ff5]/30' : 'text-gray-600'" @click="range = r">{{ r }}M</button>
               </div>
             </div>
           </div>
@@ -417,6 +418,7 @@ const welcome = ref(true)
             class="mt-4"
             :points="points"
             kind="area"
+            dots
             :color="series === 'savings' ? colors.blue : colors.amber"
             :label="series === 'savings' ? 'Savings' : 'Share capital'"
             :format="(v: number) => show(v)"
@@ -446,7 +448,7 @@ const welcome = ref(true)
         <div class="reveal card min-w-0 p-5 lg:order-last lg:col-span-3" style="--i: 3">
           <div class="flex items-center justify-between">
             <h2 class="flex items-center gap-3 text-[1.05rem] font-bold"><span class="icon-gold inline-flex h-10 w-10 items-center justify-center rounded-xl"><Square3Stack3DIcon class="h-5 w-5" aria-hidden="true" /></span>{{ data.loans.length > 1 ? t('Loans') : t('My loan') }}</h2>
-            <RouterLink :to="{ name: 'loans' }" class="inline-flex items-center gap-0.5 rounded-full border border-[#e4dcff] px-3 py-1 text-xs font-semibold text-[#5b3ff0] hover:bg-[#f3f0ff] dark:border-white/15 dark:text-[#b9a8ff]">{{ t('All loans') }}<ChevronRightIcon class="h-3.5 w-3.5" aria-hidden="true" /></RouterLink>
+            <RouterLink :to="{ name: 'loans' }" class="inline-flex items-center gap-0.5 rounded-full border border-[#e5ddfd] px-3 py-1 text-xs font-semibold text-[#5b19f3] hover:bg-[#f2ecff] dark:border-white/15 dark:text-[#c4a6ff]">{{ t('All loans') }}<ChevronRightIcon class="h-3.5 w-3.5" aria-hidden="true" /></RouterLink>
           </div>
           <ul v-if="data.loans.length" class="mt-4 space-y-5">
             <li v-for="l in data.loans" :key="l.id">
@@ -487,7 +489,7 @@ const welcome = ref(true)
         <section class="card min-w-0 p-4 sm:max-lg:hidden lg:p-5" aria-labelledby="recent-phone">
           <div class="flex items-center justify-between gap-2">
             <h2 id="recent-phone" class="flex items-center gap-3 text-[1.05rem] font-bold"><span class="icon-gold inline-flex h-10 w-10 items-center justify-center rounded-xl"><ArrowsRightLeftIcon class="h-5 w-5" aria-hidden="true" /></span>Recent Transactions</h2>
-            <RouterLink :to="{ name: 'statement' }" class="inline-flex items-center gap-0.5 rounded-full border border-[#e4dcff] px-3 py-1 text-xs font-semibold text-[#5b3ff0] dark:border-white/15 dark:text-[#b9a8ff]">View All<ChevronRightIcon class="h-3.5 w-3.5" aria-hidden="true" /></RouterLink>
+            <RouterLink :to="{ name: 'statement' }" class="inline-flex items-center gap-0.5 rounded-full border border-[#e5ddfd] px-3 py-1 text-xs font-semibold text-[#5b19f3] dark:border-white/15 dark:text-[#c4a6ff]">View All<ChevronRightIcon class="h-3.5 w-3.5" aria-hidden="true" /></RouterLink>
           </div>
           <ul class="mt-2 divide-y divide-line">
             <li v-for="tx in recentPhone" :key="tx.id" class="flex items-center gap-3 py-3">
