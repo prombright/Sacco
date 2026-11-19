@@ -829,3 +829,24 @@ html:has(:is(.login-bg, .welcome-bg)) { --brand: 98 70 234 !important; }
   .app-look main { max-width: none !important; padding: 0 !important; }
 }
 .app-look .force-light { --brand: 98 70 234; }
+
+/*
+ * A field that must be filled in has a red star after its label (the field carries `required`;
+ * forms still check on the server). Table rows light up under the pointer (rows with their own
+ * colour keep it).
+ */
+.label:has(+ [required])::after,
+.label:has(+ * [required])::after {
+  content: ' *';
+  color: rgb(185 28 28);
+}
+.dark .label:has(+ [required])::after,
+.dark .label:has(+ * [required])::after {
+  color: rgb(252 165 165);
+}
+:where(.card table tbody tr) {
+  transition: background-color 0.12s ease;
+}
+:where(.card table tbody tr):hover {
+  background-color: rgb(var(--g-50));
+}

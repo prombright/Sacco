@@ -282,7 +282,6 @@ async function signOut() {
                 <span v-if="itemBadge(i)" class="rounded-full bg-rose-500 px-1.5 py-0.5 text-[11px] font-bold leading-none text-white">{{ itemBadge(i) }}</span>
               </RouterLink>
             </div>
-            </Transition>
           </div>
         </template>
 
