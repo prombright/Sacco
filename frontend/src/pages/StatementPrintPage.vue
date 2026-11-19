@@ -120,8 +120,8 @@ async function statementPdf() {
   const W = doc.internal.pageSize.getWidth()
   const H = doc.internal.pageSize.getHeight()
   const M = 10
-  const violet: [number, number, number] = [82, 51, 230]
-  const deep: [number, number, number] = [61, 31, 194]
+  const violet: [number, number, number] = [106, 31, 245]
+  const deep: [number, number, number] = [75, 37, 188]
   const ink: [number, number, number] = [22, 19, 58]
   const muted: [number, number, number] = [107, 104, 144]
   const tint: [number, number, number] = [246, 244, 255]
@@ -410,7 +410,7 @@ async function download(kind: 'pdf' | 'excel') {
 .stmt-hero {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem;
   margin: -1rem -1rem 0; padding: 1.4rem 1.5rem; border-radius: 1rem 1rem 0 0;
-  background: radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.14), transparent 45%), linear-gradient(135deg, #5233e6 0%, #3d1fc2 100%);
+  background: radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.14), transparent 45%), linear-gradient(135deg, #6a24e8 0%, #4b25bc 100%);
   -webkit-print-color-adjust: exact; print-color-adjust: exact;
 }
 @media (min-width: 640px) { .stmt-hero { margin: -1.5rem -1.5rem 0; padding: 1.6rem 2rem; } }
@@ -426,7 +426,7 @@ async function download(kind: 'pdf' | 'excel') {
 .dark .stmt-facts > div { background: rgb(124 92 245 / 0.1); border-color: rgb(124 92 245 / 0.2); }
 .dark .stmt-facts dd { color: #fff; }
 .stmt-table { width: 100%; min-width: 64rem; font-size: 0.8rem; font-variant-numeric: tabular-nums; border-collapse: separate; border-spacing: 0; }
-.stmt-table thead th { position: sticky; top: 0; background: #f1edff; color: #4b3f8a; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; text-align: right; padding: 0.65rem 0.55rem; white-space: nowrap; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.stmt-table thead th { position: sticky; top: 0; background: #efe8fe; color: #4b3f8a; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; text-align: right; padding: 0.65rem 0.55rem; white-space: nowrap; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .stmt-table thead th:first-child { border-radius: 0.6rem 0 0 0.6rem; }
 .stmt-table thead th:last-child { border-radius: 0 0.6rem 0.6rem 0; }
 .stmt-table thead th.text-left { text-align: left; }

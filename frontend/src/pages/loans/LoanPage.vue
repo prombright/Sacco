@@ -385,7 +385,7 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
             <p class="font-semibold" :class="{ 'text-emerald-800': loan.assessment.verdict === 'qualifies', 'text-amber-800': loan.assessment.verdict === 'qualifies_with_concerns', 'text-red-800': loan.assessment.verdict === 'does_not_qualify' }">
               {{ loan.assessment.verdict === 'qualifies' ? 'Qualifies' : loan.assessment.verdict === 'qualifies_with_concerns' ? 'Qualifies, but look at the warning' : 'Does not qualify yet' }}
             </p>
-            <p class="text-xs text-gray-600">Assessment against the SACCO's rules, with today's figures</p>
+            <p class="text-xs text-gray-600 phone-hide">Assessment against the SACCO's rules, with today's figures</p>
           </div>
         </div>
         <div v-if="loan.borrower_credit" class="flex flex-wrap items-center gap-2 border-b border-line px-5 py-3 text-sm">
@@ -573,8 +573,8 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
       <!-- Schedule -->
       <section v-if="schedule.length" class="mt-8">
         <h2 class="font-semibold">{{ loan.installments?.length ? 'Month by month' : 'Expected schedule' }}</h2>
-        <p v-if="loan.installments?.length" class="mt-1 text-sm text-gray-600">Months still to come are worked out as if each is paid as asked; they change when a month is paid more or less.</p>
-        <p v-if="!loan.installments?.length" class="mt-1 text-sm text-gray-600">If paid out today. The dates are fixed when the loan is paid out.</p>
+        <p v-if="loan.installments?.length" class="mt-1 text-sm text-gray-600 phone-hide">Months still to come are worked out as if each is paid as asked; they change when a month is paid more or less.</p>
+        <p v-if="!loan.installments?.length" class="mt-1 text-sm text-gray-600 phone-hide">If paid out today. The dates are fixed when the loan is paid out.</p>
         <div class="card mt-3 overflow-x-auto">
           <table class="w-full text-sm tabular-nums max-sm:hidden">
             <thead class="border-b border-gray-200 bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
@@ -820,7 +820,7 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
         <div>
           <label for="amsg" class="label">Message to {{ loan.borrower_name.split(' ')[0] }}</label>
           <textarea id="amsg" v-model="form.message" class="input min-h-[6rem]" maxlength="2000" />
-          <p class="mt-1 text-xs text-gray-500">They see it under the bell when they log in. Add when and where to pick up the cheque.</p>
+          <p class="mt-1 text-xs text-gray-500 phone-hide">They see it under the bell when they log in. Add when and where to pick up the cheque.</p>
         </div>
         <div class="sheet-actions flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>
@@ -928,7 +928,7 @@ const letter = () => downloadLoanLetter(loan.value!, { sacco: auth.sacco, user: 
         <div>
           <label for="months-reason" class="label">Why</label>
           <input id="months-reason" v-model="form.reason" class="input" maxlength="255" placeholder="e.g. Committee decision of 15 November" />
-          <p class="mt-1 text-xs text-gray-500">Kept with the loan and sent to the borrower with the new monthly payment.</p>
+          <p class="mt-1 text-xs text-gray-500 phone-hide">Kept with the loan and sent to the borrower with the new monthly payment.</p>
         </div>
         <div class="sheet-actions flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="btn-secondary" @click="dialog = null">Cancel</button>

@@ -206,7 +206,7 @@ async function reverse() {
           <p class="text-sm" :class="balanced ? 'text-emerald-700' : 'text-amber-800'">
             {{ balanced ? 'Balanced.' : debits || credits ? `Out by ${formatMoney(String(Math.abs(debits - credits)))}.` : 'Enter the amounts.' }}
           </p>
-          <p class="text-xs text-gray-500">Members' savings, share capital and loans aren't listed: they change only through deposits, transfers and loan repayments, so every member's account agrees with the books.</p>
+          <p class="text-xs text-gray-500 phone-hide">Members' savings, share capital and loans aren't listed: they change only through deposits, transfers and loan repayments, so every member's account agrees with the books.</p>
         </div>
         <p v-if="formError" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ formError }}</p>
         <button type="submit" class="btn-primary w-full" :disabled="!balanced || !form.narration || saving">{{ saving ? 'Posting…' : 'Post the entry' }}</button>

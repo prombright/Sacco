@@ -224,7 +224,7 @@ const printedAt = computed(() => new Date().toLocaleString('en-GB', { day: 'nume
         <thead class="sticky top-0 z-10 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 print:static print:bg-white print:text-gray-800">
           <tr class="print:border-b print:border-gray-800">
             <th v-for="c in view.columns" :key="c.key" class="whitespace-nowrap px-3 py-2.5" :class="{ 'text-right': numeric(c) }">{{ c.label }}</th>
-            <th v-if="slots.actions" class="px-3 py-2.5 print:hidden"><span class="sr-only">Actions</span></th>
+            <th v-if="slots.actions" class="sticky right-0 bg-gray-50 px-3 py-2.5 text-center print:hidden">Action</th>
           </tr>
         </thead>
         <tbody>
@@ -255,7 +255,7 @@ const printedAt = computed(() => new Date().toLocaleString('en-GB', { day: 'nume
                   'pl-8': c.key === 'details' && String(row[c.key] ?? '').startsWith('  '),
                 }"
               >{{ show(c, row[c.key]) }}</td>
-              <td v-if="slots.actions" class="whitespace-nowrap px-3 py-1 text-right print:hidden"><slot name="actions" :row="row" /></td>
+              <td v-if="slots.actions" class="report-actions sticky right-0 whitespace-nowrap bg-surface px-3 py-1 text-center print:hidden"><slot name="actions" :row="row" /></td>
             </tr>
           </template>
           <tr v-if="!view.rows.length">

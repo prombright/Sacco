@@ -58,7 +58,7 @@ const next = computed(() => list.value?.steps.find((s) => !s.done) ?? null)
         <span class="block text-sm text-gray-600">{{ list.done }} of {{ list.total }} steps done<template v-if="next"> · next: {{ next.title }}</template></span>
         <span class="mt-2 block h-1.5 overflow-hidden rounded-full bg-gray-100"><span class="block h-full rounded-full bg-brand transition-all" :style="{ width: percent + '%' }" /></span>
       </span>
-      <span class="hidden shrink-0 rounded-full bg-[#f1edff] px-2.5 py-1 text-sm font-bold tabular-nums text-[#6246ea] dark:bg-white/10 dark:text-[#b9a8ff] sm:inline">{{ percent }}%</span>
+      <span class="hidden shrink-0 rounded-full bg-[#efe8fe] px-2.5 py-1 text-sm font-bold tabular-nums text-[#6a1ff5] dark:bg-white/10 dark:text-[#c4a6ff] sm:inline">{{ percent }}%</span>
       <ChevronDownIcon class="h-5 w-5 shrink-0 text-gray-500 transition" :class="open ? 'rotate-180' : ''" aria-hidden="true" />
     </button>
     <p v-if="error" class="mx-5 mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</p>

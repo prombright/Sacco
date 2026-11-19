@@ -387,7 +387,7 @@ const loginTo = computed(() => (auth.user ? (auth.isAdmin ? '/office' : '/') : '
 <style scoped>
 /* Like Tusome (and the log-in page): light blue page, cream band, white cards */
 .welcome-bg { background-color: #f5f4fe; }
-.welcome-cream { background-color: #f1edff; border-color: #e4dcff; }
+.welcome-cream { background-color: #efe8fe; border-color: #e5ddfd; }
 .dark .welcome-bg { background-color: rgb(var(--paper)); }
 .dark .welcome-cream { background-color: rgb(124 92 245 / 0.1); border-color: rgb(124 92 245 / 0.2); }
 </style>

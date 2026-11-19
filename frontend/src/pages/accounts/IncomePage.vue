@@ -130,7 +130,7 @@ function go(r: ReportRow) {
       <p v-if="Number(selected.old_records) > 0" class="mt-2 text-xs text-gray-500">
         Amounts from the old records are counted on the day they were brought into this system, not when they were first paid.
       </p>
-      <p v-if="selected.key === 'interest'" class="mt-2 text-xs text-gray-500">Interest is counted as the books earn it: each month's interest on what members owe.</p>
+      <p v-if="selected.key === 'interest'" class="mt-2 text-xs text-gray-500 phone-hide">Interest is counted as the books earn it: each month's interest on what members owe.</p>
     </section>
 
     <p v-if="busy" class="mt-5 text-sm text-gray-500">Loading the details…</p>

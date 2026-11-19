@@ -116,7 +116,7 @@ async function download(kind: 'excel' | 'pdf') {
         <ExclamationTriangleIcon class="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
         <span>
           <strong>Read with care:</strong> {{ data.last_payroll ? `the last payroll posted was for ${monthName(data.last_payroll)}` : 'no payroll has been posted yet' }}.
-          Repayments come off salaries, so until the missing months are posted, loans look later than they are.
+          <span class="phone-hide">Repayments come off salaries, so until the missing months are posted, loans look later than they are.</span>
         </span>
       </p>
 
@@ -172,7 +172,7 @@ async function download(kind: 'excel' | 'pdf') {
         <!-- PAR30 over the year -->
         <section class="card min-w-0 p-5 xl:col-span-2">
           <h2 class="font-semibold">PAR30, month by month</h2>
-          <p class="text-xs text-gray-500">At each month end; lower is better</p>
+          <p class="phone-hide text-xs text-gray-500">At each month end; lower is better</p>
           <MonthChart class="mt-4" :points="data.trend" kind="bar" :color="theme.chart.amber" label="PAR30" :format="(v: number) => `${v}%`" />
         </section>
       </div>

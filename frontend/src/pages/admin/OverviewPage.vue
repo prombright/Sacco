@@ -214,7 +214,7 @@ const bars = computed(() => {
         <div class="card-head">
           <h2 id="todo">Today</h2>
           <span v-if="urgent" class="icon-gold rounded-full px-2.5 py-0.5 text-sm font-bold">{{ urgent }}</span>
-          <p class="ml-auto text-sm font-medium text-[#6246ea] dark:text-navy-200">{{ urgent ? `${urgent} thing${urgent === 1 ? '' : 's'} to act on` : 'Nothing urgent' }}</p>
+          <p class="ml-auto text-sm font-medium text-[#6a1ff5] dark:text-navy-200">{{ urgent ? `${urgent} thing${urgent === 1 ? '' : 's'} to act on` : 'Nothing urgent' }}</p>
         </div>
         <div class="p-4">
         <div v-if="tasks.length" class="grid grid-cols-2 gap-2.5 sm:gap-3">
@@ -309,7 +309,7 @@ const bars = computed(() => {
             <p class="stat-card-label">Active members</p>
           </div>
           <p class="stat-card-figure text-[#16133a] dark:text-white"><CountUp :value="data.totals.members" :format="(n: number) => n.toLocaleString()" :delay="450" /></p>
-          <p class="stat-card-note"><span v-if="data.totals.new_members_this_month" class="mr-1 rounded-full bg-[#f1edff] px-1.5 py-0.5 font-bold text-[#6246ea] dark:bg-white/10 dark:text-navy-200">+{{ data.totals.new_members_this_month }}</span>joined this month</p>
+          <p class="stat-card-note"><span v-if="data.totals.new_members_this_month" class="mr-1 rounded-full bg-[#efe8fe] px-1.5 py-0.5 font-bold text-[#6a1ff5] dark:bg-white/10 dark:text-navy-200">+{{ data.totals.new_members_this_month }}</span>joined this month</p>
         </RouterLink>
       </section>
 
@@ -317,21 +317,21 @@ const bars = computed(() => {
       <div class="mt-8 flex items-center justify-between gap-3">
         <h2 class="text-lg font-semibold">Trends</h2>
         <div class="flex gap-1 rounded-xl border border-line bg-surface/70 p-1 text-xs font-semibold" role="radiogroup" aria-label="Period">
-          <button v-for="r in ([6, 12] as const)" :key="r" type="button" role="radio" :aria-checked="range === r" class="rounded-md px-3 py-1" :class="range === r ? 'bg-surface text-[#6246ea] shadow-sm ring-1 ring-[#6246ea]/40' : 'text-gray-600'" @click="range = r">Last {{ r }} months</button>
+          <button v-for="r in ([6, 12] as const)" :key="r" type="button" role="radio" :aria-checked="range === r" class="rounded-md px-3 py-1" :class="range === r ? 'bg-surface text-[#6a1ff5] shadow-sm ring-1 ring-[#6a1ff5]/40' : 'text-gray-600'" @click="range = r">Last {{ r }} months</button>
         </div>
       </div>
       <section class="mt-3 grid gap-4 xl:grid-cols-5">
         <div class="reveal card xl:col-span-3 min-w-0" style="--i: 4">
           <div class="card-head">
             <span class="icon-gold inline-flex h-8 w-8 items-center justify-center rounded-lg"><ArrowTrendingUpIcon class="h-[18px] w-[18px]" aria-hidden="true" /></span><h2>Member funds</h2>
-            <p class="ml-auto text-xs text-gray-600">Savings + shares at each month end</p>
+            <p class="phone-hide ml-auto text-xs text-gray-600">Savings + shares at each month end</p>
           </div>
           <MonthChart :key="'f' + range" class="p-5" :points="funds6" kind="area" :color="chartColors.blue" label="Member funds" :format="money" />
         </div>
         <div class="reveal card xl:col-span-2 min-w-0" style="--i: 5">
           <div class="card-head">
             <span class="icon-gold inline-flex h-8 w-8 items-center justify-center rounded-lg"><ChartBarIcon class="h-[18px] w-[18px]" aria-hidden="true" /></span><h2>Loan repayments</h2>
-            <p class="ml-auto text-xs text-gray-600">Collected each month</p>
+            <p class="phone-hide ml-auto text-xs text-gray-600">Collected each month</p>
           </div>
           <MonthChart :key="'c' + range" class="p-5" :points="collections6" kind="bar" :color="chartColors.amber" label="Loan repayments" :format="money" />
         </div>

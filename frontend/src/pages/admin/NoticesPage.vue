@@ -78,7 +78,7 @@ async function end(n: Notice) {
 
     <section class="min-w-0" aria-labelledby="posted">
     <h2 id="posted" class="mb-3 flex items-center gap-2 font-semibold">
-      Posted notices<span v-if="notices.length" class="rounded-full bg-[#f1edff] px-2 py-0.5 text-xs font-bold text-[#6246ea] dark:bg-white/10 dark:text-navy-200">{{ notices.length }}</span>
+      Posted notices<span v-if="notices.length" class="rounded-full bg-[#efe8fe] px-2 py-0.5 text-xs font-bold text-[#6a1ff5] dark:bg-white/10 dark:text-navy-200">{{ notices.length }}</span>
     </h2>
     <ul class="grid gap-3 2xl:grid-cols-2">
       <li v-for="n in notices" :key="n.id" class="card flex flex-col p-4 sm:p-5">

@@ -57,7 +57,7 @@ const report = computed<Report | null>(() =>
 <template>
   <section class="mt-5">
     <h2 class="font-semibold">Deduction schedule for the bursar</h2>
-    <p class="mt-1 max-w-3xl text-sm text-gray-600">
+    <p class="mt-1 max-w-3xl text-sm text-gray-600 phone-hide">
       What each member's pay should give the SACCO this month: savings and shares as last month, every loan instalment due across all their loans, and what is late from before.
       Download it for HR, or print it to sign and hand to the bursar before payday.
     </p>

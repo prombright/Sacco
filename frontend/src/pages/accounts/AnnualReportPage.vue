@@ -81,23 +81,23 @@ async function download(kind: 'pdf' | 'excel') {
 
 <template>
   <div>
-    <div class="page-banner relative overflow-hidden rounded-[1.25rem] border border-[#e4dcff] p-5 shadow-sm dark:border-line sm:p-6">
+    <div class="page-banner relative overflow-hidden rounded-[1.25rem] border border-[#e5ddfd] p-5 shadow-sm dark:border-line sm:p-6">
       <BannerArt />
       <div class="relative flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p class="text-xs font-semibold uppercase tracking-wider text-[#6246ea] dark:text-navy-200">Reports</p>
+          <p class="text-xs font-semibold uppercase tracking-wider text-[#6a1ff5] dark:text-navy-200">Reports</p>
           <h1 class="mt-1 text-[1.3rem] font-bold leading-tight text-[#16133a] dark:text-white sm:text-[1.75rem]">Annual report {{ year }}</h1>
           <p class="mt-1 text-gray-600 dark:text-gray-400">{{ data?.period ?? ' ' }} · for the AGM, the committee and the auditors</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
           <div class="flex rounded-lg bg-[#e6ecfb] p-0.5 text-sm font-semibold dark:bg-white/10" role="radiogroup" aria-label="Year">
-            <button v-for="y in [thisYear - 2, thisYear - 1, thisYear]" :key="y" type="button" role="radio" :aria-checked="year === y" class="rounded-md px-3 py-1.5" :class="year === y ? 'bg-white text-[#6246ea] shadow-sm dark:bg-surface' : 'text-gray-600 hover:text-ink'" @click="year = y">{{ y }}</button>
+            <button v-for="y in [thisYear - 2, thisYear - 1, thisYear]" :key="y" type="button" role="radio" :aria-checked="year === y" class="rounded-md px-3 py-1.5" :class="year === y ? 'bg-white text-[#6a1ff5] shadow-sm dark:bg-surface' : 'text-gray-600 hover:text-ink'" @click="year = y">{{ y }}</button>
           </div>
           <button type="button" class="btn-primary" :disabled="!data || !!making" @click="download('pdf')"><DocumentArrowDownIcon class="h-4 w-4" :class="{ 'animate-pulse': making === 'pdf' }" />Annual report (PDF)</button>
           <button type="button" class="btn-secondary" :disabled="!data || !!making" @click="download('excel')"><TableCellsIcon class="h-4 w-4" :class="{ 'animate-pulse': making === 'excel' }" />Excel workbook</button>
         </div>
       </div>
-      <div v-if="data" class="relative mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-[#e4dcff] bg-[#e4dcff] dark:border-line dark:bg-line sm:grid-cols-3 xl:grid-cols-6">
+      <div v-if="data" class="relative mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-[#e5ddfd] bg-[#e5ddfd] dark:border-line dark:bg-line sm:grid-cols-3 xl:grid-cols-6">
         <div v-for="(c, n) in cards" :key="c.label" class="bg-white/90 p-4 dark:bg-surface">
           <p class="text-2xl font-bold text-[#16133a] dark:text-white"><CountUp :value="c.raw" :format="short" :delay="n * 120" /></p>
           <p class="mt-0.5 text-xs text-gray-500">{{ c.label }}</p>

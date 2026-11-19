@@ -68,7 +68,7 @@ async function reverse() {
 
     <template v-if="run">
       <div class="mt-3">
-        <PageHeader eyebrow="Dividends &amp; profit">
+        <PageHeader keep-note eyebrow="Dividends &amp; profit">
           <template #title>Dividend {{ run.label }}</template>
           {{ run.rate_percent }}% on shares held on {{ formatDate(run.record_date) }} · credited {{ formatDate(run.value_date) }} by {{ run.created_by_name }}
           <template #actions>

@@ -206,8 +206,8 @@ async function submit(e: Event) {
 <style scoped>
 /* Like Tusome: light blue page, cream card header, white card */
 .login-bg { background-color: #f5f4fe; }
-.login-card { border-color: #e4dcff; }
-.login-cream { background-color: #f1edff; border-color: #e4dcff; }
+.login-card { border-color: #e5ddfd; }
+.login-cream { background-color: #efe8fe; border-color: #e5ddfd; }
 .dark .login-bg { background-color: rgb(var(--paper)); }
 .dark .login-card { border-color: rgb(var(--line)); }
 .dark .login-cream { background-color: rgb(124 92 245 / 0.12); border-color: rgb(124 92 245 / 0.25); }
