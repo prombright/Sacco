@@ -22,8 +22,8 @@ const shown = computed(() => !!target.value)
 const label = computed(() =>
   target.value ? (target.value.to === 'member' ? 'Switch to my member account' : target.value.label) : 'Switch to my member account',
 )
-/** The account you are in now, short, on the button: SA super admin, AD admin, MB member */
-const short = computed(() => ({ super_admin: 'SA', admin: 'AD', member: 'MB' } as Record<string, string>)[auth.user?.role ?? ''] ?? '?')
+/** The account you are in now, short, on the button: SA super admin, AD admin, ST staff, MB member */
+const short = computed(() => ({ super_admin: 'SA', admin: 'AD', staff: 'ST', member: 'MB' } as Record<string, string>)[auth.user?.role ?? ''] ?? '?')
 const now = computed(() => auth.user?.role_label ?? '')
 
 async function go() {

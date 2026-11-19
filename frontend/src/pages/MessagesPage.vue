@@ -116,10 +116,10 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="mx-auto max-w-6xl lg:grid lg:grid-cols-[16rem_minmax(0,1fr)] lg:gap-6 xl:grid-cols-[18rem_minmax(0,1fr)]">
+  <div class="lg:grid lg:grid-cols-[17rem_minmax(0,1fr)] lg:gap-6 xl:grid-cols-[19rem_minmax(0,1fr)] 2xl:grid-cols-[21rem_minmax(0,1fr)]">
     <!-- Wide screens: who the messages are from, and the filters with how many in each -->
     <aside class="hidden lg:block">
-      <div class="card sticky top-24 p-4">
+      <div class="card sticky top-20 flex h-[calc(100dvh-8rem)] min-h-[28rem] flex-col p-4">
         <div class="flex items-center gap-3">
           <SaccoMark :sacco="auth.sacco" />
           <div class="min-w-0">
@@ -141,7 +141,7 @@ onMounted(async () => {
             <span class="rounded-full px-2 py-0.5 text-xs tabular-nums" :class="filter === f.key ? 'bg-brand text-white' : 'bg-gray-100 text-gray-500'">{{ f.count }}</span>
           </button>
         </nav>
-        <p class="mt-4 border-t border-line pt-3 text-xs text-gray-500">
+        <p class="mt-auto border-t border-line pt-3 text-xs text-gray-500">
           <template v-if="unread">{{ unread }} new · </template>{{ auth.isAdmin ? 'Changes made in the office, as they happen.' : 'Each one also goes to your email when you have one.' }}
         </p>
       </div>
@@ -161,7 +161,7 @@ onMounted(async () => {
             <span class="hidden lg:inline">Oldest at the top, newest at the bottom</span>
           </p>
         </div>
-        <span v-if="unread" class="shrink-0 rounded-full bg-saffron-100 px-2.5 py-0.5 text-xs font-semibold text-saffron-800">{{ unread }} new</span>
+        <span v-if="unread" class="shrink-0 rounded-full bg-[#f1edff] px-2.5 py-0.5 text-xs font-semibold text-[#5b3ff0] dark:bg-white/10 dark:text-[#b9a8ff]">{{ unread }} new</span>
       </div>
 
       <!-- Phones and tablets: the filters stay under the top bar while scrolling -->
@@ -196,8 +196,8 @@ onMounted(async () => {
           </p>
           <div v-for="m in d.items" :key="m.id" class="mb-2.5 flex">
             <div
-              class="min-w-0 max-w-[92%] rounded-2xl rounded-tl-md border border-line bg-surface px-4 py-3 shadow-sm sm:max-w-[80%] lg:max-w-[40rem]"
-              :class="{ 'cursor-pointer transition hover:border-brand/40 hover:shadow-card': m.link, 'ring-2 ring-saffron-300/60': !m.read_at }"
+              class="w-full min-w-0 rounded-2xl rounded-tl-md border border-line bg-surface px-4 py-3 shadow-sm sm:px-5"
+              :class="{ 'cursor-pointer transition hover:border-brand/40 hover:shadow-card': m.link, 'ring-2 ring-[#7c5cf5]/40': !m.read_at }"
               :role="m.link ? 'link' : undefined"
               :tabindex="m.link ? 0 : undefined"
               @click="open(m)"

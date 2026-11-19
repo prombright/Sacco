@@ -106,18 +106,18 @@ const shown = computed(() =>
 </script>
 
 <template>
-  <div class="max-w-3xl xl:max-w-6xl">
+  <div>
     <PageHeader :eyebrow="auth.isAdmin ? 'For members' : 'My account'" title="Help">
       Plain answers to what members ask most.
     </PageHeader>
 
-    <div class="relative mt-5 xl:max-w-xl">
+    <div class="relative mt-5 xl:max-w-2xl">
       <MagnifyingGlassIcon class="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" aria-hidden="true" />
       <input v-model="q" type="search" class="input pl-10" placeholder="Search, e.g. withdraw, guarantor, interest" aria-label="Search the help" />
     </div>
 
-    <div class="xl:mt-6 xl:columns-2 xl:gap-6">
-    <section v-for="t in shown" :key="t.key" class="mt-6 break-inside-avoid xl:mb-6 xl:mt-0" :aria-labelledby="`help-${t.key}`">
+    <div class="lg:mt-6 lg:columns-2 lg:gap-6 2xl:columns-3">
+    <section v-for="t in shown" :key="t.key" class="mt-6 break-inside-avoid lg:mb-6 lg:mt-0" :aria-labelledby="`help-${t.key}`">
       <h2 :id="`help-${t.key}`" class="flex items-center gap-2 font-semibold">
         <span class="flex h-8 w-8 items-center justify-center rounded-lg icon-gold"><component :is="t.icon" class="h-4 w-4" aria-hidden="true" /></span>
         {{ t.title }}

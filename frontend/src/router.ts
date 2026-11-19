@@ -48,7 +48,7 @@ const router = createRouter({
         { path: 'profile', name: 'profile', component: () => import('@/pages/ProfilePage.vue'), meta: { member: true, title: 'My profile' } },
         { path: 'admin/cashbook', name: 'cashbook', redirect: { name: 'payments' } },
         { path: 'admin/notices', name: 'notices', component: () => import('@/pages/admin/NoticesPage.vue'), meta: { admin: true, title: 'Notices' } },
-        { path: 'statement', name: 'statement', component: () => import('@/pages/StatementPage.vue'), meta: { member: true, title: 'My statement' } },
+        { path: 'statement', name: 'statement', component: () => import('@/pages/StatementPrintPage.vue'), meta: { member: true, title: 'My statement' } },
         { path: 'loans', name: 'loans', component: () => import('@/pages/loans/LoansPage.vue'), meta: { member: true, title: 'My loans' } },
         { path: 'loans/apply', name: 'loan-apply', component: () => import('@/pages/loans/ApplyLoanPage.vue'), meta: { member: true, title: 'Apply for a loan' } },
         { path: 'loans/:id(\\d+)', name: 'loan', component: () => import('@/pages/loans/LoanPage.vue'), meta: { title: 'Loan' } },

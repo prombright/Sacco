@@ -205,7 +205,7 @@ async function submit() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-3xl xl:max-w-5xl">
+  <div>
     <RouterLink :to="{ name: 'loans' }" class="text-sm font-medium text-gray-600 hover:text-gray-900">← Loans</RouterLink>
     <PageBanner class="mt-3" title="Apply for a loan" />
 

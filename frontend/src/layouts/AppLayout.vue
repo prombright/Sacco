@@ -100,7 +100,6 @@ const groups = computed<NavGroup[]>(() => {
           { name: 'messages', label: t('Messages'), icon: ChatBubbleLeftRightIcon, badge: messages.unread },
           { name: 'loans', label: t('Loans'), icon: BanknotesIcon, also: ['loan'] },
           { name: 'receipts-mine', label: t('Transactions'), icon: ArrowsRightLeftIcon },
-          { name: 'statement', label: t('Statements'), icon: DocumentTextIcon },
           { name: 'profile', label: t('Profile'), icon: UserCircleIcon },
           { name: 'help', label: t('Help'), icon: QuestionMarkCircleIcon },
         ],
@@ -111,7 +110,7 @@ const groups = computed<NavGroup[]>(() => {
         links: [
           { name: 'loan-apply', label: t('Apply for a loan'), icon: ReceiptPercentIcon },
           { name: 'withdrawals', label: t('Withdraw savings'), icon: WalletIcon, also: ['withdrawal-slip'] },
-          { name: 'statement-print', label: t('My statement'), icon: DocumentTextIcon },
+          { name: 'statement', label: t('My statement'), icon: DocumentTextIcon, also: ['statement-print'] },
         ],
       },
     ]
