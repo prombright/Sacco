@@ -350,7 +350,7 @@ const progress = computed(() => {
     <Modal v-if="dialog === 'return' && current" :title="`Profit from ${current.name}`" @close="dialog = null">
       <form class="space-y-4" novalidate @submit.prevent="save">
         <div v-if="formError" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ formError }}</div>
-        <p class="text-sm text-gray-600">Interest or a distribution the SACCO received from this investment.</p>
+        <p class="text-sm text-gray-600 phone-hide">Interest or a distribution the SACCO received from this investment.</p>
         <div class="grid gap-4 sm:grid-cols-2">
           <div><label for="ramt" class="label">Profit received</label><input id="ramt" v-model="form.received" class="input tabular-nums" inputmode="decimal" /></div>
           <div><label for="rdate" class="label">Received on</label><input id="rdate" v-model="form.received_on" type="date" :max="today" class="input" /></div>

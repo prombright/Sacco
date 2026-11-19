@@ -156,7 +156,7 @@ async function saveEdit() {
         </template>
         </PageHeader>
       </div>
-      <p class="mt-4 flex items-start gap-3 rounded-2xl border border-line bg-surface p-4 text-sm text-gray-700">
+      <p class="mt-4 flex items-start gap-3 rounded-2xl border border-line bg-surface p-4 text-sm text-gray-700 phone-hide">
         <InformationCircleIcon class="h-5 w-5 shrink-0 text-brand" aria-hidden="true" />
         <span>If the bank already held money before this system, post one journal entry first: debit Bank account, credit Opening balances. Bank charges or interest on the statement that aren't in the books yet go in <RouterLink :to="{ name: 'payments' }" class="font-semibold text-brand hover:underline">Payments</RouterLink> or <RouterLink :to="{ name: 'receipts' }" class="font-semibold text-brand hover:underline">Receipts</RouterLink>.</span>
       </p>

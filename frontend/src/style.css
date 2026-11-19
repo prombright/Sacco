@@ -883,3 +883,12 @@ html:has(:is(.login-bg, .welcome-bg)) { --brand: 98 70 234 !important; }
     transform: translateY(-3px);
   }
 }
+
+/* Phones: fewer words. Explanations, page notes and the breadcrumb trail are hidden below 640px;
+   every button, field, figure and warning stays. */
+@media (max-width: 639px) {
+  .phone-hide { display: none !important; }
+}
+
+/* Row buttons pinned to the right edge of a wide report table, with a soft edge over the scrolled columns */
+.report-actions { box-shadow: -8px 0 12px -10px rgb(22 19 58 / 0.25); }

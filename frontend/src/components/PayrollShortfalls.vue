@@ -41,7 +41,7 @@ const report = computed<Report | null>(() =>
 <template>
   <section class="mt-8">
     <h2 class="font-semibold">Deducted against what was due</h2>
-    <p class="mt-1 max-w-3xl text-sm text-gray-600">Members whose loan deduction this month came in under the instalments that fell due, or who weren't on the payroll at all. Follow them up with the bursar, or under Arrears follow-up.</p>
+    <p class="mt-1 max-w-3xl text-sm text-gray-600 phone-hide">Members whose loan deduction this month came in under the instalments that fell due, or who weren't on the payroll at all. Follow them up with the bursar, or under Arrears follow-up.</p>
     <ReportView class="mt-3" :report="report" :busy="!data && !error" :error="error">
       <template #empty>Every loan instalment due this month was deducted in full.</template>
     </ReportView>

@@ -49,7 +49,7 @@ async function save() {
 <template>
   <Modal title="Record a loan from the old records" @close="emit('close')">
     <form class="space-y-4" novalidate @submit.prevent="save">
-      <p class="text-sm text-gray-600">For loans paid out before the SACCO used this system. The schedule runs from the real payout date, so late instalments show as late.</p>
+      <p class="text-sm text-gray-600 phone-hide">For loans paid out before the SACCO used this system. The schedule runs from the real payout date, so late instalments show as late.</p>
       <div v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
 
       <div>

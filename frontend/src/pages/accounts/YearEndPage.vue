@@ -121,7 +121,7 @@ async function reopen() {
         </tbody>
       </table>
     </div>
-    <p v-if="!auth.isSuperAdmin" class="mt-3 text-xs text-gray-500">Only the super admin closes and reopens years.</p>
+    <p v-if="!auth.isSuperAdmin" class="mt-3 text-xs text-gray-500 phone-hide">Only the super admin closes and reopens years.</p>
 
     <Modal v-if="reopening" :title="`Reopen ${reopening.year}`" @close="reopening = null">
       <form class="space-y-4" @submit.prevent="reopen">

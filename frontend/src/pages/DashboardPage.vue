@@ -355,7 +355,7 @@ const welcome = ref(true)
           </template>
           <template v-else>
             <p class="mt-3 text-sm text-gray-700">{{ data.loan_wait_reason }}</p>
-            <p class="mt-3 text-sm text-gray-500">Keep saving: the more you save, the more you'll be able to borrow.</p>
+            <p class="mt-3 text-sm text-gray-500 phone-hide">Keep saving: the more you save, the more you'll be able to borrow.</p>
             <RouterLink :to="{ name: 'loans' }" class="mt-auto !mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-[#d9cffd] bg-[#f3f0ff] px-4 py-2.5 text-sm font-bold text-[#5b3fd6] transition hover:bg-[#ebe5ff] dark:border-white/15 dark:bg-white/5 dark:text-[#b9a8ff]">{{ t('See my loans') }}<ChevronRightIcon class="h-4 w-4" aria-hidden="true" /></RouterLink>
           </template>
         </div>

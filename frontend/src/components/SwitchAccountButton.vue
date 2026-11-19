@@ -81,7 +81,7 @@ async function go() {
           This office login (<span class="font-medium text-ink">{{ auth.user?.full_name }}</span>) isn't anyone's member account, so there is
           nothing to switch to.
         </p>
-        <p class="mt-2 text-sm text-gray-600">
+        <p class="mt-2 text-sm text-gray-600 phone-hide">
           If you also save with the SACCO, log in with <strong>your own member login</strong> instead. Once the system's developer gives
           you office rights, this button takes you between your savings and the office.
         </p>

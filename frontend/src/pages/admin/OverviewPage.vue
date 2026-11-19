@@ -324,14 +324,14 @@ const bars = computed(() => {
         <div class="reveal card xl:col-span-3 min-w-0" style="--i: 4">
           <div class="card-head">
             <span class="icon-gold inline-flex h-8 w-8 items-center justify-center rounded-lg"><ArrowTrendingUpIcon class="h-[18px] w-[18px]" aria-hidden="true" /></span><h2>Member funds</h2>
-            <p class="ml-auto text-xs text-gray-600">Savings + shares at each month end</p>
+            <p class="phone-hide ml-auto text-xs text-gray-600">Savings + shares at each month end</p>
           </div>
           <MonthChart :key="'f' + range" class="p-5" :points="funds6" kind="area" :color="chartColors.blue" label="Member funds" :format="money" />
         </div>
         <div class="reveal card xl:col-span-2 min-w-0" style="--i: 5">
           <div class="card-head">
             <span class="icon-gold inline-flex h-8 w-8 items-center justify-center rounded-lg"><ChartBarIcon class="h-[18px] w-[18px]" aria-hidden="true" /></span><h2>Loan repayments</h2>
-            <p class="ml-auto text-xs text-gray-600">Collected each month</p>
+            <p class="phone-hide ml-auto text-xs text-gray-600">Collected each month</p>
           </div>
           <MonthChart :key="'c' + range" class="p-5" :points="collections6" kind="bar" :color="chartColors.amber" label="Loan repayments" :format="money" />
         </div>

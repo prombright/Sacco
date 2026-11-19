@@ -72,7 +72,7 @@ async function reverse() {
 
     <template v-if="batch">
       <div class="mt-3">
-        <PageHeader eyebrow="Payroll deductions">
+        <PageHeader keep-note eyebrow="Payroll deductions">
           <template #title>Payroll {{ batch.period }}</template>
           {{ batch.file_name }} · posted {{ formatDate(batch.created_at) }} by {{ batch.created_by_name }}
           <template #actions>
@@ -114,7 +114,7 @@ async function reverse() {
 
       <div v-if="batch.status === 'posted'" class="mt-6">
         <button v-can="'money'" type="button" class="btn-secondary" @click="reversing = true">Reverse this upload</button>
-        <p class="mt-2 text-sm text-gray-600">Undoes every entry it made, for example if the wrong month's file was posted. Both stay in each member's history.</p>
+        <p class="mt-2 text-sm text-gray-600 phone-hide">Undoes every entry it made, for example if the wrong month's file was posted. Both stay in each member's history.</p>
       </div>
     </template>
 

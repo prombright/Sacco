@@ -130,7 +130,7 @@ async function removeLogo() {
 <template>
   <div>
     <PageHeader eyebrow="Settings" title="Setup & rules" />
-    <p class="mt-1 text-gray-600">
+    <p class="mt-1 text-gray-600 phone-hide">
       The SACCO's rules, as the committee set them.
       <template v-if="!auth.isSuperAdmin">Only a super admin can change them.</template>
     </p>
@@ -139,7 +139,7 @@ async function removeLogo() {
       <SaccoMark :sacco="auth.sacco" size="lg" />
       <div class="min-w-[14rem] flex-1">
         <h2 class="font-semibold">The SACCO's logo</h2>
-        <p class="text-sm text-gray-600">Shown in the app and on every letterhead, receipt, card and certificate. A PNG or JPG under 1 MB, ideally square.</p>
+        <p class="text-sm text-gray-600 phone-hide">Shown in the app and on every letterhead, receipt, card and certificate. A PNG or JPG under 1 MB, ideally square.</p>
         <p v-if="logoError" class="mt-1 text-sm text-red-700" role="alert">{{ logoError }}</p>
       </div>
       <label class="btn-primary cursor-pointer">

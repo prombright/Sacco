@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { CheckCircleIcon, DocumentArrowDownIcon, ExclamationTriangleIcon, TableCellsIcon } from '@heroicons/vue/24/outline'
+import { BanknotesIcon, ChartPieIcon, CheckCircleIcon, ClockIcon, DocumentArrowDownIcon, ExclamationTriangleIcon, PresentationChartLineIcon, TableCellsIcon, UsersIcon, WalletIcon } from '@heroicons/vue/24/outline'
+import PageHeader from '@/components/PageHeader.vue'
 import { api, ApiError } from '@/api'
 import { useAuth } from '@/stores/auth'
 import { useTheme } from '@/stores/theme'
@@ -70,12 +71,12 @@ const cards = computed(() => {
   const h = data.value?.highlights
   if (!h) return []
   return [
-    { label: 'Members', raw: h.members, value: String(h.members), format: (v: number) => String(Math.round(v)) },
-    { label: `Savings held (${cur.value})`, raw: h.savings, value: short(h.savings), format: short },
-    { label: `Share capital (${cur.value})`, raw: h.shares, value: short(h.shares), format: short },
-    { label: `Owed on loans (${cur.value})`, raw: h.loan_book, value: short(h.loan_book), format: short },
-    { label: 'Over 30 days late (PAR 30)', raw: h.par30, value: percent(h.par30), format: percent },
-    { label: `${Number(h.surplus) >= 0 ? 'Surplus' : 'Deficit'} this month (${cur.value})`, raw: h.surplus, value: short(h.surplus), format: short },
+    { icon: UsersIcon, label: 'Members', raw: h.members, value: String(h.members), format: (v: number) => String(Math.round(v)) },
+    { icon: WalletIcon, label: `Savings held (${cur.value})`, raw: h.savings, value: short(h.savings), format: short },
+    { icon: ChartPieIcon, label: `Share capital (${cur.value})`, raw: h.shares, value: short(h.shares), format: short },
+    { icon: BanknotesIcon, label: `Owed on loans (${cur.value})`, raw: h.loan_book, value: short(h.loan_book), format: short },
+    { icon: ClockIcon, label: 'Over 30 days late (PAR 30)', raw: h.par30, value: percent(h.par30), format: percent },
+    { icon: PresentationChartLineIcon, label: `${Number(h.surplus) >= 0 ? 'Surplus' : 'Deficit'} this month (${cur.value})`, raw: h.surplus, value: short(h.surplus), format: short },
   ]
 })
 
@@ -117,34 +118,33 @@ const monthName = (m: string) => new Date(m + '-01T00:00:00').toLocaleDateString
 
 <template>
   <div>
-    <div class="bg-gradient-to-br from-navy-800 to-navy-950 relative overflow-hidden rounded-3xl p-6 text-white shadow-lift sm:p-8">
-      <div class="relative flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p class="text-xs font-semibold uppercase tracking-wider text-saffron-300">Reports</p>
-          <h1 class="mt-1 text-3xl font-bold">Board pack{{ data ? `, ${data.label}` : '' }}</h1>
-          <p class="mt-1 text-navy-100/80">The month in one document for the board meeting</p>
+    <PageHeader :title="`Board pack${data ? `, ${data.label}` : ''}`">
+      The month in one document for the board meeting
+      <template #actions>
+        <label for="pack-month" class="sr-only">Month</label>
+        <input id="pack-month" v-model="month" type="month" :max="thisMonth" class="input w-full sm:w-auto" />
+        <button type="button" class="btn-primary flex-1 sm:flex-none" :disabled="!data || !!making" @click="download('pdf')"><DocumentArrowDownIcon class="h-4 w-4" :class="{ 'animate-pulse': making === 'pdf' }" />Board pack (PDF)</button>
+        <button type="button" class="btn-secondary flex-1 sm:flex-none" :disabled="!data || !!making" @click="download('excel')"><TableCellsIcon class="h-4 w-4" :class="{ 'animate-pulse': making === 'excel' }" />Excel</button>
+      </template>
+    </PageHeader>
+
+    <p v-if="data" class="mt-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold" :class="data.balanced ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' : 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300'">
+      <component :is="data.balanced ? CheckCircleIcon : ExclamationTriangleIcon" class="h-4 w-4" />{{ data.balanced ? 'The books balance' : 'The books do not balance: check before the meeting' }}
+    </p>
+
+    <div v-if="data" class="mt-4 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 2xl:grid-cols-6">
+      <div v-for="(c, n) in cards" :key="c.label" class="stat-card" :class="{ 'stat-card-lead': n === 0 }">
+        <div class="stat-card-top">
+          <span class="icon-gold stat-card-icon"><component :is="c.icon" class="h-5 w-5" aria-hidden="true" /></span>
+          <p class="stat-card-label">{{ c.label }}</p>
         </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <label for="pack-month" class="sr-only">Month</label>
-          <input id="pack-month" v-model="month" type="month" :max="thisMonth" class="rounded-lg border-0 bg-white/10 px-3 py-2 text-sm font-semibold text-white backdrop-blur [color-scheme:dark]" />
-          <button type="button" class="btn-accent" :disabled="!data || !!making" @click="download('pdf')"><DocumentArrowDownIcon class="h-4 w-4" :class="{ 'animate-pulse': making === 'pdf' }" />Board pack (PDF)</button>
-          <button type="button" class="btn border border-white/30 bg-white/10 text-white hover:bg-white/20" :disabled="!data || !!making" @click="download('excel')"><TableCellsIcon class="h-4 w-4" :class="{ 'animate-pulse': making === 'excel' }" />Excel</button>
-        </div>
+        <p class="stat-card-figure text-[#16133a] dark:text-white"><CountUp :value="c.raw" :format="c.format" :delay="n * 120" /></p>
       </div>
-      <div v-if="data" class="relative mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-2xl bg-white/10 sm:grid-cols-3 xl:grid-cols-6">
-        <div v-for="(c, n) in cards" :key="c.label" class="bg-navy-950/40 p-4">
-          <p class="text-2xl font-bold"><CountUp :value="c.raw" :format="c.format" :delay="n * 120" /></p>
-          <p class="mt-0.5 text-xs text-navy-100/70">{{ c.label }}</p>
-        </div>
-      </div>
-      <p v-if="data" class="relative mt-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold" :class="data.balanced ? 'bg-emerald-400/15 text-emerald-200' : 'bg-red-400/20 text-red-100'">
-        <component :is="data.balanced ? CheckCircleIcon : ExclamationTriangleIcon" class="h-4 w-4" />{{ data.balanced ? 'The books balance' : 'The books do not balance: check before the meeting' }}
-      </p>
     </div>
 
     <div v-if="data?.payroll_behind" class="mt-4 flex gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200" role="status">
       <ExclamationTriangleIcon class="h-5 w-5 shrink-0" />
-      <p>The {{ monthName(data.month) }} payroll is not posted yet{{ data.last_payroll ? ` (the last is ${monthName(data.last_payroll)})` : '' }}. Loan repayments come off salaries, so until it is, loans look later than they are and the month's figures are not complete.</p>
+      <p>The {{ monthName(data.month) }} payroll is not posted yet<span class="phone-hide">{{ data.last_payroll ? ` (the last is ${monthName(data.last_payroll)})` : '' }}. Loan repayments come off salaries, so until it is, loans look later than they are and the month's figures are not complete</span>.</p>
     </div>
     <div v-if="error" class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
     <p v-if="busy && !data" class="mt-6 text-sm text-gray-500">Putting the month together…</p>
@@ -152,7 +152,7 @@ const monthName = (m: string) => new Date(m + '-01T00:00:00').toLocaleDateString
     <div v-if="data && data.trend.length" class="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
       <section v-for="s in series" :key="s.title" class="card min-w-0 p-5">
         <h2 class="font-semibold">{{ s.title }}</h2>
-        <p class="text-xs text-gray-500">{{ s.note }}</p>
+        <p class="phone-hide text-xs text-gray-500">{{ s.note }}</p>
         <MonthChart :key="data.month + s.title" class="mt-3" :points="s.points" :kind="s.kind" :color="s.color" :label="s.title" :format="s.format" />
       </section>
     </div>

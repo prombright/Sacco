@@ -52,7 +52,7 @@ const cell = (v: string) => (Number(v) ? formatMoney(v) : '')
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div class="min-w-0 flex-1">
         <h2 class="font-semibold">From the old system</h2>
-        <p class="mt-0.5 text-sm text-gray-600">For reference only. Balances on this account already include all of this.</p>
+        <p class="mt-0.5 text-sm text-gray-600 phone-hide">For reference only. Balances on this account already include all of this.</p>
       </div>
       <button v-if="data.total" type="button" class="btn-secondary" :aria-expanded="open" @click="open = !open">{{ open ? 'Hide' : `Show ${data.total.toLocaleString()} old entries` }}</button>
     </div>

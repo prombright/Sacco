@@ -182,7 +182,7 @@ async function unlock(u: { id: number }) {
         <div class="min-w-0">
           <p class="text-xs font-semibold uppercase tracking-wider text-[#6246ea] dark:text-navy-200">Settings</p>
           <h1 class="mt-1 text-[1.3rem] font-bold leading-tight text-[#16133a] dark:text-white sm:text-[1.75rem]">Usage &amp; security</h1>
-          <p class="mt-1 max-w-xl text-gray-600 dark:text-gray-400">Who is using the system, when and on what, and how well it is protected.</p>
+          <p class="mt-1 max-w-xl text-gray-600 dark:text-gray-400 phone-hide">Who is using the system, when and on what, and how well it is protected.</p>
           <div class="mt-4 flex flex-wrap items-center gap-2">
             <div class="flex rounded-lg bg-[#e6ecfb] p-0.5 text-sm font-semibold dark:bg-white/10 sm:w-max" role="radiogroup" aria-label="Period">
             <button v-for="d in ([7, 30, 90] as const)" :key="d" type="button" role="radio" :aria-checked="days === d" class="flex-1 whitespace-nowrap rounded-md px-3 py-1.5" :class="days === d ? 'bg-white text-[#6246ea] shadow-sm dark:bg-surface' : 'text-gray-600 hover:text-ink'" @click="days = d">{{ d }} days</button>
@@ -321,7 +321,7 @@ async function unlock(u: { id: number }) {
           </ul>
         </div>
       </section>
-      <p v-if="auth.viewOnly" class="mt-4 text-xs text-gray-500">Your account can see this page; changes are made by the super admin.</p>
+      <p v-if="auth.viewOnly" class="mt-4 text-xs text-gray-500 phone-hide">Your account can see this page; changes are made by the super admin.</p>
     </template>
     <div v-else-if="!error" class="mt-5 h-40 animate-pulse rounded-2xl bg-surface" aria-hidden="true" />
   </div>

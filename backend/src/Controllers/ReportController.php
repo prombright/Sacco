@@ -84,6 +84,7 @@ final class ReportController
                 continue; // long-gone members with nothing left
             }
             $rows[] = [
+                '_user_id' => $id, // for the View / Download buttons; not a column
                 'account_no' => $u['account_no'],
                 'full_name' => $u['full_name'],
                 'employee_no' => $u['employee_no'],
@@ -105,8 +106,8 @@ final class ReportController
             ['status', 'Status', 'text'],
             ['member_since', 'Member since', 'date'],
             ['savings', 'Savings', 'money'],
-            ['savings_interest', 'Savings interest a month', 'money'],
-            ['interest_held', 'Interest held for them', 'money'],
+            ['savings_interest', 'Interest/month', 'money'],
+            ['interest_held', 'Interest owed', 'money'],
             ['shares', 'Share capital', 'money'],
             ['share_count', 'Shares', 'number'],
             ['loan', 'Loan balance', 'money'],

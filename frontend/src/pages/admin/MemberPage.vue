@@ -365,7 +365,7 @@ function certificate() {
             <div class="border-line p-5 max-lg:border-b lg:border-r">
               <p class="eyebrow">Without a guarantor</p>
               <p class="mt-1.5 text-2xl font-bold tabular-nums"><Money :value="String(withoutGuarantor)" /></p>
-              <p class="mt-1 text-sm text-gray-600">A loan up to their free savings needs no guarantor; above it, guarantors cover the rest.</p>
+              <p class="mt-1 text-sm text-gray-600 phone-hide">A loan up to their free savings needs no guarantor; above it, guarantors cover the rest.</p>
               <p v-if="Number(borrowing.held_for_own_loans) > 0" class="mt-2 text-xs text-gray-500">{{ formatMoney(borrowing.held_for_own_loans) }} of their savings already stands behind their own loans.</p>
             </div>
             <div class="p-5">
