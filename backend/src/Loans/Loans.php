@@ -193,7 +193,16 @@ final class Loans
      *
      * @return array{savings: int, owed: int, limit: int, limit_percent: int} cents (limit_percent: 100, or less for a slow payer)
      */
-    public static function eligibility(int $userId, ?int $exceptLoanId = null, ?int $productId = null): array
+    /**
+     * How much a member may borrow now. The room is the loan type's multiple (e.g. 2x) of their
+     * savings less what they still owe: 2 x (savings - owed). With 10M saved and 4M still owed on a
+     * loan, that is 12M; owing as much as they saved (or more) leaves no room until they repay.
+     * $exceptLoanId: a loan left out of what is owed (the application being looked at itself).
+     * $topUp: a loan the new one replaces (a top-up): the new loan may be what clears it plus the
+     * room (10M saved, 4M owed: up to 4M + 12M = 16M, 12M of it new money). A slow payer gets
+     * part of the room (see Credit).
+     */
+    public static function eligibility(int $userId, ?int $exceptLoanId = null, ?int $productId = null, ?int $topUp = null): array
     {
         $db = Database::tenant();
         $savings = Ledger::balance($db, $userId, 'savings');
@@ -201,8 +210,9 @@ final class Loans
         $multiplier = (int) Money::parse(self::productRules($db, $productId)['savings_multiplier']); // "2" -> 200
         // A slow payer may borrow only part of the usual limit (see Credit)
         $percent = Credit::limitPercent($db, $userId);
-        $limit = max(0, intdiv(intdiv($savings * $multiplier, 100) * $percent, 100) - $owed);
-        return ['savings' => $savings, 'owed' => $owed, 'limit' => $limit, 'limit_percent' => $percent];
+        $room = intdiv(intdiv(max(0, $savings - $owed) * $multiplier, 100) * $percent, 100);
+        $toClear = $topUp ? self::settlementQuote($db, $topUp)['amount'] : 0;
+        return ['savings' => $savings, 'owed' => $owed, 'limit' => $room + $toClear, 'room' => $room, 'to_clear' => $toClear, 'limit_percent' => $percent];
     }
 
     /** Why a member can't apply for this type of loan now, or null */

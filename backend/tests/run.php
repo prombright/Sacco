@@ -301,6 +301,23 @@ try {
         $f = $inst($id, 1);
         check('Reversing the short payment adds all of the February interest instead', Money::fromDecimal($f['capitalised']) === Money::fromDecimal($f['interest']), $f['capitalised'] . ' of ' . $f['interest'] . ', reversal ' . $reversed . ', payments ' . $db->query("SELECT GROUP_CONCAT(CONCAT(id, ':', amount, ':', paid_on, ':', COALESCE(reversal_of, '-'))) FROM loan_payments WHERE loan_id = $id")->fetchColumn());
         \Sacco\Support\Settings::set('loan_rolling_from', '2026-11-01');
+
+        echo "
+How much can be borrowed: 2 x (savings - still owed)
+";
+        $dan = $member('Dan Test', '914');
+        $post($dan, 'savings', 'deposit', 1_000_000);
+        $product = (int) $db->query('SELECT id FROM loan_products ORDER BY id LIMIT 1')->fetchColumn();
+        $e = Loans::eligibility($dan, null, $product);
+        check('No loan: 2 x savings (2,000,000)', $e['limit'] === 200_000_000, ugx($e['limit']));
+        $danLoan = $loanOf($dan, 400_000, 10, '1.00', date('Y-m-d'));
+        $e = Loans::eligibility($dan, null, $product);
+        check('With 400,000 owed: 2 x (1,000,000 - 400,000) = 1,200,000', $e['limit'] === 120_000_000, ugx($e['limit']));
+        $t = Loans::eligibility($dan, null, $product, (int) $danLoan['id']);
+        check('A top-up: what clears the old loan + 1,200,000 new money', $t['limit'] === $t['to_clear'] + 120_000_000 && $t['to_clear'] >= 40_000_000, ugx($t['limit']));
+        $loanOf($dan, 700_000, 10, '1.00', date('Y-m-d'));
+        $e = Loans::eligibility($dan, null, $product);
+        check('Owing more than saved (1,100,000 against 1,000,000): nothing more', $e['limit'] === 0, ugx($e['limit']));
     });
 } catch (\Throwable $e) {
     $failed[] = 'Unexpected error';

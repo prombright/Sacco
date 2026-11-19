@@ -100,7 +100,7 @@ final class TransactionController
             'guarantee_requests' => (int) $requests->fetchColumn(),
             'recent' => Ledger::history($id, null, 1, 6, true)['transactions'],
             'loans' => $loans,
-            // What the main loan type allows now: savings x its multiplier, less what is owed
+            // What the main loan type allows now: its multiple of (savings - what is still owed)
             'loan_limit' => Money::toDecimal(Loans::eligibility($id, null, (int) (Loans::products($db)[0]['id'] ?? 0) ?: null)['limit']),
             'loan_wait_reason' => Loans::borrowerWaitReason($db, $id),
             'saved_this_year' => Money::toDecimal(Money::fromDecimal($savedThisYear->fetchColumn())),

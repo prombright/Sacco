@@ -38,7 +38,11 @@ final class LoanController
         $products = Loans::products($db);
         $productId = (int) $request->query('product_id', 0) ?: ($products[0]['id'] ?? null);
         $rules = Loans::productRules($db, $productId);
-        $eligibility = Loans::eligibility((int) Auth::id(), null, $productId);
+        $topUp = (int) $request->query('replaces_loan_id', 0) ?: null;
+        if ($topUp && !in_array($topUp, array_column(Loans::topUps($db, (int) Auth::id(), $rules), 'id'), true)) {
+            $topUp = null;
+        }
+        $eligibility = Loans::eligibility((int) Auth::id(), null, $productId, $topUp);
         $amount = Money::parse($request->query('amount', ''));
         $months = (int) $request->query('months', 0);
 
@@ -112,7 +116,7 @@ final class LoanController
         } elseif ($amount > Loans::MAX_CENTS) {
             $errors['amount'] = 'That amount is too large.';
         } else {
-            $limit = Loans::eligibility($me, $replacing, $productId)['limit'];
+            $limit = Loans::eligibility($me, null, $productId, $replacing)['limit'];
             $min = $rules['min_amount'] !== null ? Money::fromDecimal($rules['min_amount']) : 0;
             $max = $rules['max_amount'] !== null ? Money::fromDecimal($rules['max_amount']) : null;
             $toClear = $replacing ? Loans::settlementQuote(Database::tenant(), $replacing)['amount'] : 0;
@@ -961,13 +965,16 @@ final class LoanController
             'detail' => $m['since'] ? "Saving for {$m['months']} months (since " . date('j M Y', strtotime($m['since'])) . "); the rule is $need." : 'No savings recorded yet.',
         ];
 
-        $e = Loans::eligibility($userId, (int) $loan['id'], $loan['product_id'] ? (int) $loan['product_id'] : null);
+        $replaced = $loan['replaces_loan_id'] ? (int) $loan['replaces_loan_id'] : null;
+        // The application itself isn't owed yet; a loan it tops up is, and clearing it is added
+        $e = Loans::eligibility($userId, (int) $loan['id'], $loan['product_id'] ? (int) $loan['product_id'] : null, $replaced);
         $amount = Money::fromDecimal($loan['amount']);
         $checks[] = [
             'label' => 'Within their loan limit',
             'level' => $amount <= $e['limit'] ? 'pass' : 'fail',
-            'detail' => "Limit " . number_format($e['limit'] / 100) . " ({$rules['savings_multiplier']} × savings of " . number_format($e['savings'] / 100)
-                . ($e['owed'] ? ', less ' . number_format($e['owed'] / 100) . ' owed on other loans' : '') . '); asking for ' . number_format($amount / 100) . '.',
+            'detail' => "Limit " . number_format($e['limit'] / 100) . " ({$rules['savings_multiplier']} × (savings " . number_format($e['savings'] / 100)
+                . ($e['owed'] ? ' − ' . number_format($e['owed'] / 100) . ' still owed' : '') . ')'
+                . ($e['to_clear'] ? ' + ' . number_format($e['to_clear'] / 100) . ' to clear the loan it tops up' : '') . '); asking for ' . number_format($amount / 100) . '.',
         ];
 
         $short = Loans::guaranteeShortfall($db, $loan);
@@ -1245,8 +1252,11 @@ final class LoanController
             $loan['assessment'] = $this->assessment($db, $l->fetch());
         }
 
+        $kind = $db->prepare('SELECT product_id, replaces_loan_id FROM loans WHERE id = ?');
+        $kind->execute([$id]);
+        $kind = $kind->fetch();
         $loan['borrower_eligibility'] = Roles::allows(Auth::user()['role'], [Roles::ADMIN])
-            ? array_map([Money::class, 'toDecimal'], Loans::eligibility((int) $loan['user_id'], $id))
+            ? array_map(fn ($v) => is_int($v) ? Money::toDecimal($v) : $v, Loans::eligibility((int) $loan['user_id'], $id, $kind['product_id'] ? (int) $kind['product_id'] : null, $kind['replaces_loan_id'] ? (int) $kind['replaces_loan_id'] : null))
             : null;
         // Who approves it, and whether the person looking may
         if (in_array($loan['status'], ['pending_guarantors', 'pending_approval', 'approved'], true) && Roles::allows(Auth::user()['role'], [Roles::ADMIN])) {

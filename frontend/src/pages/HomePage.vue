@@ -109,7 +109,7 @@ const faqs = computed(() => {
     },
     {
       q: 'How much can I borrow?',
-      a: `Up to ${main.value?.savings_multiplier ?? 2} times your savings, less anything you already owe, once you have been saving for ${t.min_member_months} months. Colleagues who are members guarantee your loan, and they agree online.`,
+      a: `Up to ${main.value?.savings_multiplier ?? 2} times your savings (with a loan running, ${main.value?.savings_multiplier ?? 2} times your savings less what you owe), once you have been saving for ${t.min_member_months} months. Colleagues who are members guarantee your loan, and they agree online.`,
     },
     {
       q: 'How is loan interest worked out?',

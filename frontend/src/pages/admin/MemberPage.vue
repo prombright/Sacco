@@ -350,7 +350,8 @@ function certificate() {
                 <Money :value="mainLoan.blocked ? '0' : mainLoan.limit" />
               </p>
               <p class="mt-1 text-sm text-gray-600">
-                {{ mainLoan.multiplier }}× savings of {{ formatMoney(borrowing.savings) }}<template v-if="mainLoan.limit_percent < 100">, cut to {{ mainLoan.limit_percent }}% (marked as a slow payer by the office)</template><template v-if="Number(borrowing.owed) > 0">, less {{ formatMoney(borrowing.owed) }} still owed</template>.
+                <template v-if="Number(borrowing.owed) > 0">{{ mainLoan.multiplier }}× (savings of {{ formatMoney(borrowing.savings) }} less {{ formatMoney(borrowing.owed) }} still owed)</template><template v-else>{{ mainLoan.multiplier }}× savings of {{ formatMoney(borrowing.savings) }}</template><template v-if="mainLoan.limit_percent < 100">, cut to {{ mainLoan.limit_percent }}% (marked as a slow payer by the office)</template>.
+                <span v-if="Number(borrowing.owed) >= Number(borrowing.savings) && Number(borrowing.owed) > 0" class="block text-amber-800">They owe as much as they have saved, so they can borrow more only after repaying.</span>
               </p>
               <p v-if="mainLoan.blocked" class="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{{ mainLoan.blocked.replace(/^You /, 'They ').replace(/ you /g, ' they ').replace(/your /g, 'their ') }}</p>
               <ul v-if="borrowing.products.length > 1" class="mt-3 space-y-1 border-t border-line pt-3 text-sm">
