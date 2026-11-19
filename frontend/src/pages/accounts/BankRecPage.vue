@@ -148,13 +148,13 @@ async function saveEdit() {
   <div>
     <!-- All reconciliations -->
     <template v-if="!id">
-      <div class="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <PageHeader eyebrow="Cash book" title="Bank reconciliation">
-            Check the books against the bank statement. Enter the statement's closing balance, tick each entry that appears on it, and the difference must come to zero.
-          </PageHeader>
-        </div>
-        <button v-can="'money'" type="button" class="btn-primary" :disabled="!list" @click="start"><PlusIcon class="h-4 w-4" />New reconciliation</button>
+      <div>
+        <PageHeader eyebrow="Cash book" title="Bank reconciliation">
+          Check the books against the bank statement. Enter the statement's closing balance, tick each entry that appears on it, and the difference must come to zero.
+        <template #actions>
+          <button v-can="'money'" type="button" class="btn-primary" :disabled="!list" @click="start"><PlusIcon class="h-4 w-4" />New reconciliation</button>
+        </template>
+        </PageHeader>
       </div>
       <p class="mt-4 flex items-start gap-3 rounded-2xl border border-line bg-surface p-4 text-sm text-gray-700">
         <InformationCircleIcon class="h-5 w-5 shrink-0 text-brand" aria-hidden="true" />

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.1.0",
+    "@fontsource-variable/space-grotesk": "^5.1.0",
     "@heroicons/vue": "^2.1.5",
     "axios": "^1.7.9",
     "exceljs": "^4.4.0",

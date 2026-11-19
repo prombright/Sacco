@@ -44,15 +44,15 @@ async function download(r: Receipt) {
 
 <template>
   <div>
-    <div class="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <PageHeader :eyebrow="memberId ? data?.member.full_name : 'My account'" title="Receipts">
-          A receipt for every deposit, withdrawal, transfer, dividend, fee and loan repayment.
-        </PageHeader>
-      </div>
-      <div class="flex rounded-lg bg-gray-200/60 p-0.5 text-sm font-semibold" role="radiogroup" aria-label="Show">
-        <button v-for="o in ([['all', 'All'], ['in', 'Money in'], ['out', 'Money out']] as const)" :key="o[0]" type="button" role="radio" :aria-checked="show === o[0]" class="rounded-md px-3 py-1.5" :class="show === o[0] ? 'bg-surface text-ink shadow-sm' : 'text-gray-600'" @click="show = o[0]">{{ o[1] }}</button>
-      </div>
+    <div>
+      <PageHeader :eyebrow="memberId ? data?.member.full_name : 'My account'" title="Receipts">
+        A receipt for every deposit, withdrawal, transfer, dividend, fee and loan repayment.
+      <template #actions>
+        <div class="flex rounded-lg bg-gray-200/60 p-0.5 text-sm font-semibold" role="radiogroup" aria-label="Show">
+          <button v-for="o in ([['all', 'All'], ['in', 'Money in'], ['out', 'Money out']] as const)" :key="o[0]" type="button" role="radio" :aria-checked="show === o[0]" class="rounded-md px-3 py-1.5" :class="show === o[0] ? 'bg-surface text-ink shadow-sm' : 'text-gray-600'" @click="show = o[0]">{{ o[1] }}</button>
+        </div>
+      </template>
+      </PageHeader>
     </div>
     <div v-if="error" class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
 

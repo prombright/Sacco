@@ -25,6 +25,9 @@ const shown = computed(() => !!target.value || auth.isAdmin)
 const label = computed(() =>
   target.value ? (target.value.to === 'member' ? 'Switch to my member account' : target.value.label) : 'Switch to my member account',
 )
+/** The account you are in now, short, on the button: SA super admin, AD admin, MB member */
+const short = computed(() => ({ super_admin: 'SA', admin: 'AD', member: 'MB' } as Record<string, string>)[auth.user?.role ?? ''] ?? '?')
+const now = computed(() => auth.user?.role_label ?? '')
 
 async function go() {
   if (!target.value) {
@@ -67,19 +70,23 @@ async function link(m: PickedMember) {
   <div v-if="shown" class="relative">
     <button
       type="button"
-      class="tap group inline-flex h-10 w-10 items-center justify-center rounded-full border shadow-sm transition"
+      class="tap group relative inline-flex h-10 w-10 items-center justify-center rounded-full border text-[13px] font-extrabold tracking-wide shadow-sm transition"
       :class="
         target
-          ? 'border-saffron-400 bg-saffron-400 text-navy-950 hover:bg-saffron-300'
-          : 'border-line bg-surface text-gray-500 hover:border-navy-100 hover:text-navy-800'
+          ? 'border-[#16133a] bg-[#16133a] text-white hover:bg-[#6246ea] hover:border-[#6246ea] dark:border-white/20'
+          : 'border-line bg-surface text-gray-600 hover:border-navy-100 hover:text-navy-800'
       "
-      :aria-label="label"
-      :title="target ? `${label} (${target.full_name})` : label"
+      :aria-label="`You are in: ${now}. ${label}`"
+      :title="`You are in: ${now}. ${target ? `${label} (${target.full_name})` : label}`"
       :aria-expanded="target ? undefined : panel"
       :disabled="busy"
       @click="go"
     >
-      <ArrowsRightLeftIcon class="h-5 w-5 transition duration-300 group-hover:rotate-180" :class="{ 'animate-spin': busy }" />
+      <!-- the account you are in now, short; the small arrows say it switches -->
+      <span aria-hidden="true">{{ short }}</span>
+      <span class="absolute -bottom-1 -right-1 inline-flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[#6246ea] text-white ring-2 ring-white dark:ring-navy-950" aria-hidden="true">
+        <ArrowsRightLeftIcon class="h-2.5 w-2.5 transition duration-300 group-hover:rotate-180" :class="{ 'animate-spin': busy }" />
+      </span>
     </button>
 
     <!-- Not linked yet: how to make the switch work -->

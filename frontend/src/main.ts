@@ -1,7 +1,8 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 // Inter: sharp on phone screens, with figures that line up in columns (one variable file, every weight)
-import '@fontsource-variable/inter/opsz.css'
+import '@fontsource-variable/inter'
+import '@fontsource-variable/space-grotesk'
 import './style.css'
 import App from './App.vue'
 import router from './router'

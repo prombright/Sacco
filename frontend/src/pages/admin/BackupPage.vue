@@ -14,14 +14,14 @@ function download() {
 </script>
 
 <template>
-  <div class="max-w-3xl">
+  <div>
     <PageHeader eyebrow="Administration" title="Download backup">
       A complete copy of {{ auth.sacco?.name }}'s database: members, balances, loans, the books and the audit log. Keep it somewhere safe off the server, such as a flash disk in the office safe or a cloud drive only the committee can open.
     </PageHeader>
 
     <div class="card mt-5 p-6">
       <div class="flex items-start gap-4">
-        <span class="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-navy-50 text-navy-800"><ShieldCheckIcon class="h-6 w-6" aria-hidden="true" /></span>
+        <span class="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl icon-gold"><ShieldCheckIcon class="h-6 w-6" aria-hidden="true" /></span>
         <div>
           <p class="font-semibold">The server also makes a backup every night</p>
           <p class="mt-1 text-sm text-gray-600">This download is for an extra copy you keep yourselves, for example once a month and before the AGM. The file holds members' personal details, so treat it like the member register.</p>

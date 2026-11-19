@@ -75,7 +75,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
     <div class="fixed inset-0 z-50 flex items-end justify-center bg-navy-950/60 backdrop-blur-sm sm:items-center sm:p-4">
       <div class="w-full overflow-hidden rounded-t-3xl bg-surface shadow-lift sm:max-w-md sm:rounded-3xl" role="dialog" aria-modal="true" :aria-label="steps[step].title">
         <div class="bg-gradient-to-br from-navy-800 via-navy-900 to-navy-950 relative px-6 pb-6 pt-7 text-white">
-          <span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-saffron-400 text-navy-950"><component :is="steps[step].icon" class="h-6 w-6" aria-hidden="true" /></span>
+          <span class="flex h-12 w-12 items-center justify-center rounded-2xl icon-gold"><component :is="steps[step].icon" class="h-6 w-6" aria-hidden="true" /></span>
           <p class="mt-4 text-xs font-semibold uppercase tracking-wider text-saffron-300">Step {{ step + 1 }} of {{ steps.length }}</p>
           <h2 class="mt-1 text-2xl font-bold">{{ steps[step].title }}</h2>
           <button type="button" class="absolute right-4 top-4 rounded-full px-3 py-1 text-sm text-navy-100 hover:bg-white/10" @click="finish">Skip</button>

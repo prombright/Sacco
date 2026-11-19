@@ -110,24 +110,24 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="max-w-4xl">
-    <div class="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <PageHeader :eyebrow="t('My account')">
-          <template #title>{{ t('My profile') }}</template>
-        </PageHeader>
-      </div>
-      <div class="flex flex-wrap gap-2">
-        <button type="button" class="btn-secondary" :disabled="!user || making" @click="form"><DocumentTextIcon class="h-4 w-4" />My membership form</button>
-        <button type="button" class="btn-secondary" :disabled="!user || making" @click="certificate"><DocumentCheckIcon class="h-4 w-4" />{{ t('Share certificate') }}</button>
-      </div>
+  <div>
+    <div>
+      <PageHeader :eyebrow="t('My account')">
+        <template #title>{{ t('My profile') }}</template>
+      <template #actions>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" class="btn-secondary" :disabled="!user || making" @click="form"><DocumentTextIcon class="h-4 w-4" />My membership form</button>
+          <button type="button" class="btn-secondary" :disabled="!user || making" @click="certificate"><DocumentCheckIcon class="h-4 w-4" />{{ t('Share certificate') }}</button>
+        </div>
+      </template>
+      </PageHeader>
     </div>
     <p class="mt-1 text-sm text-gray-600">Your details as the SACCO has them. If something is wrong, tell the SACCO office.</p>
     <div v-if="error" class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
     <!-- My card, and my photo -->
     <div v-if="user" class="mt-6 grid items-center gap-6 lg:grid-cols-[minmax(0,28rem)_1fr]">
       <MemberCardView :member="user" class="reveal" />
-      <section class="card p-5" :class="user.photo_url ? '' : 'border-saffron-300 bg-saffron-50/60'">
+      <section class="card p-5" :class="user.photo_url ? '' : 'border-saffron-300/70'">
         <div class="flex items-center gap-4">
           <UserAvatar :name="user.full_name" :photo-url="user.photo_url" size="h-16 w-16 text-xl" />
           <div class="min-w-0 flex-1">

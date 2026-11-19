@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import BannerArt from '@/components/BannerArt.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { CheckCircleIcon, DocumentArrowDownIcon, ExclamationTriangleIcon, TableCellsIcon } from '@heroicons/vue/24/outline'
 import { api, ApiError } from '@/api'
@@ -80,28 +81,29 @@ async function download(kind: 'pdf' | 'excel') {
 
 <template>
   <div>
-    <div class="bg-gradient-to-br from-navy-800 to-navy-950 relative overflow-hidden rounded-3xl p-6 text-white shadow-lift sm:p-8">
+    <div class="page-banner relative overflow-hidden rounded-[1.25rem] border border-[#e4dcff] p-5 shadow-sm dark:border-line sm:p-6">
+      <BannerArt />
       <div class="relative flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p class="text-xs font-semibold uppercase tracking-wider text-saffron-300">Reports</p>
-          <h1 class="mt-1 text-3xl font-bold">Annual report {{ year }}</h1>
-          <p class="mt-1 text-navy-100/80">{{ data?.period ?? ' ' }} · for the AGM, the committee and the auditors</p>
+          <p class="text-xs font-semibold uppercase tracking-wider text-[#6246ea] dark:text-navy-200">Reports</p>
+          <h1 class="mt-1 text-[1.3rem] font-bold leading-tight text-[#16133a] dark:text-white sm:text-[1.75rem]">Annual report {{ year }}</h1>
+          <p class="mt-1 text-gray-600 dark:text-gray-400">{{ data?.period ?? ' ' }} · for the AGM, the committee and the auditors</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-          <div class="flex rounded-lg bg-white/10 p-0.5 text-sm font-semibold backdrop-blur" role="radiogroup" aria-label="Year">
-            <button v-for="y in [thisYear - 2, thisYear - 1, thisYear]" :key="y" type="button" role="radio" :aria-checked="year === y" class="rounded-md px-3 py-1.5" :class="year === y ? 'bg-white text-navy-900' : 'text-white/80 hover:text-white'" @click="year = y">{{ y }}</button>
+          <div class="flex rounded-lg bg-[#e6ecfb] p-0.5 text-sm font-semibold dark:bg-white/10" role="radiogroup" aria-label="Year">
+            <button v-for="y in [thisYear - 2, thisYear - 1, thisYear]" :key="y" type="button" role="radio" :aria-checked="year === y" class="rounded-md px-3 py-1.5" :class="year === y ? 'bg-white text-[#6246ea] shadow-sm dark:bg-surface' : 'text-gray-600 hover:text-ink'" @click="year = y">{{ y }}</button>
           </div>
-          <button type="button" class="btn-accent" :disabled="!data || !!making" @click="download('pdf')"><DocumentArrowDownIcon class="h-4 w-4" :class="{ 'animate-pulse': making === 'pdf' }" />Annual report (PDF)</button>
-          <button type="button" class="btn border border-white/30 bg-white/10 text-white hover:bg-white/20" :disabled="!data || !!making" @click="download('excel')"><TableCellsIcon class="h-4 w-4" :class="{ 'animate-pulse': making === 'excel' }" />Excel workbook</button>
+          <button type="button" class="btn-primary" :disabled="!data || !!making" @click="download('pdf')"><DocumentArrowDownIcon class="h-4 w-4" :class="{ 'animate-pulse': making === 'pdf' }" />Annual report (PDF)</button>
+          <button type="button" class="btn-secondary" :disabled="!data || !!making" @click="download('excel')"><TableCellsIcon class="h-4 w-4" :class="{ 'animate-pulse': making === 'excel' }" />Excel workbook</button>
         </div>
       </div>
-      <div v-if="data" class="relative mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-2xl bg-white/10 sm:grid-cols-3 xl:grid-cols-6">
-        <div v-for="(c, n) in cards" :key="c.label" class="bg-navy-950/40 p-4">
-          <p class="text-2xl font-bold"><CountUp :value="c.raw" :format="short" :delay="n * 120" /></p>
-          <p class="mt-0.5 text-xs text-navy-100/70">{{ c.label }}</p>
+      <div v-if="data" class="relative mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-[#e4dcff] bg-[#e4dcff] dark:border-line dark:bg-line sm:grid-cols-3 xl:grid-cols-6">
+        <div v-for="(c, n) in cards" :key="c.label" class="bg-white/90 p-4 dark:bg-surface">
+          <p class="text-2xl font-bold text-[#16133a] dark:text-white"><CountUp :value="c.raw" :format="short" :delay="n * 120" /></p>
+          <p class="mt-0.5 text-xs text-gray-500">{{ c.label }}</p>
         </div>
       </div>
-      <p v-if="data" class="relative mt-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold" :class="data.highlights.balanced ? 'bg-emerald-400/15 text-emerald-200' : 'bg-red-400/20 text-red-100'">
+      <p v-if="data" class="relative mt-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold" :class="data.highlights.balanced ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'">
         <component :is="data.highlights.balanced ? CheckCircleIcon : ExclamationTriangleIcon" class="h-4 w-4" />{{ data.highlights.balanced ? 'The books balance' : 'The books do not balance: check before the AGM' }}
       </p>
     </div>

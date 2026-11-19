@@ -74,7 +74,7 @@ onMounted(() => load().catch((e) => (error.value = e instanceof ApiError ? e.mes
 </script>
 
 <template>
-  <div class="max-w-3xl">
+  <div>
     <PageHeader eyebrow="My account" title="Withdraw savings">
       Ask for part of your savings. Once approved, you'll get a message to pick up your cheque.
     </PageHeader>

@@ -68,15 +68,15 @@ async function reverse() {
     <div v-if="error" class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
 
     <template v-if="batch">
-      <div class="mt-3 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <PageHeader eyebrow="Payroll deductions">
-            <template #title>Payroll {{ batch.period }}</template>
-            {{ batch.file_name }} · posted {{ formatDate(batch.created_at) }} by {{ batch.created_by_name }}
-          </PageHeader>
-        </div>
-        <StatusBadge v-if="batch.status === 'reversed'" label="Reversed" style-class="bg-gray-100 text-gray-600" />
-        <StatusBadge v-else label="Posted" style-class="bg-green-50 text-green-800" />
+      <div class="mt-3">
+        <PageHeader eyebrow="Payroll deductions">
+          <template #title>Payroll {{ batch.period }}</template>
+          {{ batch.file_name }} · posted {{ formatDate(batch.created_at) }} by {{ batch.created_by_name }}
+          <template #actions>
+            <StatusBadge v-if="batch.status === 'reversed'" label="Reversed" style-class="bg-gray-100 text-gray-600" />
+            <StatusBadge v-else label="Posted" style-class="bg-green-50 text-green-800" />
+          </template>
+        </PageHeader>
       </div>
 
       <p v-if="batch.status === 'reversed'" class="mt-3 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700">

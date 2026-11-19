@@ -30,15 +30,15 @@ const router = createRouter({
     { path: '/forgot-password', name: 'forgot-password', component: () => import('@/pages/ForgotPasswordPage.vue'), meta: { public: true, title: 'Forgot password' } },
     { path: '/reset-password', name: 'reset-password', component: () => import('@/pages/ResetPasswordPage.vue'), meta: { public: true, title: 'Choose a new password' } },
     { path: '/change-password', name: 'change-password', component: () => import('@/pages/ChangePasswordPage.vue') },
-    // Printable, so outside the app's header and menus
-    { path: '/withdrawals/:id(\\d+)/slip', name: 'withdrawal-slip', component: () => import('@/pages/withdrawals/WithdrawalSlip.vue') },
-    { path: '/statement/print', name: 'statement-print', component: () => import('@/pages/StatementPrintPage.vue'), meta: { member: true } },
-    { path: '/members/:id(\\d+)/statement', name: 'member-statement', component: () => import('@/pages/StatementPrintPage.vue'), meta: { admin: true } },
     {
       path: '/',
       component: () => import('@/layouts/AppLayout.vue'),
       children: [
         { path: '', name: 'dashboard', component: () => import('@/pages/DashboardPage.vue'), meta: { member: true, title: 'My dashboard' } },
+        // Printable pages: inside the app (menu and top bar), which never print
+        { path: 'withdrawals/:id(\\d+)/slip', name: 'withdrawal-slip', component: () => import('@/pages/withdrawals/WithdrawalSlip.vue'), meta: { title: 'Withdrawal slip' } },
+        { path: 'statement/print', name: 'statement-print', component: () => import('@/pages/StatementPrintPage.vue'), meta: { member: true, title: 'Print a statement' } },
+        { path: 'members/:id(\\d+)/statement', name: 'member-statement', component: () => import('@/pages/StatementPrintPage.vue'), meta: { admin: true, title: 'Member statement' } },
         { path: 'office', name: 'overview', component: () => import('@/pages/admin/OverviewPage.vue'), meta: { admin: true, title: 'Dashboard' } },
         { path: 'members/import-old', name: 'old-system-import', component: () => import('@/pages/admin/OldSystemImportPage.vue'), meta: { admin: true, title: 'Bring in the old system' } },
         { path: 'members/import', name: 'member-import', component: () => import('@/pages/admin/MemberImportPage.vue'), meta: { admin: true, title: 'Import members' } },

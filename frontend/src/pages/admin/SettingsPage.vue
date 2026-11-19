@@ -124,7 +124,7 @@ async function removeLogo() {
 </script>
 
 <template>
-  <div class="max-w-5xl">
+  <div>
     <PageHeader eyebrow="Settings" title="Setup & rules" />
     <p class="mt-1 text-gray-600">
       The SACCO's rules, as the committee set them.
@@ -153,7 +153,7 @@ async function removeLogo() {
 
       <section v-for="g in groups" :key="g.key" class="card overflow-hidden" :aria-labelledby="`rules-${g.key}`">
         <div class="flex items-start gap-3 border-b border-line px-5 py-4">
-          <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-navy-50 text-navy-800"><component :is="g.icon" class="h-5 w-5" aria-hidden="true" /></span>
+          <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl icon-gold"><component :is="g.icon" class="h-5 w-5" aria-hidden="true" /></span>
           <div>
             <h2 :id="`rules-${g.key}`" class="font-semibold">{{ g.title }}</h2>
             <p v-if="g.about" class="text-sm text-gray-600">{{ g.about }}</p>

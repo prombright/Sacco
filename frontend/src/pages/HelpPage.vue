@@ -106,7 +106,7 @@ const shown = computed(() =>
 </script>
 
 <template>
-  <div class="max-w-3xl">
+  <div class="max-w-5xl">
     <PageHeader :eyebrow="auth.isAdmin ? 'For members' : 'My account'" title="Help">
       Plain answers to what members ask most.
     </PageHeader>
@@ -118,7 +118,7 @@ const shown = computed(() =>
 
     <section v-for="t in shown" :key="t.key" class="mt-6" :aria-labelledby="`help-${t.key}`">
       <h2 :id="`help-${t.key}`" class="flex items-center gap-2 font-semibold">
-        <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-navy-50 text-navy-800"><component :is="t.icon" class="h-4 w-4" aria-hidden="true" /></span>
+        <span class="flex h-8 w-8 items-center justify-center rounded-lg icon-gold"><component :is="t.icon" class="h-4 w-4" aria-hidden="true" /></span>
         {{ t.title }}
       </h2>
       <ul class="card mt-3 divide-y divide-line">

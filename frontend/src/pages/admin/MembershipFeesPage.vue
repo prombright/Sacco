@@ -3,7 +3,7 @@ import PageHeader from '@/components/PageHeader.vue'
 import MoneyAccountSelect from '@/components/MoneyAccountSelect.vue'
 import { ask } from '@/confirm'
 import { computed, onMounted, ref, watch } from 'vue'
-import { ArrowDownLeftIcon, BanknotesIcon, CheckCircleIcon, ExclamationTriangleIcon, PlusIcon } from '@heroicons/vue/24/outline'
+import { ArrowDownLeftIcon, BanknotesIcon, BoltIcon, CheckCircleIcon, ClockIcon, ExclamationTriangleIcon, IdentificationIcon, PlusIcon } from '@heroicons/vue/24/outline'
 import { api, ApiError } from '@/api'
 import { useAuth } from '@/stores/auth'
 import { formatMoney } from '@/money'
@@ -129,15 +129,15 @@ const thisYear = new Date().getFullYear()
 
 <template>
   <div>
-    <div class="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <PageHeader eyebrow="Members" title="Membership &amp; subscription">
-          {{ kind === 'membership' ? 'The membership fee every member pays once.' : 'The subscription every member pays each year.' }} Charge it, then take it from savings or record it when paid in cash. It goes to "Membership fees" income in the books.
-        </PageHeader>
-      </div>
-      <div class="flex rounded-lg bg-gray-200/60 p-0.5 text-sm font-semibold" v-if="kind === 'subscription'" role="radiogroup" aria-label="Year">
-        <button v-for="y in [thisYear - 1, thisYear]" :key="y" type="button" role="radio" :aria-checked="year === y" class="rounded-md px-3 py-1.5" :class="year === y ? 'bg-surface text-ink shadow-sm' : 'text-gray-600'" @click="year = y">{{ y }}</button>
-      </div>
+    <div>
+      <PageHeader eyebrow="Members" title="Membership &amp; subscription">
+        {{ kind === 'membership' ? 'The membership fee every member pays once.' : 'The subscription every member pays each year.' }} Charge it, then take it from savings or record it when paid in cash. It goes to "Membership fees" income in the books.
+      <template #actions>
+        <div class="flex rounded-lg bg-gray-200/60 p-0.5 text-sm font-semibold" v-if="kind === 'subscription'" role="radiogroup" aria-label="Year">
+          <button v-for="y in [thisYear - 1, thisYear]" :key="y" type="button" role="radio" :aria-checked="year === y" class="rounded-md px-3 py-1.5" :class="year === y ? 'bg-surface text-ink shadow-sm' : 'text-gray-600'" @click="year = y">{{ y }}</button>
+        </div>
+      </template>
+      </PageHeader>
     </div>
 
     <div class="mt-4 inline-flex rounded-lg bg-gray-200/60 p-0.5 text-sm font-semibold" role="radiogroup" aria-label="Which fee">
@@ -151,30 +151,46 @@ const thisYear = new Date().getFullYear()
 
     <template v-if="data">
       <!-- Where the year stands -->
+      <!-- Four cards of one shape: a gold icon tile and a label, the figure, then the detail -->
       <section class="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div class="relative overflow-hidden rounded-2xl bg-navy-900 p-5 text-white shadow-lift sm:col-span-2 xl:col-span-1">
-          <div class="absolute -right-12 -top-14 h-32 w-32 rounded-full border-2 border-saffron-400/80" aria-hidden="true" />
-          <p class="text-xs font-semibold uppercase tracking-wider text-navy-200">{{ kind === 'membership' ? 'Membership fee' : `${data.year} subscription` }}</p>
-          <p class="mt-2 text-3xl font-bold tabular-nums">{{ formatMoney(data.fee) }}</p>
-          <p class="mt-1 text-xs text-navy-200">{{ kind === 'membership' ? 'per member, paid once' : 'per member, per year' }}</p>
+        <div class="stat-card stat-card-lead">
+          <div class="stat-card-top">
+            <span class="icon-gold stat-card-icon"><IdentificationIcon class="h-5 w-5" aria-hidden="true" /></span>
+            <p class="stat-card-label">{{ kind === 'membership' ? 'Membership fee' : `${data.year} subscription` }}</p>
+          </div>
+          <p class="stat-card-figure text-[#16133a] dark:text-white">{{ formatMoney(data.fee) }}</p>
+          <p class="stat-card-note">{{ kind === 'membership' ? 'Per member, paid once' : 'Per member, per year' }}</p>
         </div>
-        <div class="card p-5">
-          <p class="eyebrow">Collected</p>
-          <p class="figure mt-2 text-2xl text-emerald-700"><CountUp :value="data.totals.paid" /></p>
-          <div class="mt-3 h-2 overflow-hidden rounded-full bg-gray-100"><div class="fill-bar h-full rounded-full bg-emerald-600" :style="{ width: paidPct + '%' }" /></div>
-          <p class="mt-1.5 text-xs text-gray-500">{{ paidPct }}% · {{ data.counts.paid }} member{{ data.counts.paid === 1 ? '' : 's' }}</p>
+        <div class="stat-card">
+          <div class="stat-card-top">
+            <span class="icon-gold stat-card-icon"><CheckCircleIcon class="h-5 w-5" aria-hidden="true" /></span>
+            <p class="stat-card-label">Collected</p>
+            <span class="ml-auto rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-bold tabular-nums text-emerald-700">{{ paidPct }}%</span>
+          </div>
+          <p class="stat-card-figure text-emerald-700"><CountUp :value="data.totals.paid" /></p>
+          <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-100"><div class="fill-bar h-full rounded-full bg-emerald-500" :style="{ width: paidPct + '%' }" /></div>
+          <p class="stat-card-note">{{ data.counts.paid }} member{{ data.counts.paid === 1 ? '' : 's' }} paid</p>
         </div>
-        <div class="card p-5" :class="{ '!border-saffron-300 !bg-saffron-50': data.counts.unpaid }">
-          <p class="eyebrow">Still unpaid</p>
-          <p class="figure mt-2 text-2xl"><CountUp :value="data.totals.unpaid" :delay="150" /></p>
-          <p class="mt-1 text-xs text-gray-500">{{ data.counts.unpaid }} member{{ data.counts.unpaid === 1 ? '' : 's' }}<template v-if="data.counts.waived"> · {{ data.counts.waived }} waived</template></p>
+        <div class="stat-card">
+          <div class="stat-card-top">
+            <span class="icon-gold stat-card-icon"><ClockIcon class="h-5 w-5" aria-hidden="true" /></span>
+            <p class="stat-card-label">Still unpaid</p>
+            <span v-if="data.counts.unpaid" class="ml-auto rounded-full bg-saffron-100 px-2 py-0.5 text-xs font-bold tabular-nums text-saffron-700">{{ 100 - paidPct }}%</span>
+          </div>
+          <p class="stat-card-figure" :class="data.counts.unpaid ? 'text-saffron-700' : 'text-[#16133a] dark:text-white'"><CountUp :value="data.totals.unpaid" :delay="150" /></p>
+          <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-100"><div class="fill-bar h-full rounded-full bg-saffron-400" :style="{ width: (data.counts.unpaid ? 100 - paidPct : 0) + '%' }" /></div>
+          <p class="stat-card-note">{{ data.counts.unpaid }} member{{ data.counts.unpaid === 1 ? '' : 's' }}<template v-if="data.counts.waived"> · {{ data.counts.waived }} waived</template></p>
         </div>
-        <div class="card flex flex-col justify-between gap-3 p-5">
-          <p class="text-sm text-gray-600">
+        <div class="stat-card justify-between">
+          <div class="stat-card-top">
+            <span class="icon-gold stat-card-icon"><BoltIcon class="h-5 w-5" aria-hidden="true" /></span>
+            <p class="stat-card-label">Charge &amp; collect</p>
+          </div>
+          <p class="mt-2 text-sm text-gray-600">
             <template v-if="data.not_charged">{{ data.not_charged }} active member{{ data.not_charged === 1 ? '' : 's' }} not yet charged{{ kind === 'membership' ? '' : ` for ${data.year}` }}.</template>
             <template v-else>Everyone has been charged{{ kind === 'membership' ? '' : ` for ${data.year}` }}.</template>
           </p>
-          <div class="flex flex-wrap gap-2">
+          <div class="mt-3 grid grid-cols-2 gap-2 xl:grid-cols-1 [&>*]:w-full [&>*]:whitespace-nowrap [&>*]:!px-2">
             <button v-can="'money'" type="button" class="btn-primary" :disabled="busy || !data.not_charged || Number(data.fee) <= 0" @click="charge"><PlusIcon class="h-4 w-4" />Charge {{ kind === 'membership' ? 'members' : data.year }}</button>
             <button v-can="'money'" type="button" class="btn-secondary" :disabled="busy || !data.counts.unpaid" @click="collect"><ArrowDownLeftIcon class="h-4 w-4" />Take from savings</button>
           </div>

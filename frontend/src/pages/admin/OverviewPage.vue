@@ -4,11 +4,22 @@ import {
   ArrowDownLeftIcon,
   ArrowUpRightIcon,
   ArrowUpTrayIcon,
+  CalendarDaysIcon,
+  ChartBarIcon,
+  CircleStackIcon,
+  ArrowTrendingUpIcon,
+  ClipboardDocumentCheckIcon,
+  InboxArrowDownIcon,
+  Square3Stack3DIcon,
+  UserGroupIcon,
+  UserIcon,
+  BanknotesIcon,
+  ShieldCheckIcon,
   CheckCircleIcon,
   ChevronRightIcon,
   ExclamationTriangleIcon,
   MegaphoneIcon,
-  UserPlusIcon,
+  UsersIcon,
 } from '@heroicons/vue/24/outline'
 import { api, ApiError } from '@/api'
 import { useAuth } from '@/stores/auth'
@@ -57,8 +68,6 @@ onMounted(async () => {
   }
 })
 
-const hour = new Date().getHours()
-const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 const monthName = new Date().toLocaleDateString('en-GB', { month: 'long' })
 
 const funds = computed(() => (data.value ? Number(data.value.totals.savings) + Number(data.value.totals.shares) : 0))
@@ -69,16 +78,16 @@ const tasks = computed(() => {
   const w = data.value?.waiting
   if (!w) return []
   return [
-    { n: w.loans_to_approve, text: 'loan application', verb: 'to approve', to: { name: 'admin-loans' } },
-    { n: w.loans_to_pay_out, text: 'approved loan', verb: 'to pay out', to: { name: 'admin-loans' } },
-    { n: w.withdrawals_to_approve, text: 'withdrawal request', verb: 'to approve', to: { name: 'admin-withdrawals' } },
-    { n: w.withdrawals_to_pay, text: 'withdrawal cheque', verb: 'to issue', to: { name: 'admin-withdrawals' } },
-    { n: w.payroll_missing, text: `${lastMonth} payroll`, verb: 'not posted yet', to: { name: 'payroll' }, single: true },
-    { n: w.loans_behind, text: 'borrower', verb: 'behind on repayments', to: { name: 'loan-portfolio' } },
-    { n: w.securities_to_return, text: 'loan security', verb: 'to hand back (loan repaid)', to: { name: 'admin-loans' } },
-    { n: w.loans_waiting_guarantors, text: 'loan', verb: 'waiting for guarantors', to: { name: 'admin-loans' }, quiet: true },
-    { n: w.subscriptions_unpaid, text: 'subscription', verb: 'unpaid this year', to: { name: 'membership-fees' }, quiet: true },
-    { n: w.members_not_signed_in, text: 'member', verb: 'yet to log in for the first time', to: { name: 'users' }, quiet: true },
+    { n: w.loans_to_approve, icon: ClipboardDocumentCheckIcon, tone: 'blue', text: 'loan application', verb: 'to approve', to: { name: 'admin-loans' } },
+    { n: w.loans_to_pay_out, icon: BanknotesIcon, tone: 'blue', text: 'approved loan', verb: 'to pay out', to: { name: 'admin-loans' } },
+    { n: w.withdrawals_to_approve, icon: InboxArrowDownIcon, tone: 'violet', text: 'withdrawal request', verb: 'to approve', to: { name: 'admin-withdrawals' } },
+    { n: w.withdrawals_to_pay, icon: BanknotesIcon, tone: 'violet', text: 'withdrawal cheque', verb: 'to issue', to: { name: 'admin-withdrawals' } },
+    { n: w.payroll_missing, icon: CalendarDaysIcon, tone: 'amber', text: `${lastMonth} payroll`, verb: 'not posted yet', to: { name: 'payroll' }, single: true },
+    { n: w.loans_behind, icon: UsersIcon, tone: 'blue', text: 'borrower', verb: 'behind on repayments', to: { name: 'loan-portfolio' } },
+    { n: w.securities_to_return, icon: ShieldCheckIcon, tone: 'green', text: 'loan security', verb: 'to hand back (loan repaid)', to: { name: 'admin-loans' } },
+    { n: w.loans_waiting_guarantors, icon: UserGroupIcon, tone: 'violet', text: 'loan', verb: 'waiting for guarantors', to: { name: 'admin-loans' }, quiet: true },
+    { n: w.subscriptions_unpaid, icon: Square3Stack3DIcon, tone: 'green', text: 'subscription', verb: 'unpaid this year', to: { name: 'membership-fees' }, quiet: true },
+    { n: w.members_not_signed_in, icon: UserIcon, tone: 'violet', text: 'member', verb: 'yet to log in for the first time', to: { name: 'users' }, quiet: true },
   ].filter((t) => t.n > 0)
 })
 const urgent = computed(() => tasks.value.filter((t) => !t.quiet).length)
@@ -116,9 +125,10 @@ const slices = computed(() => (['active', 'pending_guarantors', 'pending_approva
 })))
 const openLoans = computed(() => slices.value.reduce((n, s) => n + s.value, 0))
 
-// The hero
+// The banner: a live clock beside the greeting
+// a live clock, as on the old banner
 const clock = ref('')
-const tick = () => (clock.value = new Date().toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' }))
+const tick = () => (clock.value = new Date().toLocaleString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(' at ', ', '))
 tick()
 const clockTimer = setInterval(tick, 1000)
 onBeforeUnmount(() => clearInterval(clockTimer))
@@ -168,143 +178,169 @@ function ago(at: string) {
 }
 
 const money = (v: number) => formatMoney(String(v))
+
+/** The last six months of repayments as bar heights (percent of the biggest; a sliver for none) */
+const bars = computed(() => {
+  const v = (data.value?.collections ?? []).slice(-6).map((p) => Number(p.value))
+  const max = Math.max(...v, 0)
+  return v.map((n) => (max ? Math.max(8, Math.round((n / max) * 100)) : 8))
+})
 </script>
 
 <template>
   <div>
-    <div class="bg-gradient-to-br from-navy-800 via-navy-900 to-navy-950 relative overflow-hidden rounded-3xl p-6 text-white shadow-lift sm:p-8">
-      <div class="relative grid gap-6 lg:grid-cols-[1.25fr_1fr] lg:items-center">
-        <div class="min-w-0">
-          <p class="text-xs font-semibold uppercase tracking-wider text-saffron-300">SACCO office · <span class="tabular-nums">{{ clock }}</span></p>
-          <h1 class="mt-1 text-3xl font-bold sm:text-4xl">{{ greeting }}, {{ auth.user?.full_name.split(' ')[0] }}</h1>
-          <p class="mt-2 text-navy-100/85">
-            <template v-if="data">
-              <template v-if="urgent">{{ urgent }} kind{{ urgent === 1 ? '' : 's' }} of thing{{ urgent === 1 ? ' is' : 's are' }} waiting for you.</template>
-              <template v-else>Everything is up to date.</template>
-            </template>
-          </p>
-          <p v-if="auth.isSuperAdmin" class="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-navy-100 backdrop-blur">
-            Every change you make is sent to the other office accounts
-          </p>
-          <div class="mt-5 flex flex-wrap gap-2">
-            <RouterLink v-can="'money'" :to="{ name: 'payroll' }" class="btn-accent"><ArrowUpTrayIcon class="h-4 w-4" />Post this month's payroll</RouterLink>
-            <RouterLink v-can="'members'" :to="{ name: 'member-import' }" class="btn border border-white/25 bg-white/10 text-white backdrop-blur hover:bg-white/20"><UserPlusIcon class="h-4 w-4" />Import members</RouterLink>
-            <RouterLink v-can="'notices'" :to="{ name: 'notices' }" class="btn border border-white/25 bg-white/10 text-white backdrop-blur hover:bg-white/20"><MegaphoneIcon class="h-4 w-4" />Post a notice</RouterLink>
-          </div>
-        </div>
-        <div v-if="data" class="rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur">
-          <div class="flex items-start justify-between gap-3">
-            <p class="text-xs font-semibold uppercase tracking-wider text-navy-100/80">Member funds</p>
-            <span v-if="fundsChange !== null" class="rounded-full px-2 py-0.5 text-xs font-semibold" :class="fundsChange >= 0 ? 'bg-emerald-400/20 text-emerald-200' : 'bg-red-400/25 text-red-100'">{{ fundsChange === 0 ? 'Same as last month' : `${fundsChange > 0 ? '+' : ''}${fundsChange}% this month` }}</span>
-          </div>
-          <p class="mt-1 text-3xl font-bold sm:text-4xl"><CountUp :value="funds" :duration="1500" /></p>
-          <Sparkline class="mt-3 w-full" :values="data.funds.map((p) => Number(p.value))" color="#f2b934" label="Member funds" :width="320" :height="48" />
-          <p class="mt-2 text-xs text-navy-100/80">Savings {{ formatMoney(data.totals.savings) }} · Shares {{ formatMoney(data.totals.shares) }}</p>
-        </div>
+    <!-- The page's top: title, welcome and the clock, the quick actions on the right -->
+    <header class="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+      <div class="min-w-0">
+        <h1 class="text-[1.6rem] font-extrabold leading-tight tracking-[-0.015em] text-[#16133a] dark:text-white sm:text-[2rem]">Dashboard</h1>
+        <p class="mt-0.5 text-[0.95rem] text-gray-500">Welcome back, {{ auth.user?.full_name.split(' ')[0] }} · <span class="tabular-nums">{{ clock }}</span></p>
       </div>
-    </div>
+      <div class="quick-actions max-sm:w-full">
+        <RouterLink v-can="'money'" :to="{ name: 'payroll' }" class="pill-action pill-action-main"><CalendarDaysIcon /><span>Post <span class="hidden sm:inline">this month's </span>payroll</span></RouterLink>
+        <RouterLink v-can="'members'" :to="{ name: 'member-import' }" class="pill-action"><ArrowUpTrayIcon /><span>Import members</span></RouterLink>
+        <RouterLink v-can="'notices'" :to="{ name: 'notices' }" class="pill-action"><MegaphoneIcon /><span>Post a notice</span></RouterLink>
+      </div>
+    </header>
 
     <div v-if="error" class="mt-6 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
 
     <GoLiveCard v-if="auth.isSuperAdmin" class="mt-6" />
 
     <template v-if="data">
+      <div class="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_26rem]">
       <!-- Needs your attention -->
-      <section class="mt-6" aria-labelledby="todo">
-        <div class="mb-3 flex items-baseline justify-between gap-2">
-          <h2 id="todo" class="font-semibold">Today</h2>
-          <p class="text-sm text-gray-500">{{ urgent ? `${urgent} thing${urgent === 1 ? '' : 's'} to act on` : 'Nothing urgent' }}</p>
+      <section class="card" aria-labelledby="todo">
+        <div class="card-head">
+          <h2 id="todo">Today</h2>
+          <span v-if="urgent" class="icon-gold rounded-full px-2.5 py-0.5 text-sm font-bold">{{ urgent }}</span>
+          <p class="ml-auto text-sm font-medium text-[#6246ea] dark:text-navy-200">{{ urgent ? `${urgent} thing${urgent === 1 ? '' : 's'} to act on` : 'Nothing urgent' }}</p>
         </div>
-        <div v-if="tasks.length" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div class="p-4">
+        <div v-if="tasks.length" class="grid grid-cols-2 gap-2.5 sm:gap-3">
           <RouterLink
             v-for="t in tasks"
             :key="t.text + t.verb"
             :to="t.to"
-            class="group flex items-center gap-4 rounded-2xl border p-4 transition hover:-translate-y-0.5 hover:shadow-lift active:scale-[0.99]"
-            :class="t.quiet ? 'border-line bg-surface' : 'border-saffron-300 bg-saffron-50'"
+            class="group flex flex-col items-start gap-2.5 rounded-2xl border p-3 transition hover:-translate-y-0.5 hover:shadow-lift active:scale-[0.99] sm:flex-row sm:items-center sm:gap-4 sm:p-4"
+            :class="`task-${t.tone}`"
           >
-            <span
-              class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-lg font-bold tabular-nums"
-              :class="t.quiet ? 'bg-gray-100 text-gray-700' : 'bg-saffron-400 text-navy-950'"
-            >{{ t.single ? '!' : t.n }}</span>
-            <span class="flex-1 text-sm">
-              <span class="font-semibold">{{ t.text }}{{ t.n === 1 || t.single ? '' : 's' }}</span>&#32;<span class="text-gray-600">{{ t.verb }}</span>
+            <span class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" :class="`tile-${t.tone}`">
+              <span v-if="t.single" class="text-xl font-extrabold" aria-hidden="true">!</span>
+              <component :is="t.icon" v-else class="h-[22px] w-[22px]" aria-hidden="true" />
             </span>
-            <ChevronRightIcon class="h-5 w-5 text-gray-400 transition group-hover:translate-x-0.5 group-hover:text-gray-700" aria-hidden="true" />
+            <span class="min-w-0 flex-1 leading-snug">
+              <template v-if="t.single"><span class="block font-bold">{{ t.text }}</span><span class="block text-[13px] text-gray-600 sm:text-sm">{{ t.verb }}</span></template>
+              <template v-else><span class="block text-[1.35rem] font-extrabold leading-tight tabular-nums">{{ t.n.toLocaleString() }}</span><span class="block text-[13px] text-gray-600 sm:text-sm">{{ t.text }}{{ t.n === 1 ? '' : 's' }} {{ t.verb }}</span></template>
+            </span>
+            <ChevronRightIcon class="hidden h-5 w-5 shrink-0 text-gray-400 transition group-hover:translate-x-0.5 group-hover:text-gray-700 sm:block" aria-hidden="true" />
           </RouterLink>
         </div>
         <div v-else class="flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 text-sm text-gray-700">
           <CheckCircleIcon class="h-6 w-6 text-emerald-600" aria-hidden="true" />
           Nothing is waiting: no loans or withdrawals to approve, and no cheques to issue.
         </div>
+        </div>
       </section>
 
-      <!-- Headline figures -->
-      <section class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Headline figures">
-        <div class="reveal card flex items-center gap-4 p-5" data-tilt>
-          <span class="relative inline-flex h-20 w-20 shrink-0 items-center justify-center">
-            <svg viewBox="0 0 100 100" class="h-20 w-20 -rotate-90" aria-hidden="true">
-              <circle cx="50" cy="50" r="42" fill="none" stroke-width="10" class="stroke-gray-100" />
-              <circle cx="50" cy="50" r="42" fill="none" stroke-width="10" stroke-linecap="round" class="ring-fill stroke-emerald-600" :style="{ '--ring': ringLen }" :stroke-dasharray="ringLen" :stroke-dashoffset="ringLen * (1 - onTime / 100)" />
-            </svg>
-            <span class="absolute text-base font-bold"><CountUp :value="onTime" :format="(n: number) => `${n}%`" /></span>
-          </span>
-          <div>
-            <p class="eyebrow">Loans on time</p>
-            <p class="mt-1 text-sm text-gray-600">How much of what is owed isn't late</p>
+      <!-- Member funds: the total, its change on last month, its trend, and what it is made of -->
+      <section class="card flex flex-col" aria-labelledby="funds">
+        <div class="card-head">
+          <span class="icon-gold inline-flex h-8 w-8 items-center justify-center rounded-lg"><CircleStackIcon class="h-[18px] w-[18px]" aria-hidden="true" /></span><h2 id="funds">Member funds</h2>
+          <span v-if="fundsChange !== null" class="ml-auto rounded-full px-2 py-0.5 text-xs font-semibold" :class="fundsChange > 0 ? 'bg-emerald-50 text-emerald-700' : fundsChange < 0 ? 'bg-red-50 text-red-700' : 'bg-white text-gray-600 dark:bg-white/10'">{{ fundsChange === 0 ? 'Same as last month' : `${fundsChange > 0 ? '+' : ''}${fundsChange}% this month` }}</span>
+        </div>
+        <div class="flex flex-1 flex-col p-5">
+          <p class="figure text-3xl"><CountUp :value="funds" :duration="1500" /></p>
+          <Sparkline class="mt-3 w-full" :values="data.funds.map((p) => Number(p.value))" :color="chartColors.blue" label="Member funds" :width="360" :height="72" />
+          <dl class="mt-auto grid grid-cols-2 border-t border-line pt-4 text-sm">
+            <div><dt class="text-gray-500">Savings</dt><dd class="mt-0.5 text-[0.95rem] font-bold tabular-nums">{{ formatMoney(data.totals.savings) }}</dd></div>
+            <div class="border-l border-line pl-5"><dt class="text-gray-500">Shares</dt><dd class="mt-0.5 text-[0.95rem] font-bold tabular-nums">{{ formatMoney(data.totals.shares) }}</dd></div>
+          </dl>
+        </div>
+      </section>
+      </div>
+
+      <!-- Headline figures: the same card as everywhere (gold tile, label, figure, detail), each with
+           one accent colour that means something: green healthy, blue money out, red late, navy people -->
+      <section class="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Headline figures">
+        <div class="reveal stat-card">
+          <div class="stat-card-top">
+            <span class="tile-green stat-card-icon"><ShieldCheckIcon class="h-5 w-5" aria-hidden="true" /></span>
+            <p class="stat-card-label">Loans on time</p>
+          </div>
+          <div class="mt-3 flex items-center gap-4">
+            <span class="relative inline-flex h-16 w-16 shrink-0 items-center justify-center">
+              <svg viewBox="0 0 100 100" class="h-16 w-16 -rotate-90" aria-hidden="true">
+                <circle cx="50" cy="50" r="42" fill="none" stroke-width="11" class="stroke-gray-100" />
+                <circle cx="50" cy="50" r="42" fill="none" stroke-width="11" stroke-linecap="round" class="ring-fill stroke-emerald-500" :style="{ '--ring': ringLen }" :stroke-dasharray="ringLen" :stroke-dashoffset="ringLen * (1 - onTime / 100)" />
+              </svg>
+              <span class="absolute text-sm font-extrabold text-emerald-700"><CountUp :value="onTime" :format="(n: number) => `${n}%`" /></span>
+            </span>
+            <p class="text-sm text-gray-600">Of what members owe, this much isn't late</p>
           </div>
         </div>
-        <div class="reveal card p-5" style="--i: 1">
-          <div class="float-right"><Sparkline :values="data.collections.map((p) => Number(p.value))" :color="chartColors.amber" label="Repayments collected" :width="84" :height="34" /></div>
-          <p class="eyebrow">Loans outstanding</p>
-          <p class="figure mt-2 text-2xl"><CountUp :value="data.totals.loans_outstanding" :delay="150" /></p>
-          <p class="mt-1 text-xs text-gray-500">{{ data.totals.active_loans }} active loan{{ data.totals.active_loans === 1 ? '' : 's' }}</p>
-        </div>
-        <RouterLink :to="{ name: 'reports' }" class="reveal card p-5 transition hover:shadow-lift" style="--i: 2" :class="{ '!border-red-200 !bg-red-50/60': data.totals.loans_in_arrears }">
-          <p class="eyebrow flex items-center gap-1.5" :class="{ '!text-red-700': data.totals.loans_in_arrears }">
-            <ExclamationTriangleIcon v-if="data.totals.loans_in_arrears" class="h-4 w-4" aria-hidden="true" />In arrears
-          </p>
-          <p class="figure mt-2 text-2xl" :class="{ '!text-red-700': data.totals.loans_in_arrears }"><CountUp :value="data.totals.arrears" :delay="300" /></p>
-          <p class="mt-1 text-xs text-gray-500">
+        <RouterLink :to="{ name: 'loan-portfolio' }" class="reveal stat-card" style="--i: 1">
+          <div class="stat-card-top">
+            <span class="tile-blue stat-card-icon"><BanknotesIcon class="h-5 w-5" aria-hidden="true" /></span>
+            <p class="stat-card-label">Loans outstanding</p>
+          </div>
+          <p class="stat-card-figure text-[#2f6bff] dark:text-[#8fb0ff]"><CountUp :value="data.totals.loans_outstanding" :delay="150" /></p>
+          <div class="mt-auto flex items-end justify-between gap-2 pt-2">
+            <p class="stat-card-note !mt-0">{{ data.totals.active_loans }} active loan{{ data.totals.active_loans === 1 ? '' : 's' }}</p>
+            <span class="flex h-10 items-end gap-1" role="img" :aria-label="`Repayments collected, the last ${bars.length} months`">
+              <span v-for="(v, i) in bars" :key="i" class="w-2 rounded-sm bg-[#2f6bff]" :style="{ height: v + '%', opacity: 0.35 + (0.65 * (i + 1)) / bars.length }" />
+            </span>
+          </div>
+        </RouterLink>
+        <RouterLink :to="{ name: 'reports' }" class="reveal stat-card" style="--i: 2" :class="{ 'stat-card-alert': data.totals.loans_in_arrears }">
+          <div class="stat-card-top">
+            <span class="tile-red stat-card-icon"><ExclamationTriangleIcon class="h-5 w-5" aria-hidden="true" /></span>
+            <p class="stat-card-label">In arrears</p>
+            <span v-if="data.totals.loans_in_arrears && Number(data.totals.loans_outstanding)" class="ml-auto rounded-full bg-red-50 px-2 py-0.5 text-xs font-bold tabular-nums text-red-700">{{ Math.round((Number(data.totals.arrears) / Number(data.totals.loans_outstanding)) * 100) }}%</span>
+          </div>
+          <p class="stat-card-figure" :class="data.totals.loans_in_arrears ? 'text-red-600' : 'text-emerald-700'"><CountUp :value="data.totals.arrears" :delay="300" /></p>
+          <p class="stat-card-note">
             {{ data.totals.loans_in_arrears ? `${data.totals.loans_in_arrears} loan${data.totals.loans_in_arrears === 1 ? '' : 's'} behind on repayments` : 'Every loan is up to date' }}
           </p>
         </RouterLink>
-        <RouterLink :to="{ name: 'users' }" class="reveal card p-5 transition hover:shadow-lift" style="--i: 3">
-          <p class="eyebrow">Active members</p>
-          <p class="figure mt-2 text-2xl"><CountUp :value="data.totals.members" :format="(n: number) => n.toLocaleString()" :delay="450" /></p>
-          <p class="mt-1 text-xs text-gray-500">{{ data.totals.new_members_this_month }} joined this month</p>
+        <RouterLink :to="{ name: 'users' }" class="reveal stat-card" style="--i: 3">
+          <div class="stat-card-top">
+            <span class="icon-gold stat-card-icon"><UsersIcon class="h-5 w-5" aria-hidden="true" /></span>
+            <p class="stat-card-label">Active members</p>
+          </div>
+          <p class="stat-card-figure text-[#16133a] dark:text-white"><CountUp :value="data.totals.members" :format="(n: number) => n.toLocaleString()" :delay="450" /></p>
+          <p class="stat-card-note"><span v-if="data.totals.new_members_this_month" class="mr-1 rounded-full bg-[#f1edff] px-1.5 py-0.5 font-bold text-[#6246ea] dark:bg-white/10 dark:text-navy-200">+{{ data.totals.new_members_this_month }}</span>joined this month</p>
         </RouterLink>
       </section>
 
       <!-- Trends -->
       <div class="mt-8 flex items-center justify-between gap-3">
         <h2 class="text-lg font-semibold">Trends</h2>
-        <div class="flex rounded-lg bg-gray-200/60 p-0.5 text-xs font-semibold" role="radiogroup" aria-label="Period">
-          <button v-for="r in ([6, 12] as const)" :key="r" type="button" role="radio" :aria-checked="range === r" class="rounded-md px-3 py-1" :class="range === r ? 'bg-surface text-ink shadow-sm' : 'text-gray-600'" @click="range = r">Last {{ r }} months</button>
+        <div class="flex gap-1 rounded-xl border border-line bg-surface/70 p-1 text-xs font-semibold" role="radiogroup" aria-label="Period">
+          <button v-for="r in ([6, 12] as const)" :key="r" type="button" role="radio" :aria-checked="range === r" class="rounded-md px-3 py-1" :class="range === r ? 'bg-surface text-[#6246ea] shadow-sm ring-1 ring-[#6246ea]/40' : 'text-gray-600'" @click="range = r">Last {{ r }} months</button>
         </div>
       </div>
       <section class="mt-3 grid gap-4 xl:grid-cols-5">
-        <div class="reveal card p-5 xl:col-span-3 min-w-0" style="--i: 4">
-          <div class="flex items-baseline justify-between gap-2">
-            <h2 class="font-semibold">Member funds</h2>
-            <p class="text-xs text-gray-500">Savings + shares at each month end</p>
+        <div class="reveal card xl:col-span-3 min-w-0" style="--i: 4">
+          <div class="card-head">
+            <span class="icon-gold inline-flex h-8 w-8 items-center justify-center rounded-lg"><ArrowTrendingUpIcon class="h-[18px] w-[18px]" aria-hidden="true" /></span><h2>Member funds</h2>
+            <p class="ml-auto text-xs text-gray-600">Savings + shares at each month end</p>
           </div>
-          <MonthChart :key="'f' + range" class="mt-4" :points="funds6" kind="area" :color="chartColors.blue" label="Member funds" :format="money" />
+          <MonthChart :key="'f' + range" class="p-5" :points="funds6" kind="area" :color="chartColors.blue" label="Member funds" :format="money" />
         </div>
-        <div class="reveal card p-5 xl:col-span-2 min-w-0" style="--i: 5">
-          <div class="flex items-baseline justify-between gap-2">
-            <h2 class="font-semibold">Loan repayments</h2>
-            <p class="text-xs text-gray-500">Collected each month</p>
+        <div class="reveal card xl:col-span-2 min-w-0" style="--i: 5">
+          <div class="card-head">
+            <span class="icon-gold inline-flex h-8 w-8 items-center justify-center rounded-lg"><ChartBarIcon class="h-[18px] w-[18px]" aria-hidden="true" /></span><h2>Loan repayments</h2>
+            <p class="ml-auto text-xs text-gray-600">Collected each month</p>
           </div>
-          <MonthChart :key="'c' + range" class="mt-4" :points="collections6" kind="bar" :color="chartColors.amber" label="Loan repayments" :format="money" />
+          <MonthChart :key="'c' + range" class="p-5" :points="collections6" kind="bar" :color="chartColors.amber" label="Loan repayments" :format="money" />
         </div>
       </section>
 
       <!-- This month, loans, activity -->
       <section class="mt-6 grid gap-4 xl:grid-cols-3">
-        <div class="reveal card p-5" style="--i: 6">
-          <h2 class="font-semibold">{{ monthName }} so far</h2>
-          <div class="mt-4 space-y-4 text-sm">
+        <div class="reveal card" style="--i: 6">
+          <div class="card-head"><h2>{{ monthName }} so far</h2></div>
+          <div class="space-y-4 p-5 text-sm">
             <div>
               <p class="flex items-center justify-between font-semibold text-emerald-800">
                 <span class="flex items-center gap-1.5"><ArrowDownLeftIcon class="h-4 w-4" aria-hidden="true" />Money in</span>
@@ -329,11 +365,12 @@ const money = (v: number) => formatMoney(String(v))
           </div>
         </div>
 
-        <div class="reveal card p-5" style="--i: 7">
-          <div class="flex items-center justify-between">
-            <h2 class="font-semibold">Loans</h2>
-            <RouterLink :to="{ name: 'admin-loans' }" class="text-sm font-semibold text-brand hover:underline">All loans</RouterLink>
+        <div class="reveal card" style="--i: 7">
+          <div class="card-head">
+            <h2>Loans</h2>
+            <RouterLink :to="{ name: 'admin-loans' }" class="card-head-link">All loans</RouterLink>
           </div>
+          <div class="p-5 pt-1">
           <DonutChart v-if="loanCount" class="mt-4" :slices="slices" :active="hoverStatus" :center="String(openLoans)" caption="open loans" @hover="(k) => (hoverStatus = k as LoanStatus | null)" />
           <ul class="mt-3 divide-y divide-line text-sm">
             <li
@@ -354,14 +391,16 @@ const money = (v: number) => formatMoney(String(v))
               </span>
             </li>
           </ul>
+          </div>
         </div>
 
-        <div class="reveal card p-5" style="--i: 8">
-          <div class="flex items-center justify-between">
-            <h2 class="font-semibold">Latest activity</h2>
-            <RouterLink :to="{ name: 'reports' }" class="text-sm font-semibold text-brand hover:underline">Audit log</RouterLink>
+        <div class="reveal card" style="--i: 8">
+          <div class="card-head">
+            <h2>Latest activity</h2>
+            <RouterLink :to="{ name: 'reports' }" class="card-head-link">Audit log</RouterLink>
           </div>
-          <div class="mt-3 flex flex-wrap gap-1.5" role="radiogroup" aria-label="Show">
+          <div class="p-5 pt-3">
+          <div class="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Show">
             <button
               v-for="f in filters"
               :key="f.key"
@@ -386,6 +425,7 @@ const money = (v: number) => formatMoney(String(v))
             </li>
             <li v-if="!activity.length" class="py-2 text-gray-500">Nothing here yet.</li>
           </ol>
+          </div>
         </div>
       </section>
     </template>

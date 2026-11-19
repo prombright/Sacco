@@ -52,12 +52,13 @@ const next = computed(() => list.value?.steps.find((s) => !s.done) ?? null)
 <template>
   <section v-if="list && list.done < list.total" class="card overflow-hidden" aria-labelledby="go-live">
     <button type="button" class="flex w-full items-center gap-4 px-5 py-4 text-left" :aria-expanded="open" @click="open = !open">
-      <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-saffron-100 text-saffron-700"><RocketLaunchIcon class="h-5 w-5" aria-hidden="true" /></span>
+      <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl icon-gold"><RocketLaunchIcon class="h-6 w-6" aria-hidden="true" /></span>
       <span class="min-w-0 flex-1">
         <span id="go-live" class="block font-semibold">Switching over from the old system</span>
         <span class="block text-sm text-gray-600">{{ list.done }} of {{ list.total }} steps done<template v-if="next"> · next: {{ next.title }}</template></span>
         <span class="mt-2 block h-1.5 overflow-hidden rounded-full bg-gray-100"><span class="block h-full rounded-full bg-brand transition-all" :style="{ width: percent + '%' }" /></span>
       </span>
+      <span class="hidden shrink-0 rounded-full bg-[#f1edff] px-2.5 py-1 text-sm font-bold tabular-nums text-[#6246ea] dark:bg-white/10 dark:text-[#b9a8ff] sm:inline">{{ percent }}%</span>
       <ChevronDownIcon class="h-5 w-5 shrink-0 text-gray-500 transition" :class="open ? 'rotate-180' : ''" aria-hidden="true" />
     </button>
     <p v-if="error" class="mx-5 mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</p>

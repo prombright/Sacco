@@ -133,13 +133,13 @@ async function reverse() {
 
 <template>
   <div>
-    <div class="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <PageHeader eyebrow="Cash book" title="Journal entries">
-          Deposits, loans, repayments, withdrawals, payroll and dividends post here by themselves. Add your own entries for anything else, such as bank charges or corrections. Debits must equal credits.
-        </PageHeader>
-      </div>
-      <button v-can="'money'" type="button" class="btn-primary" @click="startAdding"><PlusIcon class="h-4 w-4" />New journal entry</button>
+    <div>
+      <PageHeader eyebrow="Cash book" title="Journal entries">
+        Deposits, loans, repayments, withdrawals, payroll and dividends post here by themselves. Add your own entries for anything else, such as bank charges or corrections. Debits must equal credits.
+      <template #actions>
+        <button v-can="'money'" type="button" class="btn-primary" @click="startAdding"><PlusIcon class="h-4 w-4" />New journal entry</button>
+      </template>
+      </PageHeader>
     </div>
 
     <ReportView class="mt-5" :report="report" :busy="busy" :error="error">
