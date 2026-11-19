@@ -97,7 +97,7 @@ async function send() {
   <div>
     <div class="print:hidden">
       <PageHeader eyebrow="Reports" title="Monthly statements" />
-      <p class="mt-1 max-w-3xl text-gray-600">
+      <p class="mt-1 max-w-3xl text-gray-600 phone-hide">
         Each member's month in a few lines. Print them to hand out (one member per page), or send them to members' phones.
         <template v-if="data?.automatic"> They also go out by themselves on the 1st of each month.</template>
         <template v-else> To send them by themselves on the 1st of each month, turn on "Monthly statement" under <RouterLink :to="{ name: 'settings' }" class="font-medium text-brand hover:underline">Setup &amp; rules</RouterLink>.</template>

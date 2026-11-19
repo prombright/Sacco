@@ -122,7 +122,7 @@ onMounted(async () => {
       </template>
       </PageHeader>
     </div>
-    <p class="mt-1 text-sm text-gray-600">Your details as the SACCO has them. If something is wrong, tell the SACCO office.</p>
+    <p class="mt-1 text-sm text-gray-600 phone-hide">Your details as the SACCO has them. If something is wrong, tell the SACCO office.</p>
     <div v-if="error" class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
     <!-- My card, and my photo -->
     <div v-if="user" class="mt-6 grid items-center gap-6 lg:grid-cols-[minmax(0,28rem)_1fr]">
@@ -172,7 +172,7 @@ onMounted(async () => {
       <DevicePhoneMobileIcon class="h-8 w-8 text-brand" aria-hidden="true" />
       <div class="min-w-[14rem] flex-1">
         <h2 class="font-semibold">The app on your phone</h2>
-        <p class="text-sm text-gray-600">
+        <p class="text-sm text-gray-600 phone-hide">
           <template v-if="canInstall">Add it to your home screen: it opens straight away, like any other app.</template>
           <template v-else-if="isIos">In Safari, tap the Share button, then "Add to Home Screen".</template>
           <template v-else>Open this page in Chrome on your phone and choose "Install app" or "Add to Home screen" from the menu.</template>

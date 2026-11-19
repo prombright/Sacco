@@ -95,7 +95,7 @@ const when = (s: string) => {
         <div>
           <label for="bk-emails" class="label">Email it to</label>
           <input id="bk-emails" v-model="form.emails" class="input" placeholder="e.g. chairperson@example.com, treasurer@example.com" autocomplete="off" />
-          <p class="mt-1 text-xs text-gray-500">Up to 5 addresses, separated by commas. Use committee members' own email accounts, not the office's.</p>
+          <p class="mt-1 text-xs text-gray-500 phone-hide">Up to 5 addresses, separated by commas. Use committee members' own email accounts, not the office's.</p>
         </div>
         <div>
           <label for="bk-pass" class="label">Backup password <span class="font-normal text-gray-400">{{ offsite?.password_set ? '(set; type a new one to change it)' : '' }}</span></label>
@@ -115,11 +115,11 @@ const when = (s: string) => {
         <span class="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl icon-gold"><ShieldCheckIcon class="h-6 w-6" aria-hidden="true" /></span>
         <div>
           <p class="font-semibold">Download a copy now</p>
-          <p class="mt-1 text-sm text-gray-600">An extra copy you keep yourselves, for example once a month and before the AGM, on a flash disk in the office safe. A copy is also made on the server every time the system is updated. The file holds members' personal details, so treat it like the member register.</p>
+          <p class="mt-1 text-sm text-gray-600 phone-hide">An extra copy you keep yourselves, for example once a month and before the AGM, on a flash disk in the office safe. A copy is also made on the server every time the system is updated. The file holds members' personal details, so treat it like the member register.</p>
         </div>
       </div>
       <button v-if="auth.isSuperAdmin" type="button" class="btn-primary mt-6" @click="download"><ArrowDownTrayIcon class="h-4 w-4" />Download a backup now</button>
-      <p v-else class="mt-4 text-sm text-gray-500">Only the super admin can download or set up backups.</p>
+      <p v-else class="mt-4 text-sm text-gray-500 phone-hide">Only the super admin can download or set up backups.</p>
       <p v-if="started" class="mt-3 text-sm text-gray-500">Your download is starting…</p>
     </div>
   </div>

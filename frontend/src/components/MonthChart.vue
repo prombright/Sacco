@@ -14,6 +14,8 @@ const props = defineProps<{
   /** What the series is, for the tooltip and the table */
   label: string
   format: (v: number) => string
+  /** A dot on every point of an area chart */
+  dots?: boolean
 }>()
 
 const box = ref<HTMLDivElement | null>(null)
@@ -143,6 +145,10 @@ const tip = computed(() => {
         </defs>
         <path class="chart-area" :d="area" :fill="`url(#${fillId})`" />
         <path class="chart-line" pathLength="1" :d="line" fill="none" :stroke="color" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
+        <!-- a dot on every month (the last one larger), as in the dashboard design -->
+        <template v-if="dots">
+          <circle v-for="(v, i) in values" :key="'d' + i" class="chart-dot" :cx="x(i)" :cy="y(v)" :r="i === values.length - 1 ? 5.5 : 3.5" fill="rgb(var(--surface))" :stroke="color" :stroke-width="i === values.length - 1 ? 3 : 2" />
+        </template>
         <circle v-if="hover !== null" :cx="x(hover)" :cy="y(values[hover])" r="5" :fill="color" stroke="rgb(var(--surface))" stroke-width="2" />
       </template>
       <template v-else>

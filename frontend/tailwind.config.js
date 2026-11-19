@@ -28,14 +28,14 @@ export default {
         line: v('line'),
         // The app's violet (was SMACON royal blue), from light tints to the deep sidebar indigo
         navy: {
-          50: '#f3f0ff',
-          100: '#e8e1ff',
-          200: '#d3c7fe',
-          300: '#b3a1fc',
-          600: '#6246ea',
-          700: '#5233d6',
-          800: '#3f22b0',
-          900: '#2a1885',
+          50: '#f2ecff',
+          100: '#e8defe',
+          200: '#d4c2fd',
+          300: '#b48ffb',
+          600: '#6a1ff5',
+          700: '#5a1fd0',
+          800: '#4524b8',
+          900: '#2c1780',
           950: '#1b1150',
         },
         // The amber of SMACON's banner and app tiles: highlights and things waiting for you
@@ -50,7 +50,7 @@ export default {
         },
         // Charts: validated for colour-blind separation and contrast (light; dark uses brighter blue)
         chart: {
-          primary: '#6246ea',
+          primary: '#6a1ff5',
           accent: '#c98a08',
         },
       },

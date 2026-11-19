@@ -12,12 +12,12 @@ import PageBanner from '@/components/PageBanner.vue'
  * Office pages take their trail from the menu (src/sections.ts); members' pages show `eyebrow`.
  * `trail` adds steps after the section (e.g. a member's name above their loan).
  */
-defineProps<{ title?: string; eyebrow?: string; trail?: { label: string; to?: RouteLocationRaw }[] }>()
+defineProps<{ title?: string; eyebrow?: string; keepNote?: boolean; trail?: { label: string; to?: RouteLocationRaw }[] }>()
 </script>
 
 <template>
-  <PageBanner>
-    <template #above><Crumbs :eyebrow="eyebrow" :trail="trail" /></template>
+  <PageBanner :keep-note="keepNote">
+    <template #above><Crumbs class="phone-hide" :eyebrow="eyebrow" :trail="trail" /></template>
     <template #title><slot name="title">{{ title }}</slot></template>
     <template v-if="$slots.default" #default><slot /></template>
     <template v-if="$slots.actions" #actions><slot name="actions" /></template>

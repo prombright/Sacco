@@ -148,7 +148,7 @@ async function save() {
       <div>
         <label for="joined_on" class="label">Member since <span class="font-normal text-gray-400">(optional)</span></label>
         <input id="joined_on" v-model="form.joined_on" type="date" :max="new Date().toLocaleDateString('en-CA')" class="input sm:w-1/2" />
-        <p class="mt-1 text-xs text-gray-500">When they joined the SACCO. Loans and guaranteeing need some months of membership. Leave blank to count from their first savings entry.</p>
+        <p class="mt-1 text-xs text-gray-500 phone-hide">When they joined the SACCO. Loans and guaranteeing need some months of membership. Leave blank to count from their first savings entry.</p>
         <p v-if="errors.joined_on" class="field-error">{{ errors.joined_on }}</p>
       </div>
 
@@ -172,8 +172,8 @@ async function save() {
             <p class="input flex items-center bg-gray-50 text-gray-700">
               {{ roleLabel[form.role] }}<span v-if="form.role !== 'member' && user?.role === 'member'" class="ml-1 text-gray-500">(and a member)</span>
             </p>
-            <p v-if="!user" class="mt-1 text-xs text-gray-500">Everyone is added as a member. A super admin can then give them office rights.</p>
-            <p v-else-if="isOffice" class="mt-1 text-xs text-gray-500">This office login is managed by the system's developer.</p>
+            <p v-if="!user" class="mt-1 text-xs text-gray-500 phone-hide">Everyone is added as a member. A super admin can then give them office rights.</p>
+            <p v-else-if="isOffice" class="mt-1 text-xs text-gray-500 phone-hide">This office login is managed by the system's developer.</p>
           </template>
         </div>
         <div v-if="user">

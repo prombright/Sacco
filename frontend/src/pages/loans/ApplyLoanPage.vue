@@ -371,7 +371,7 @@ async function submit() {
               <span class="text-right"><span class="block font-semibold">{{ formatMoney(r.total) }}</span><span class="text-xs text-gray-500">{{ formatMoney(r.balance_after) }} left</span></span>
             </li>
           </ol>
-          <p class="mt-2 text-xs text-gray-500">Dates assume the loan is paid out today; they're fixed when it actually is.</p>
+          <p class="mt-2 text-xs text-gray-500 phone-hide">Dates assume the loan is paid out today; they're fixed when it actually is.</p>
         </div>
         </div>
 
@@ -471,7 +471,7 @@ async function submit() {
               <span class="font-semibold tabular-nums">{{ formatMoney(String(toNumber(g.amount))) }}</span>
             </li>
           </ul>
-          <p class="mt-4 text-xs text-gray-500">When you send it, each guarantor is asked on their dashboard. Once they agree, the SACCO office decides and tells you.</p>
+          <p class="mt-4 text-xs text-gray-500 phone-hide">When you send it, each guarantor is asked on their dashboard. Once they agree, the SACCO office decides and tells you.</p>
         </div>
       </section>
 

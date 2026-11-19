@@ -140,7 +140,7 @@ async function saveNote() {
         <ExclamationTriangleIcon class="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
         <span>
           <strong>Post the payroll first:</strong> {{ data.last_payroll ? `the last one posted was for ${monthName(data.last_payroll)}` : 'no payroll has been posted yet' }}.
-          Repayments come off salaries, so many of these loans may not really be late. Guarantors are never told automatically while the payroll is behind.
+          <span class="phone-hide">Repayments come off salaries, so many of these loans may not really be late.</span> Guarantors are never told automatically while the payroll is behind.
         </span>
       </p>
 

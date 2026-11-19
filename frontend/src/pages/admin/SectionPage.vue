@@ -45,7 +45,7 @@ const waitingHere = computed(() => (office.waiting ? items.value.reduce((n, i) =
       </template>
     </PageBanner>
 
-    <p v-if="auth.viewOnly" class="mt-4 flex items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3 text-sm text-gray-700">
+    <p v-if="auth.viewOnly" class="mt-4 flex items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3 text-sm text-gray-700 phone-hide">
       <EyeIcon class="h-5 w-5 shrink-0 text-brand" aria-hidden="true" />
       Your account can see everything here and download every report. Changes are made by the super admin, and you get a message about each major one.
     </p>
@@ -70,7 +70,7 @@ const waitingHere = computed(() => (office.waiting ? items.value.reduce((n, i) =
           >{{ item.badge(office.waiting) }} waiting</span>
         </div>
         <h2 class="mt-4 text-lg font-semibold group-hover:text-brand">{{ item.label }}</h2>
-        <p class="mt-1 flex-1 text-sm text-gray-600">{{ item.description }}</p>
+        <p class="phone-hide mt-1 flex-1 text-sm text-gray-600">{{ item.description }}</p>
         <div class="mt-4 flex items-center justify-between border-t border-line pt-3 text-sm">
           <span class="tabular-nums" :class="item.figure ? 'font-semibold text-ink' : 'font-medium text-gray-600'">
             <template v-if="item.figure && stats">{{ item.figure(stats) }}</template>

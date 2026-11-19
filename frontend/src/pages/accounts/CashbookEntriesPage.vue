@@ -149,7 +149,7 @@ const byId = (id: unknown) => entries.value.find((e) => e.id === id)
             <option value="">Choose…</option>
             <option v-for="a in choices" :key="a.id" :value="String(a.id)">{{ a.code }} · {{ a.name }}</option>
           </select>
-          <p class="mt-1 text-xs text-gray-500">Need another? The super admin can add it in the chart of accounts.</p>
+          <p class="mt-1 text-xs text-gray-500 phone-hide">Need another? The super admin can add it in the chart of accounts.</p>
         </div>
         <div class="grid gap-3 sm:grid-cols-2">
           <div><label for="e-amount" class="label">Amount</label><input id="e-amount" v-model="form.amount" inputmode="decimal" class="input tabular-nums" /><AmountWords :value="form.amount" /></div>

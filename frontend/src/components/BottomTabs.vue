@@ -57,7 +57,7 @@ const moreActive = computed(() => !tabs.value.some((tab) => tab.active))
         <RouterLink
           :to="tab.to"
           class="relative flex h-14 flex-col items-center justify-center gap-0.5 rounded-2xl text-[11px] font-medium transition"
-          :class="tab.active ? 'bg-[#efeaff] font-bold text-[#5b3ff0] dark:bg-white/10 dark:text-[#b9a8ff]' : 'text-gray-500 hover:text-ink'"
+          :class="tab.active ? 'bg-[#ebe7fe] font-bold text-[#5b19f3] dark:bg-white/10 dark:text-[#c4a6ff]' : 'text-gray-500 hover:text-ink'"
           :aria-current="tab.active ? 'page' : undefined"
         >
           <span class="relative flex h-8 w-12 items-center justify-center rounded-full transition" :class="tab.active ? 'font-bold' : ''">

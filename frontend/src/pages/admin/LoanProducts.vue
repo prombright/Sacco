@@ -86,7 +86,7 @@ const fields: { key: keyof typeof form; label: string; suffix: string }[] = [
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
         <h2 class="font-semibold">Loan products</h2>
-        <p class="mt-1 text-sm text-gray-600">The kinds of loan members can apply for. A loan keeps the terms it was given, so changes affect new applications only.</p>
+        <p class="mt-1 text-sm text-gray-600 phone-hide">The kinds of loan members can apply for. A loan keeps the terms it was given, so changes affect new applications only.</p>
       </div>
       <button v-if="auth.isSuperAdmin" type="button" class="btn-primary" @click="open(null)">Add a product</button>
     </div>
@@ -166,7 +166,7 @@ const fields: { key: keyof typeof form; label: string; suffix: string }[] = [
               <button type="button" class="btn-ghost px-2" :aria-label="`Remove band ${i + 1}`" @click="form.processing_fee_bands.splice(i, 1)">✕</button>
             </div>
             <button type="button" class="btn-ghost px-2 py-1 text-sm" @click="form.processing_fee_bands.push({ from: form.processing_fee_bands.at(-1)?.to ? String(Number(form.processing_fee_bands.at(-1)!.to) + 1) : '', to: '', fee: '' })">+ Add a band</button>
-            <p class="text-xs text-gray-500">For example 100,000 to 1,000,000 pays 10,000. Leave "To" empty on the last band for no upper limit. A loan outside every band pays no fee.</p>
+            <p class="text-xs text-gray-500 phone-hide">For example 100,000 to 1,000,000 pays 10,000. Leave "To" empty on the last band for no upper limit. A loan outside every band pays no fee.</p>
           </div>
           <p v-if="errors.processing_fee || errors.processing_fee_percent || errors.processing_fee_bands" class="field-error">{{ errors.processing_fee || errors.processing_fee_percent || errors.processing_fee_bands }}</p>
         </fieldset>

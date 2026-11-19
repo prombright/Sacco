@@ -95,7 +95,7 @@ async function post() {
 <template>
   <div>
     <PageHeader eyebrow="Cash book" title="Dividends &amp; profit" />
-    <p class="mt-1 text-sm text-gray-600">
+    <p class="mt-1 text-sm text-gray-600 phone-hide">
       The yearly dividend on members' share capital, and every payout so far, including investment profit shared from the Investments page.
     </p>
 
@@ -120,7 +120,7 @@ async function post() {
             <input id="credit" v-model="form.value_date" type="date" :max="today" class="input" />
           </div>
         </div>
-        <p class="text-xs text-gray-500">Each member earns the rate on their share capital at the end of the "shares held on" day, rounded down to whole shillings.</p>
+        <p class="text-xs text-gray-500 phone-hide">Each member earns the rate on their share capital at the end of the "shares held on" day, rounded down to whole shillings.</p>
         <div v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</div>
         <button type="submit" class="btn-secondary" :disabled="busy || !form.rate_percent">Work it out</button>
       </form>
