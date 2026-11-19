@@ -182,6 +182,28 @@ function collect(node: Node) {
   if (waiting.size && !flushing) flushing = requestAnimationFrame(flush)
 }
 
+// --- A light that follows the pointer across a card -----------------------------------------
+
+let lit: HTMLElement | null = null
+let litFrame = 0
+function spotlight(e: PointerEvent) {
+  if (litFrame) return
+  const target = e.target as Element | null
+  const x = e.clientX
+  const y = e.clientY
+  litFrame = requestAnimationFrame(() => {
+    litFrame = 0
+    const card = target?.closest?.('.card, .stat-card') as HTMLElement | null
+    if (lit && lit !== card) lit.style.removeProperty('--lit')
+    lit = card
+    if (!card) return
+    const r = card.getBoundingClientRect()
+    card.style.setProperty('--mx', `${Math.round(x - r.left)}px`)
+    card.style.setProperty('--my', `${Math.round(y - r.top)}px`)
+    card.style.setProperty('--lit', '1')
+  })
+}
+
 // --- Cards that lean, taps that burst ---------------------------------------------------------
 
 let leaning: HTMLElement | null = null
@@ -346,6 +368,7 @@ export function installMotion(router: Router) {
 
     if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
       document.addEventListener('pointermove', lean, { passive: true })
+      document.addEventListener('pointermove', spotlight, { passive: true })
       document.addEventListener('pointerleave', stopLean)
     }
     document.addEventListener('pointerdown', burst, { passive: true })

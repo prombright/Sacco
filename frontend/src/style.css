@@ -302,7 +302,7 @@ th {
   from { stroke-dashoffset: var(--ring); }
 }
 .reveal {
-  animation: rise 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation: rise 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
   animation-delay: calc(var(--i, 0) * 80ms);
 }
 .fill-bar {
@@ -849,4 +849,37 @@ html:has(:is(.login-bg, .welcome-bg)) { --brand: 98 70 234 !important; }
 }
 :where(.card table tbody tr):hover {
   background-color: rgb(var(--g-50));
+}
+
+/*
+ * Cards on hover (mouse only): a soft violet light follows the pointer across the card, the edge
+ * brightens and the shadow deepens; cards that are not a form or a table also rise a little
+ * (clickable cards tilt towards the pointer instead, in motion.ts). Menus and windows stay still.
+ */
+@media (hover: hover) and (pointer: fine) {
+  .app-look :is(.card, .stat-card):not(.absolute, .fixed, [role='menu'], [role='dialog'], .modal-panel) {
+    transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.25s ease, border-color 0.25s ease, background 0.25s ease;
+  }
+  html:not(.dark) .app-look :is(.card, .stat-card):not(.absolute, .fixed, [role='menu'], [role='dialog'], .modal-panel, .stat-card-lead, .stat-card-alert):hover {
+    border-color: #c9b8ff;
+    background:
+      radial-gradient(420px circle at var(--mx, 50%) var(--my, 0%), rgba(124, 92, 255, 0.11), transparent 55%),
+      linear-gradient(160deg, #ffffff 0%, #fbfaff 45%, #f0ebff 100%);
+    box-shadow: inset 0 1px 0 #ffffff, 0 4px 8px rgba(40, 28, 120, 0.06), 0 26px 48px -24px rgba(76, 52, 210, 0.55);
+  }
+  .dark .app-look :is(.card, .stat-card):not(.absolute, .fixed, [role='menu'], [role='dialog'], .modal-panel):hover {
+    border-color: rgba(167, 139, 250, 0.45);
+    background:
+      radial-gradient(420px circle at var(--mx, 50%) var(--my, 0%), rgba(167, 139, 250, 0.14), transparent 55%),
+      linear-gradient(160deg, rgb(34 30 62) 0%, rgb(21 19 40) 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 26px 48px -24px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(167, 139, 250, 0.12);
+  }
+  /* Lead and alert cards keep their own colour; they still rise and their shadow deepens */
+  html:not(.dark) .app-look :is(.stat-card-lead, .stat-card-alert):hover {
+    box-shadow: inset 0 1px 0 #ffffff, 0 26px 48px -24px rgba(76, 52, 210, 0.5);
+  }
+  /* Rise: every card but the ones you work in (forms, tables) and clickable ones (they tilt) */
+  .app-look :is(.card, .stat-card):not(.absolute, .fixed, [role='menu'], [role='dialog'], .modal-panel, a):not(:has(form, table, input, select, textarea)):hover {
+    transform: translateY(-3px);
+  }
 }
