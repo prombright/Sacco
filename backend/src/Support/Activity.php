@@ -91,6 +91,7 @@ final class Activity
             'user.password_reset' => 'reset a password',
             'users.imported' => 'imported ' . ($d['count'] ?? '') . ' members',
             'old_system.loans' => 'brought in ' . ($d['count'] ?? '') . ' running loans from the old system',
+            'data.cleared' => 'cleared the SACCO data on the server, to bring real data in (a backup was saved first)',
             'old_system.payable' => 'brought in savings interest owed to ' . ($d['count'] ?? '') . ' members from the old system',
             'old_system.journal' => 'brought in the old system\'s opening journal (' . ($d['count'] ?? '') . ' lines)',
             'old_system.history' => 'brought in the old system\'s entries for reference (' . ($d['first_part'] ?? '') . ' in the first part)',
