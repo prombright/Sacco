@@ -13,6 +13,7 @@ import {
   BuildingOffice2Icon,
   CalculatorIcon,
   ChartBarIcon,
+  ChatBubbleLeftRightIcon,
   CheckBadgeIcon,
   CircleStackIcon,
   ClipboardDocumentCheckIcon,
@@ -112,6 +113,7 @@ export const sections: Section[] = [
     tone: 'from-navy-600 to-navy-800',
     intro: 'The people of the SACCO: their records, their fees, and news for them.',
     items: [
+      { name: 'member-inbox', label: "Members' messages", description: 'What members write to the office; read and answer', icon: ChatBubbleLeftRightIcon, superOnly: true, badge: (w) => w.member_messages ?? 0 },
       { name: 'users', label: 'Member register', description: 'Everyone, with balances, details and next of kin', icon: UsersIcon, also: ['member', 'member-statement'], figure: (s) => `${s.members} active members` },
       { name: 'member-import', label: 'Add members from Excel', description: 'Bring many members in at once', icon: UserPlusIcon, needs: 'members' },
       { name: 'membership-fees', label: 'Membership & subscription', description: 'Membership once, subscription yearly: charge, collect, waive', icon: IdentificationIcon, figure: (s) => (!s.fee_set ? 'Fee not set yet' : s.fees_not_charged ? `${s.fees_not_charged} not yet charged this year` : `${s.fees_unpaid} unpaid this year`) },

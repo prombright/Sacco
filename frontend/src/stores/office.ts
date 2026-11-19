@@ -11,6 +11,8 @@ export interface Waiting {
   withdrawals_to_pay: number
   /** Big money actions waiting for a second office person */
   approvals_waiting: number
+  /** Members' messages to the office not read yet */
+  member_messages?: number
   members_not_signed_in: number
   /** Running loans with an instalment past due */
   loans_behind: number

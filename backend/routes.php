@@ -235,6 +235,12 @@ $router->delete('/api/notices/{id}', [NoticeController::class, 'end'], $edit('no
 $router->get('/api/me/notifications', [NotificationController::class, 'index']);
 $router->post('/api/me/notifications/read', [NotificationController::class, 'read']);
 $router->post('/api/me/welcomed', [AuthController::class, 'welcomed']);
+// Members write to the office; super admins answer
+$router->get('/api/me/office-chat', [\Sacco\Controllers\OfficeChatController::class, 'mine'], $members);
+$router->post('/api/me/office-chat', [\Sacco\Controllers\OfficeChatController::class, 'send'], $members);
+$router->get('/api/office-chat', [\Sacco\Controllers\OfficeChatController::class, 'inbox'], ['roles' => [Roles::SUPER_ADMIN]]);
+$router->get('/api/office-chat/{member}', [\Sacco\Controllers\OfficeChatController::class, 'show'], ['roles' => [Roles::SUPER_ADMIN]]);
+$router->post('/api/office-chat/{member}', [\Sacco\Controllers\OfficeChatController::class, 'reply'], ['roles' => [Roles::SUPER_ADMIN]]);
 $router->get('/api/me/message-settings', [NotificationController::class, 'settings']);
 $router->patch('/api/me/message-settings', [NotificationController::class, 'saveSettings']);
 

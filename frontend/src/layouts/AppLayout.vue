@@ -13,6 +13,7 @@ import {
   ArrowDownTrayIcon,
   ArrowLeftStartOnRectangleIcon,
   ChatBubbleLeftRightIcon,
+  PencilSquareIcon,
   BanknotesIcon,
   Bars3Icon,
   ChevronLeftIcon,
@@ -98,6 +99,7 @@ const groups = computed<NavGroup[]>(() => {
         links: [
           { name: 'dashboard', label: t('Dashboard'), icon: HomeIcon },
           { name: 'messages', label: t('Messages'), icon: ChatBubbleLeftRightIcon, badge: messages.unread },
+          { name: 'office-chat', label: t('Write to the office'), icon: PencilSquareIcon },
           { name: 'loans', label: t('Loans'), icon: BanknotesIcon, also: ['loan'] },
           { name: 'receipts-mine', label: t('Transactions'), icon: ArrowsRightLeftIcon },
           { name: 'profile', label: t('Profile'), icon: UserCircleIcon },
