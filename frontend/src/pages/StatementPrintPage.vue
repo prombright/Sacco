@@ -31,7 +31,7 @@ interface Ledger {
   opening: { savings: string; loan: string; loan_interest: string }
   rows: LedgerRow[]
   totals: { shares: number; share: string; savings: string; interest: string; loan_issue: string; loan_paid: string; interest_charge: string; interest_paid: string }
-  closing: { savings: string; loan: string; loan_interest: string }
+  closing: { savings: string; loan: string; loan_interest: string; shares: string; share_count: number | null }
 }
 
 /** A member's statement for a period, laid out for printing. /statement/print or /members/:id/statement */
@@ -172,6 +172,7 @@ async function statementPdf() {
       ['ACCOUNT NO.', String(d.member.account_no ?? '')],
       ...(d.member.employee_no ? [['EMPLOYEE NO.', d.member.employee_no] as [string, string]] : []),
       ['SAVINGS BALANCE', `UGX ${n(l.closing.savings)}`],
+      ['TOTAL SHARES', `UGX ${n(l.closing.shares)}${l.closing.share_count !== null ? ` · ${l.closing.share_count}` : ''}`],
       ['LOAN + INTEREST OWED', `UGX ${n(Number(l.closing.loan) + Number(l.closing.loan_interest))}`],
     ]
     const gap = 3
@@ -324,6 +325,7 @@ async function download(kind: 'pdf' | 'excel') {
         <div><dt>Account no.</dt><dd class="font-mono">{{ data.member.account_no }}</dd></div>
         <div v-if="data.member.employee_no"><dt>Employee no.</dt><dd>{{ data.member.employee_no }}</dd></div>
         <div><dt>Savings balance</dt><dd>{{ formatMoney(data.ledger.closing.savings) }}</dd></div>
+        <div><dt>Total shares</dt><dd>{{ formatMoney(data.ledger.closing.shares) }}<span v-if="data.ledger.closing.share_count !== null" class="ml-1 text-xs font-semibold text-gray-500">· {{ data.ledger.closing.share_count }} share{{ data.ledger.closing.share_count === 1 ? '' : 's' }}</span></dd></div>
         <div><dt>Loan + interest owed</dt><dd>{{ formatMoney(String(Number(data.ledger.closing.loan) + Number(data.ledger.closing.loan_interest))) }}</dd></div>
       </dl>
 
@@ -416,7 +418,8 @@ async function download(kind: 'pdf' | 'excel') {
 .stmt-logo { display: inline-flex; flex-shrink: 0; padding: 6px; border-radius: 1rem; background: #fff; box-shadow: 0 6px 16px -8px rgba(0, 0, 0, 0.5); }
 .stmt-badge { display: inline-block; padding: 0.3rem 0.8rem; border-radius: 9999px; background: rgba(255, 255, 255, 0.16); color: #fff; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25); }
 .stmt-facts { margin-top: 1.25rem; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
-@media (min-width: 900px) { .stmt-facts { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+@media (min-width: 900px) { .stmt-facts { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 1280px) { .stmt-facts { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 .stmt-facts > div { min-width: 0; padding: 0.7rem 0.9rem; border-radius: 0.85rem; background: #f6f4ff; border: 1px solid #ebe5ff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .stmt-facts dt { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #6b6890; }
 .stmt-facts dd { margin-top: 0.15rem; font-weight: 800; color: #16133a; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }

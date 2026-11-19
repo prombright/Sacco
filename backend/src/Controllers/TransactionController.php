@@ -317,8 +317,13 @@ final class TransactionController
         $rows = [];
         $totals = ['shares' => 0, 'share' => 0, 'savings' => 0, 'interest' => 0, 'loan_issue' => 0, 'loan_paid' => 0, 'interest_charge' => 0, 'interest_paid' => 0];
         // reads the running figures as they are now (a reference, not a copy)
-        $snapshot = function () use (&$savings, &$principal, &$interest): array {
-            return ['savings' => Money::toDecimal($savings), 'loan' => Money::toDecimal($principal), 'loan_interest' => Money::toDecimal($interest)];
+        $shareTotal = 0;
+        $snapshot = function () use (&$savings, &$principal, &$interest, &$shareTotal, $price): array {
+            return [
+                'savings' => Money::toDecimal($savings), 'loan' => Money::toDecimal($principal), 'loan_interest' => Money::toDecimal($interest),
+                // share capital held, and how many shares that is
+                'shares' => Money::toDecimal($shareTotal), 'share_count' => $price > 0 ? intdiv($shareTotal, $price) : null,
+            ];
         };
         foreach ($events as [$date, , , $e]) {
             if ($date > $to) {
@@ -331,6 +336,7 @@ final class TransactionController
             $savings += $e['savings'] + ($e['interest_in_balance'] ? $e['interest'] : 0);
             $principal += $e['loan'];
             $interest += $e['loan_int'];
+            $shareTotal += $e['share'];
             if ($date < $from) {
                 continue;
             }
